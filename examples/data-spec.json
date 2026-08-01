@@ -1,0 +1,32 @@
+{
+  "schema_version": "dataset-manifest-v1",
+  "name": "example-prices",
+  "feeds": [
+    {
+      "feed_id": "primary",
+      "name": "primary",
+      "role": "execution",
+      "root_id": "input",
+      "relative_path": "prices.csv",
+      "format": "generic_csv",
+      "datetime_format": "%Y-%m-%d",
+      "timeframe": "Days",
+      "compression": 1,
+      "timezone": "UTC",
+      "bar_semantics": "close",
+      "columns": {
+        "datetime": "date",
+        "open": "open",
+        "high": "high",
+        "low": "low",
+        "close": "close",
+        "volume": "volume",
+        "openinterest": "openinterest"
+      }
+    }
+  ],
+  "alignment": {
+    "mode": "intersection",
+    "minimum_overlap": 1
+  }
+}

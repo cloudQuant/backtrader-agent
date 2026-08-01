@@ -7,7 +7,7 @@ model, the content-addressed manifests, and the reproducible acceptance matrix.
 ## Development setup
 
 ```bash
-python -m pip install backtrader pandas jsonschema pytest
+python -m pip install backtrader pandas jsonschema pytest setuptools wheel
 python -m pytest tests -q -p no:cacheprovider
 python scripts/audit_independence.py
 python scripts/doctor.py
@@ -16,7 +16,9 @@ python scripts/run_acceptance.py
 
 The generated runner imports `pandas` at module load (the Pandas adapters and
 the canonical feed assembly path need it). `pip install backtrader` does not
-always pull pandas, so install it explicitly.
+always pull pandas, so install it explicitly. The wheel-distribution test
+builds with `--no-build-isolation`, so `setuptools` and `wheel` must be present
+in the environment.
 
 The tests and acceptance matrix need a Backtrader engine root: a directory
 containing `backtrader/__init__.py` and `backtrader/version.py`. It is resolved

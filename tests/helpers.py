@@ -133,7 +133,10 @@ def write_adapter_price_csv(
     start = datetime(2024, 1, 1, tzinfo=timezone.utc)
     for index in range(rows):
         timestamp = start + timedelta(days=index)
-        close = 100.0 + price_offset + index
+        # Oscillate around an upward trend so both up and down bar-to-bar
+        # moves exist. Strictly monotonic data makes RSI's average loss zero
+        # and divides by zero on stock Backtrader (the fork tolerates it).
+        close = 100.0 + price_offset + index + (4.0 if index % 2 == 0 else -3.0)
         date_values = {
             "generic_csv": timestamp.strftime("%Y-%m-%dT%H:%M:%SZ"),
             "backtrader_csv": timestamp.strftime("%Y-%m-%d"),

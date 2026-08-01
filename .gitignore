@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# backtrader-agent runtime state root (opaque registry, CAS, sessions, runs).
+# Only this narrow directory should be added to a target repo's ignore file.
+.backtrader-agent/
+

@@ -1,0 +1,58 @@
+{
+  "spec_version": "strategy-spec-v1",
+  "name": "Example SMA Crossover",
+  "slug": "example-sma-crossover",
+  "category": "trend_following",
+  "archetype": "single_data_indicator",
+  "output_profile": "python_bundle",
+  "dataset_id": "ds_0000000000000000000000000000000000000000000000000000000000000000",
+  "feeds": [
+    {
+      "name": "primary",
+      "role": "execution"
+    }
+  ],
+  "parameters": {
+    "fast_period": {
+      "type": "integer",
+      "default": 2,
+      "minimum": 1
+    },
+    "slow_period": {
+      "type": "integer",
+      "default": 5,
+      "minimum": 2
+    }
+  },
+  "entry": "long when the fast SMA is above the slow SMA",
+  "exit": "close when the fast SMA is below the slow SMA",
+  "sizing": {
+    "kind": "fixed",
+    "stake": 1
+  },
+  "risk": {
+    "max_position": 1
+  },
+  "cash": 100000.0,
+  "commission": 0.001,
+  "analyzers": [
+    "TradeAnalyzer",
+    "DrawDown",
+    "SharpeRatio",
+    "SQN"
+  ],
+  "run_modes": [
+    "runonce",
+    "runnext"
+  ],
+  "allowed_imports": [
+    "backtrader",
+    "json",
+    "os",
+    "math"
+  ],
+  "non_goals": [
+    "live trading"
+  ],
+  "open_questions": []
+}

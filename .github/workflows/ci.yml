@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install backtrader jsonschema pytest
+
+      - name: Resolve Backtrader engine root
+        run: |
+          echo "BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT=$(python -c 'import backtrader, pathlib; print(pathlib.Path(backtrader.__file__).resolve().parent.parent)')" >> "$GITHUB_ENV"
+
+      - name: Unit tests
+        run: python -m pytest tests -q -p no:cacheprovider
+
+      - name: Independence audit
+        run: python scripts/audit_independence.py
+
+      - name: Doctor
+        run: python scripts/doctor.py
+
+      - name: Distribution manifest freshness
+        run: |
+          python scripts/build_manifest.py
+          git diff --exit-code -- manifest.json src/backtrader_agent/resources/distribution-manifest.json
+
+      - name: Acceptance matrix
+        run: python scripts/run_acceptance.py

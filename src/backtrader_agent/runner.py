@@ -69,10 +69,15 @@ def _resource_limits(timeout_seconds: int):
         try:
             import resource
 
+            # CPU time and file-size limits are reliable POSIX guards. The
+            # address-space limit (RLIMIT_AS) is intentionally NOT applied:
+            # scientific-Python BLAS libraries (numpy/OpenBLAS) reserve large
+            # virtual regions on Linux that exceed any fixed AS budget while
+            # resident memory stays small, producing false BTAG-RUN-FAILED
+            # kills. The wall-clock timeout and RLIMIT_CPU remain the real
+            # runaway guards; this is defense in depth, not an OS sandbox.
             resource.setrlimit(resource.RLIMIT_CPU, (timeout_seconds + 2, timeout_seconds + 2))
             resource.setrlimit(resource.RLIMIT_FSIZE, (16 * 1024 * 1024, 16 * 1024 * 1024))
-            address_limit = 2 * 1024 * 1024 * 1024
-            resource.setrlimit(resource.RLIMIT_AS, (address_limit, address_limit))
         except (ImportError, OSError, ValueError):
             # The command remains allowlisted and timeout-bound where a specific
             # POSIX resource limit is unavailable.

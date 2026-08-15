@@ -8,7 +8,13 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from .canonical import atomic_write_bytes, atomic_write_json, hash_object, read_json, sha256_bytes
+from .canonical import (
+    create_or_verify_bytes,
+    create_or_verify_json,
+    hash_object,
+    read_json,
+    sha256_bytes,
+)
 from .contracts import DatasetManifest
 from .errors import AgentError
 from .roots import RootRegistry
@@ -548,11 +554,13 @@ class DatasetService:
             relative = Path("data") / "sha256" / digest[:2] / f"{digest}.csv"
             destination = self.state_root / relative
             content = canonical["_canonical_bytes"]
-            if destination.exists():
-                if sha256_bytes(destination.read_bytes()) != digest:
-                    raise AgentError("BTAG-CAS-COLLISION", "CAS object does not match its digest")
-            else:
-                atomic_write_bytes(destination, content, create_only=True)
+            created = create_or_verify_bytes(
+                destination,
+                content,
+                conflict_code="BTAG-CAS-COLLISION",
+                conflict_message="CAS object does not match its digest",
+            )
+            if created:
                 try:
                     destination.chmod(0o444)
                 except OSError:
@@ -568,12 +576,12 @@ class DatasetService:
         )
         DatasetManifest.from_dict(manifest_payload)
         manifest_path = self.manifest_root / f"{manifest_payload['dataset_id']}.json"
-        if manifest_path.exists():
-            existing = read_json(manifest_path)
-            if existing != manifest_payload:
-                raise AgentError("BTAG-DATASET-CONFLICT", "dataset ID has conflicting content")
-        else:
-            atomic_write_json(manifest_path, manifest_payload, create_only=True)
+        create_or_verify_json(
+            manifest_path,
+            manifest_payload,
+            conflict_code="BTAG-DATASET-CONFLICT",
+            conflict_message="dataset ID has conflicting content",
+        )
         return manifest_payload
 
     def load(self, dataset_id: str) -> Dict[str, Any]:

@@ -1,16 +1,20 @@
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
 import zipfile
+from email.parser import BytesParser
+from email.policy import default
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
 
 from backtrader_agent.audit import SCHEMA_NAMES
 from backtrader_agent.contracts import StrategySpec
+from scripts.build_manifest import ROOT_EXCLUDED_PARTS, _iter_files
 
 from helpers import strategy_spec
 
@@ -21,7 +25,15 @@ PACKAGE_ROOT = PRODUCT_ROOT / "src" / "backtrader_agent"
 def test_source_distribution_manifest_covers_every_file() -> None:
     manifest_path = PRODUCT_ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    excluded_parts = {"__pycache__", ".pytest_cache", "dist", "build", ".git"}
+    excluded_parts = {
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        "dist",
+        "build",
+        ".git",
+    }
     actual = {
         path.relative_to(PRODUCT_ROOT).as_posix()
         for path in PRODUCT_ROOT.rglob("*")
@@ -36,6 +48,29 @@ def test_source_distribution_manifest_covers_every_file() -> None:
     for relative, expected_hash in manifest["files"].items():
         digest = hashlib.sha256((PRODUCT_ROOT / relative).read_bytes()).hexdigest()
         assert digest == expected_hash
+
+
+def test_manifest_builder_excludes_tool_caches(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    manifest = source / "manifest.json"
+    retained = source / "docs" / "retained.md"
+    mypy_cache = source / ".mypy_cache" / "cache.json"
+    ruff_cache = source / ".ruff_cache" / "cache.bin"
+    for path, content in (
+        (manifest, "{}\n"),
+        (retained, "retain\n"),
+        (mypy_cache, "mypy\n"),
+        (ruff_cache, "ruff\n"),
+    ):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    files = {
+        path.relative_to(source).as_posix()
+        for path in _iter_files(source, ROOT_EXCLUDED_PARTS, manifest)
+    }
+
+    assert files == {"docs/retained.md"}
 
 
 def test_public_contract_assets_are_named_and_canonical() -> None:
@@ -113,7 +148,13 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path:
         PRODUCT_ROOT,
         source_copy,
         ignore=shutil.ignore_patterns(
-            "build", "*.egg-info", "__pycache__", ".pytest_cache", "*.pyc"
+            "build",
+            "*.egg-info",
+            "__pycache__",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
+            "*.pyc",
         ),
     )
     wheel_dir = tmp_path / "wheel"
@@ -138,6 +179,42 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path:
     wheel = next(wheel_dir.glob("backtrader_agent-*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
+        metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+        metadata = BytesParser(policy=default).parsebytes(archive.read(metadata_name))
+    assert metadata["License"] == "MIT"
+    assert set(metadata.get_all("Provides-Extra", [])) == {
+        "backtest",
+        "single-test",
+        "test",
+    }
+    requirements_by_extra = {
+        "backtest": {"backtrader", "pandas"},
+        "single-test": {"pytest"},
+        "test": {
+            "backtrader",
+            "pandas",
+            "pytest",
+            "jsonschema",
+            "build",
+            "setuptools",
+            "wheel",
+        },
+    }
+    metadata_requirements = metadata.get_all("Requires-Dist", [])
+    for extra, expected_distributions in requirements_by_extra.items():
+        extra_requirements = {
+                re.split(r"[<>=!~ @]", requirement, maxsplit=1)[0].lower()
+            for requirement in metadata_requirements
+            if "extra == \"{}\"".format(extra) in requirement
+        }
+        assert expected_distributions <= extra_requirements
+    cloudquant_requirement = "git+https://github.com/cloudquant/backtrader.git"
+    for extra in ("backtest", "test"):
+        assert any(
+            "extra == \"{}\"".format(extra) in requirement
+            and cloudquant_requirement in requirement.lower()
+            for requirement in metadata_requirements
+        )
     for schema_name in SCHEMA_NAMES:
         assert f"backtrader_agent/resources/contracts/{schema_name}" in names
     assert "backtrader_agent/resources/policies/comparison-profile-v1.json" in names
@@ -201,3 +278,22 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path:
         text=True,
     )
     assert completed.stdout.strip() == "1155 14"
+
+
+def test_docs_and_ci_consume_the_declared_execution_contract() -> None:
+    readme = (PRODUCT_ROOT / "README.md").read_text(encoding="utf-8")
+    contributing = (PRODUCT_ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8")
+    example = (PRODUCT_ROOT / "examples/README.md").read_text(encoding="utf-8")
+    workflow = (PRODUCT_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+    assert readme.count("python -m pip install '.[backtest]'") == 2
+    assert "python -m pip install '.[test]'" in contributing
+    walkthrough = example.split("## Walkthrough", 1)[1]
+    assert walkthrough.index("session create --session-id session-001") < walkthrough.index(
+        "data register"
+    )
+    assert 'python-version: ["3.8", "3.9", "3.11", "3.12"]' in workflow
+    assert "python -m pip install '.[test]'" in workflow
+    assert "pip install backtrader pandas jsonschema pytest" not in workflow
+    assert "  acceptance:" in workflow
+    assert "needs: test" in workflow

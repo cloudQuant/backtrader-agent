@@ -1,14 +1,19 @@
 """Create-only native host adapter installer."""
 
 import json
+from contextlib import contextmanager
 from pathlib import Path
+import re
 import shlex
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, Iterator, List, Mapping
 
-from .canonical import atomic_write_bytes, atomic_write_json, read_json, sha256_bytes
+from .canonical import create_or_verify_bytes, create_or_verify_json, read_json, sha256_bytes
 from .errors import AgentError
+from .locking import exclusive_file_lock
 
 RESOURCE_ROOT = Path(__file__).resolve().parent / "resources" / "adapters"
+INSTALL_MANIFEST_SCHEMA = "adapter-install-manifest-v1"
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 ADAPTER_RESOURCE_FILES: Mapping[str, Mapping[str, str]] = {
     "claude": {
         ".claude/agents/backtrader-agent.md": "claude-code/backtrader-agent.md",
@@ -76,19 +81,58 @@ class AdapterInstaller:
             )
         return files
 
-    def install(self, target: Path, host: str, *, apply: bool) -> Dict[str, Any]:
+    @staticmethod
+    def _validate_host(host: str) -> None:
         if host not in ADAPTER_RESOURCE_FILES:
             raise AgentError("BTAG-INSTALL-HOST", "host adapter is not supported")
+
+    @staticmethod
+    def _manifest_path(root: Path, host: str) -> Path:
+        return root / ".backtrader-agent" / "installer" / f"{host}.json"
+
+    @classmethod
+    def _lock_path(cls, root: Path, host: str) -> Path:
+        return cls._manifest_path(root, host).with_suffix(".lock")
+
+    @contextmanager
+    def _locked_apply(self, root: Path, host: str) -> Iterator[None]:
+        with exclusive_file_lock(
+            self._lock_path(root, host),
+            error_code="BTAG-INSTALL-LOCK",
+            subject=f"adapter {host} lifecycle",
+        ):
+            yield
+
+    def install(self, target: Path, host: str, *, apply: bool) -> Dict[str, Any]:
+        self._validate_host(host)
         root = Path(target).resolve(strict=True)
         if not root.is_dir():
             raise AgentError("BTAG-INSTALL-TARGET", "install target must be a directory")
+        if apply:
+            with self._locked_apply(root, host):
+                return self._install_unlocked(root, host, apply=True)
+        return self._install_unlocked(root, host, apply=False)
+
+    def _install_unlocked(self, root: Path, host: str, *, apply: bool) -> Dict[str, Any]:
         adapter_files = self._files(root, host)
         changes: List[Dict[str, Any]] = []
         for relative, content in adapter_files.items():
             destination = root.joinpath(*Path(relative).parts)
             encoded = content.encode("utf-8")
-            if destination.exists():
-                if not destination.is_file() or destination.read_bytes() != encoded:
+            if destination.exists() or destination.is_symlink():
+                try:
+                    matches = (
+                        not destination.is_symlink()
+                        and destination.is_file()
+                        and destination.read_bytes() == encoded
+                    )
+                except OSError as exc:
+                    raise AgentError(
+                        "BTAG-INSTALL-CONFLICT",
+                        "existing adapter could not be safely inspected",
+                        details={"relative_path": relative},
+                    ) from exc
+                if not matches:
                     raise AgentError(
                         "BTAG-INSTALL-CONFLICT",
                         "existing adapter differs; create-only install refused",
@@ -121,12 +165,18 @@ class AdapterInstaller:
                     "verify": registration["verification_command"],
                 }
             return result
+        change_by_relative = {item["relative_path"]: item for item in changes}
         for relative, content in adapter_files.items():
             destination = root.joinpath(*Path(relative).parts)
-            if not destination.exists():
-                atomic_write_bytes(destination, content.encode("utf-8"), create_only=True)
+            created = create_or_verify_bytes(
+                destination,
+                content.encode("utf-8"),
+                conflict_code="BTAG-INSTALL-CONFLICT",
+                conflict_message="existing adapter differs; create-only install refused",
+            )
+            change_by_relative[relative]["action"] = "create" if created else "unchanged"
         install_manifest = {
-            "schema_version": "adapter-install-manifest-v1",
+            "schema_version": INSTALL_MANIFEST_SCHEMA,
             "host": host,
             "files": [
                 {
@@ -136,12 +186,13 @@ class AdapterInstaller:
                 for relative, content in sorted(adapter_files.items())
             ],
         }
-        manifest_path = root / ".backtrader-agent" / "installer" / f"{host}.json"
-        if manifest_path.exists():
-            if read_json(manifest_path) != install_manifest:
-                raise AgentError("BTAG-INSTALL-MANIFEST", "install manifest conflicts")
-        else:
-            atomic_write_json(manifest_path, install_manifest, create_only=True)
+        manifest_path = self._manifest_path(root, host)
+        create_or_verify_json(
+            manifest_path,
+            install_manifest,
+            conflict_code="BTAG-INSTALL-MANIFEST",
+            conflict_message="install manifest conflicts",
+        )
         status = (
             "unchanged" if all(item["action"] == "unchanged" for item in changes) else "installed"
         )
@@ -159,16 +210,73 @@ class AdapterInstaller:
         return result
 
     def uninstall(self, target: Path, host: str, *, apply: bool) -> Dict[str, Any]:
+        self._validate_host(host)
         root = Path(target).resolve(strict=True)
-        manifest_path = root / ".backtrader-agent" / "installer" / f"{host}.json"
-        if not manifest_path.exists():
-            raise AgentError("BTAG-UNINSTALL-MANIFEST", "no install manifest exists for host")
-        manifest = read_json(manifest_path)
+        if apply:
+            with self._locked_apply(root, host):
+                return self._uninstall_unlocked(root, host, apply=True)
+        return self._uninstall_unlocked(root, host, apply=False)
+
+    def _load_uninstall_manifest(self, root: Path, host: str) -> List[Dict[str, str]]:
+        manifest_path = self._manifest_path(root, host)
+        if manifest_path.is_symlink() or not manifest_path.is_file():
+            raise AgentError("BTAG-UNINSTALL-MANIFEST", "no safe install manifest exists for host")
+        try:
+            manifest = read_json(manifest_path)
+        except AgentError as exc:
+            raise AgentError(
+                "BTAG-UNINSTALL-MANIFEST",
+                "install manifest could not be parsed",
+            ) from exc
+        entries = manifest.get("files")
+        if (
+            manifest.get("schema_version") != INSTALL_MANIFEST_SCHEMA
+            or manifest.get("host") != host
+            or not isinstance(entries, list)
+        ):
+            raise AgentError("BTAG-UNINSTALL-MANIFEST", "install manifest is malformed")
+        expected_paths = set(self._files(root, host))
+        normalized: List[Dict[str, str]] = []
+        seen = set()
+        for entry in entries:
+            if not isinstance(entry, dict) or set(entry) != {"relative_path", "sha256"}:
+                raise AgentError("BTAG-UNINSTALL-MANIFEST", "install manifest is malformed")
+            relative = entry.get("relative_path")
+            digest = entry.get("sha256")
+            if (
+                not isinstance(relative, str)
+                or relative not in expected_paths
+                or relative in seen
+                or not isinstance(digest, str)
+                or not SHA256_RE.fullmatch(digest)
+            ):
+                raise AgentError("BTAG-UNINSTALL-MANIFEST", "install manifest is malformed")
+            seen.add(relative)
+            normalized.append({"relative_path": relative, "sha256": digest})
+        if seen != expected_paths:
+            raise AgentError("BTAG-UNINSTALL-MANIFEST", "install manifest is incomplete")
+        return normalized
+
+    def _uninstall_unlocked(self, root: Path, host: str, *, apply: bool) -> Dict[str, Any]:
+        manifest_path = self._manifest_path(root, host)
+        entries = self._load_uninstall_manifest(root, host)
         removals = []
-        for item in manifest.get("files", []):
+        for item in entries:
             destination = root.joinpath(*Path(item["relative_path"]).parts)
-            if destination.exists():
-                if sha256_bytes(destination.read_bytes()) != item["sha256"]:
+            if destination.exists() or destination.is_symlink():
+                try:
+                    matches = (
+                        not destination.is_symlink()
+                        and destination.is_file()
+                        and sha256_bytes(destination.read_bytes()) == item["sha256"]
+                    )
+                except OSError as exc:
+                    raise AgentError(
+                        "BTAG-UNINSTALL-MODIFIED",
+                        "installed adapter could not be safely inspected",
+                        details={"relative_path": item["relative_path"]},
+                    ) from exc
+                if not matches:
                     raise AgentError(
                         "BTAG-UNINSTALL-MODIFIED",
                         "modified adapter will not be removed",

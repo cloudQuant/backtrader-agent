@@ -3,11 +3,13 @@
 import os
 import re
 import stat
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 from .canonical import atomic_write_json, read_json
 from .errors import AgentError
+from .locking import exclusive_file_lock
 
 ROOT_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{1,63}$")
 
@@ -28,6 +30,18 @@ class RootRegistry:
             return {"schema_version": "root-registry-v1", "roots": {}}
         return read_json(self.path)
 
+    def _lock_path(self) -> Path:
+        return self.state_root / "root-registry.lock"
+
+    @contextmanager
+    def _locked(self) -> Iterator[None]:
+        with exclusive_file_lock(
+            self._lock_path(),
+            error_code="BTAG-ROOT-LOCK",
+            subject="root registry",
+        ):
+            yield
+
     def register(self, root_id: str, path: Path, *, writable: bool, kind: str) -> Dict[str, Any]:
         if not ROOT_ID_RE.fullmatch(root_id):
             raise AgentError("BTAG-ROOT-ID", "root ID must be a lowercase opaque identifier")
@@ -36,13 +50,14 @@ class RootRegistry:
             raise AgentError("BTAG-ROOT-TYPE", "registered root must be a directory")
         if kind not in {"workspace", "dataset", "engine", "runtime"}:
             raise AgentError("BTAG-ROOT-KIND", "root kind is not allowlisted")
-        registry = self._load()
-        existing = registry["roots"].get(root_id)
         record = {"path": str(resolved), "writable": bool(writable), "kind": kind}
-        if existing and existing != record:
-            raise AgentError("BTAG-ROOT-CONFLICT", "root ID is already bound to another root")
-        registry["roots"][root_id] = record
-        atomic_write_json(self.path, registry)
+        with self._locked():
+            registry = self._load()
+            existing = registry["roots"].get(root_id)
+            if existing and existing != record:
+                raise AgentError("BTAG-ROOT-CONFLICT", "root ID is already bound to another root")
+            registry["roots"][root_id] = record
+            atomic_write_json(self.path, registry)
         return {"root_id": root_id, "writable": bool(writable), "kind": kind}
 
     def list(self) -> List[Dict[str, Any]]:

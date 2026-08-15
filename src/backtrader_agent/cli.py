@@ -3,17 +3,19 @@
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 from .audit import IndependenceAuditor
+from .backtrader_runtime import ensure_cloudquant_backtrader, inspect_backtrader_runtime
 from .canonical import hash_object, sha256_bytes
 from .catalog import SnapshotCatalog
 from .changes import ChangeManager
 from .contracts import StrategySpec
 from .data import DatasetService
 from .doctor import diagnose
-from .engines import inspect_engine
+from .engines import inspect_engine, inspect_execution_environment
 from .errors import AgentError
 from .installer import AdapterInstaller
 from .repair import RepairWorkflow
@@ -68,6 +70,7 @@ def _list_engines(roots: RootRegistry) -> List[Dict[str, Any]]:
                     "status": "valid",
                     "version": descriptor["version"],
                     "engine_hash": descriptor["engine_hash"],
+                    "source": descriptor["source"],
                 }
             )
         except AgentError as exc:
@@ -106,6 +109,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     doctor = sub.add_parser("doctor", help="diagnose environment and packaged capabilities")
     doctor.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    backtrader = sub.add_parser(
+        "backtrader", help="inspect or install the required CloudQuant Backtrader runtime"
+    )
+    backtrader_sub = backtrader.add_subparsers(dest="backtrader_command", required=True)
+    backtrader_sub.add_parser("check", help="check the current interpreter without changing it")
+    backtrader_sub.add_parser("ensure", help="install CloudQuant Backtrader when it is missing")
     sub.add_parser("payload", help="return packaged product-owned agent instructions")
 
     roots = sub.add_parser("roots", help="manage opaque controlled roots")
@@ -165,10 +174,7 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--draft-root", required=True)
     validate.add_argument("--session-id", required=True)
     validate.add_argument("--dataset-hash", required=True)
-    engine_binding = validate.add_mutually_exclusive_group(required=True)
-    engine_binding.add_argument("--engine-root-id")
-    engine_binding.add_argument("--engine-hash")
-    validate.add_argument("--environment-hash", required=True)
+    validate.add_argument("--engine-root-id", required=True)
 
     approval = sub.add_parser("approval", help="request and locally grant one-time actions")
     approval_sub = approval.add_subparsers(dest="approval_command", required=True)
@@ -257,6 +263,10 @@ def build_parser() -> argparse.ArgumentParser:
 def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.command == "doctor":
         return diagnose(state_root=_state(args))
+    if args.command == "backtrader":
+        if args.backtrader_command == "ensure":
+            return ensure_cloudquant_backtrader()
+        return inspect_backtrader_runtime()
     if args.command == "payload":
         payload_path = Path(__file__).resolve().parent / "resources" / "agent-payload.md"
         content = payload_path.read_text(encoding="utf-8")
@@ -364,20 +374,15 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.command == "validate":
         artifact = _json_file(args.artifact_manifest)
         artifact["_draft_path"] = str(Path(args.draft_root).resolve())
-        if args.engine_root_id:
-            engine = inspect_engine(roots, args.engine_root_id)
-            engine_bindings = {
-                "engine_hash": engine["engine_hash"],
-                "engine_root_id": args.engine_root_id,
-            }
-        else:
-            engine_bindings = {"engine_hash": args.engine_hash}
+        engine = inspect_engine(roots, args.engine_root_id)
+        environment = inspect_execution_environment()
         value = StrategyValidator(authority).validate_artifact(
             artifact,
             bindings={
                 "dataset_hash": args.dataset_hash,
-                "environment_hash": args.environment_hash,
-                **engine_bindings,
+                "engine_hash": engine["engine_hash"],
+                "engine_root_id": engine["root_id"],
+                "environment_hash": environment["environment_hash"],
             },
             approval="validator",
             session_id=args.session_id,
@@ -531,5 +536,13 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             }
         )
         return 2
+    warnings = result.get("warnings", [])
+    if not isinstance(warnings, list):
+        warnings = []
+    runtime_warning = result.get("warning")
+    if isinstance(runtime_warning, str) and runtime_warning:
+        warnings.append(runtime_warning)
+    for warning in dict.fromkeys(item for item in warnings if isinstance(item, str) and item):
+        print("WARNING: {}".format(warning), file=sys.stderr)
     _emit(result)
     return 0

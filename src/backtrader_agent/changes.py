@@ -2,8 +2,9 @@
 
 import difflib
 import re
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 
 from .canonical import (
     atomic_write_bytes,
@@ -13,6 +14,7 @@ from .canonical import (
     sha256_bytes,
 )
 from .errors import AgentError
+from .locking import exclusive_file_lock
 from .roots import RootRegistry
 from .scaffold import load_product_artifact_record
 from .sessions import SessionStore
@@ -259,10 +261,42 @@ class ChangeManager:
             raise AgentError("BTAG-IDEMPOTENCY-KEY", "idempotency key is malformed")
         return self.action_root / f"{sha256_bytes(key.encode('utf-8'))}.json"
 
+    def _action_lock_path(self, key: str) -> Path:
+        """Return the stable state-wide lock for one idempotency key."""
+
+        self._action_path(key)
+        digest = sha256_bytes(key.encode("utf-8"))
+        return self.state_root / "change-action-locks" / f"{digest}.lock"
+
+    @contextmanager
+    def _locked_action_key(self, key: str) -> Iterator[None]:
+        with exclusive_file_lock(
+            self._action_lock_path(key),
+            error_code="BTAG-CHANGE-ACTION-LOCK",
+            subject="change idempotency action",
+        ):
+            yield
+
     def _transaction_directory(self, change_id: str) -> Path:
         if not re.fullmatch(r"change-[0-9a-f]{20}", change_id):
             raise AgentError("BTAG-CHANGE-ID", "change ID is malformed")
         return self.transaction_root / change_id
+
+    def _target_root_lock_path(self, target_root_id: str) -> Path:
+        """Return the stable process lock for one registered mutable root."""
+
+        self.roots.get_record(target_root_id)
+        digest = sha256_bytes(target_root_id.encode("utf-8"))
+        return self.state_root / "change-locks" / f"{digest}.lock"
+
+    @contextmanager
+    def _locked_target_root(self, target_root_id: str) -> Iterator[None]:
+        with exclusive_file_lock(
+            self._target_root_lock_path(target_root_id),
+            error_code="BTAG-CHANGE-LOCK",
+            subject="change target root",
+        ):
+            yield
 
     @staticmethod
     def _replace_target(
@@ -581,70 +615,14 @@ class ChangeManager:
                 "session is no longer ready to commit this applied artifact",
             )
 
-    def apply(
+    def _apply_locked(
         self,
         change_manifest: Dict[str, Any],
+        prepared_record: Dict[str, Any],
         change_token: Dict[str, Any],
         *,
         idempotency_key: str,
     ) -> Dict[str, Any]:
-        portable = {
-            key: value
-            for key, value in change_manifest.items()
-            if not key.startswith("_") and key != "manifest_hash"
-        }
-        if hash_object(portable) != change_manifest.get("manifest_hash"):
-            raise AgentError("BTAG-CHANGE-HASH", "change manifest hash is invalid")
-        canonical_manifest = {
-            **portable,
-            "manifest_hash": change_manifest["manifest_hash"],
-        }
-        prepared_record = self.authority.load_bound_record(
-            "prepared-change",
-            str(change_manifest.get("session_id", "")),
-            str(change_manifest.get("manifest_hash", "")),
-        )
-        if prepared_record.get("change_manifest") != canonical_manifest:
-            raise AgentError(
-                "BTAG-CHANGE-RECORD",
-                "change manifest does not match the signed prepared change",
-            )
-        session = SessionStore(self.state_root).load(change_manifest["session_id"])
-        expected_session = {
-            "artifact_hash": change_manifest["artifact_hash"],
-            "artifact_record_hash": change_manifest["artifact_record_hash"],
-            "approved_spec_hash": change_manifest["spec_hash"],
-            "change_manifest_hash": change_manifest["manifest_hash"],
-            "dataset_id": change_manifest["dataset_id"],
-            "dataset_manifest_hash": change_manifest["dataset_manifest_hash"],
-            "validation_token_hash": change_manifest["validation_token_hash"],
-            "validation_token_id": change_manifest["validation_token_id"],
-        }
-        if session.get("state") not in {"APPLY_PREPARED", "APPLIED"} or any(
-            session.get("artifacts", {}).get(key) != value
-            for key, value in expected_session.items()
-        ):
-            raise AgentError(
-                "BTAG-CHANGE-SESSION",
-                "change manifest no longer matches its prepared session",
-            )
-        change_bindings = {
-            "artifact_hash": change_manifest["artifact_hash"],
-            "artifact_record_hash": change_manifest["artifact_record_hash"],
-            "change_manifest_hash": change_manifest["manifest_hash"],
-            "dataset_hash": change_manifest["dataset_manifest_hash"],
-            "dataset_id": change_manifest["dataset_id"],
-            "session_id": change_manifest["session_id"],
-            "spec_hash": change_manifest["spec_hash"],
-            "validation_token_hash": change_manifest["validation_token_hash"],
-            "validation_token_id": change_manifest["validation_token_id"],
-        }
-        self.authority.verify(
-            change_token,
-            kind="change",
-            subject_hash=change_manifest["manifest_hash"],
-            required_bindings=change_bindings,
-        )
         action_path = self._action_path(idempotency_key)
         request_hash = hash_object(
             {
@@ -662,7 +640,7 @@ class ChangeManager:
                 )
             cached_result = self._validate_cached_result(
                 recorded,
-                canonical_manifest,
+                change_manifest,
                 change_token,
             )
             self._ensure_applied_session(
@@ -739,7 +717,7 @@ class ChangeManager:
         self._apply_transaction(transaction_path, transaction, resolved)
 
         applied_artifact = self._expected_applied_artifact(
-            canonical_manifest,
+            change_manifest,
             change_token,
         )
         applied_record = self.authority.store_bound_record(
@@ -763,3 +741,76 @@ class ChangeManager:
             idempotency_key=idempotency_key,
         )
         return result
+
+    def apply(
+        self,
+        change_manifest: Dict[str, Any],
+        change_token: Dict[str, Any],
+        *,
+        idempotency_key: str,
+    ) -> Dict[str, Any]:
+        portable = {
+            key: value
+            for key, value in change_manifest.items()
+            if not key.startswith("_") and key != "manifest_hash"
+        }
+        if hash_object(portable) != change_manifest.get("manifest_hash"):
+            raise AgentError("BTAG-CHANGE-HASH", "change manifest hash is invalid")
+        canonical_manifest = {
+            **portable,
+            "manifest_hash": change_manifest["manifest_hash"],
+        }
+        prepared_record = self.authority.load_bound_record(
+            "prepared-change",
+            str(canonical_manifest.get("session_id", "")),
+            str(canonical_manifest.get("manifest_hash", "")),
+        )
+        if prepared_record.get("change_manifest") != canonical_manifest:
+            raise AgentError(
+                "BTAG-CHANGE-RECORD",
+                "change manifest does not match the signed prepared change",
+            )
+        session = SessionStore(self.state_root).load(canonical_manifest["session_id"])
+        expected_session = {
+            "artifact_hash": canonical_manifest["artifact_hash"],
+            "artifact_record_hash": canonical_manifest["artifact_record_hash"],
+            "approved_spec_hash": canonical_manifest["spec_hash"],
+            "change_manifest_hash": canonical_manifest["manifest_hash"],
+            "dataset_id": canonical_manifest["dataset_id"],
+            "dataset_manifest_hash": canonical_manifest["dataset_manifest_hash"],
+            "validation_token_hash": canonical_manifest["validation_token_hash"],
+            "validation_token_id": canonical_manifest["validation_token_id"],
+        }
+        if session.get("state") not in {"APPLY_PREPARED", "APPLIED"} or any(
+            session.get("artifacts", {}).get(key) != value
+            for key, value in expected_session.items()
+        ):
+            raise AgentError(
+                "BTAG-CHANGE-SESSION",
+                "change manifest no longer matches its prepared session",
+            )
+        change_bindings = {
+            "artifact_hash": canonical_manifest["artifact_hash"],
+            "artifact_record_hash": canonical_manifest["artifact_record_hash"],
+            "change_manifest_hash": canonical_manifest["manifest_hash"],
+            "dataset_hash": canonical_manifest["dataset_manifest_hash"],
+            "dataset_id": canonical_manifest["dataset_id"],
+            "session_id": canonical_manifest["session_id"],
+            "spec_hash": canonical_manifest["spec_hash"],
+            "validation_token_hash": canonical_manifest["validation_token_hash"],
+            "validation_token_id": canonical_manifest["validation_token_id"],
+        }
+        self.authority.verify(
+            change_token,
+            kind="change",
+            subject_hash=canonical_manifest["manifest_hash"],
+            required_bindings=change_bindings,
+        )
+        with self._locked_action_key(idempotency_key):
+            with self._locked_target_root(canonical_manifest["target_root_id"]):
+                return self._apply_locked(
+                    canonical_manifest,
+                    prepared_record,
+                    change_token,
+                    idempotency_key=idempotency_key,
+                )

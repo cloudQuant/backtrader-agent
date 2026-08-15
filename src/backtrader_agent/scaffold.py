@@ -5,9 +5,8 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .canonical import (
-    atomic_write_bytes,
-    atomic_write_json,
-    canonical_json_bytes,
+    create_or_verify_bytes,
+    create_or_verify_json,
     hash_object,
     read_json,
     sha256_bytes,
@@ -487,10 +486,12 @@ class ArtifactRenderer:
         files: List[Dict[str, Any]] = []
         for relative_path, content in sorted(file_contents.items()):
             destination = draft_root / relative_path
-            if destination.exists() and destination.read_bytes() != content:
-                raise AgentError("BTAG-DRAFT-CONFLICT", "draft revision has conflicting bytes")
-            if not destination.exists():
-                atomic_write_bytes(destination, content, create_only=True)
+            create_or_verify_bytes(
+                destination,
+                content,
+                conflict_code="BTAG-DRAFT-CONFLICT",
+                conflict_message="draft revision has conflicting bytes",
+            )
             files.append(
                 {
                     "path": relative_path,
@@ -520,13 +521,12 @@ class ArtifactRenderer:
         }
         portable["artifact_hash"] = hash_object(portable)
         manifest_path = draft_root / "artifact-manifest.json"
-        if manifest_path.exists():
-            existing = manifest_path.read_bytes()
-            expected = canonical_json_bytes(portable) + b"\n"
-            if existing != expected:
-                raise AgentError("BTAG-DRAFT-MANIFEST", "draft manifest conflicts")
-        else:
-            atomic_write_json(manifest_path, portable, create_only=True)
+        create_or_verify_json(
+            manifest_path,
+            portable,
+            conflict_code="BTAG-DRAFT-MANIFEST",
+            conflict_message="draft manifest conflicts",
+        )
         state_root = self.state_root.resolve()
         resolved_draft = draft_root.resolve(strict=True)
         try:
@@ -559,14 +559,12 @@ class ArtifactRenderer:
             / "artifacts"
             / f"{portable['artifact_hash']}.json"
         )
-        if record_path.exists():
-            if read_json(record_path) != record:
-                raise AgentError(
-                    "BTAG-PROVENANCE-CONFLICT",
-                    "artifact provenance record conflicts with the rendered bytes",
-                )
-        else:
-            atomic_write_json(record_path, record, create_only=True)
+        create_or_verify_json(
+            record_path,
+            record,
+            conflict_code="BTAG-PROVENANCE-CONFLICT",
+            conflict_message="artifact provenance record conflicts with the rendered bytes",
+        )
         return {
             **portable,
             "_draft_path": str(draft_root),

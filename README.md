@@ -32,14 +32,32 @@ different hosts. Each host receives its own native adapter.
 From this directory, using any supported Python 3.8+ virtual environment:
 
 ```bash
+# Base runtime: offline data, contracts, validation, sessions, and doctor.
 python -m pip install .
+
+# Controlled Backtrader execution (installs cloudQuant/backtrader and pandas).
+python -m pip install '.[backtest]'
+
+backtrader-agent backtrader check
 backtrader-agent doctor --json
 backtrader-agent payload
 ```
 
-The runtime has no mandatory third-party dependency. A controlled backtest
-requires Backtrader in the same Python environment; generated `single_test`
-profiles also require pytest in the child environment.
+The base runtime has no mandatory third-party dependency. Install the
+`backtest` extra before controlled execution; generated `single_test` profiles
+also need the `single-test` extra (or the full `test` extra). Executable
+validation accepts a registered read-only `--engine-root-id` only: the engine
+and environment hashes are derived by the runtime and cannot be supplied as
+CLI values.
+
+The execution extras declare `backtrader` directly from
+[`cloudQuant/backtrader`](https://github.com/cloudQuant/backtrader), rather than
+a generic PyPI version range. `backtrader-agent backtrader check` and
+`doctor --json` report its source evidence. If the package is missing, run
+`backtrader-agent backtrader ensure` to install it into the current interpreter;
+the controlled-run preflight performs the same missing-only bootstrap. An
+existing package whose source is different or cannot be verified produces a
+warning and is never silently replaced.
 
 The examples below assume the environment containing `backtrader-agent` is
 active. Conda, `venv`, and equivalent isolated Python environments are all
@@ -162,7 +180,7 @@ backtrader-agent --state-root /path/to/workspace/.backtrader-agent \
   roots register --id prices --kind dataset --path /path/to/offline-data
 
 backtrader-agent --state-root /path/to/workspace/.backtrader-agent \
-  roots register --id engine --kind engine --path /path/to/backtrader-source
+  roots register --id engine --kind engine --path /path/to/cloudquant-backtrader
 
 backtrader-agent --state-root /path/to/workspace/.backtrader-agent \
   engine --root-id engine
@@ -378,20 +396,22 @@ python scripts/audit_independence.py
 python scripts/run_acceptance.py
 ```
 
-The acceptance matrix and the end-to-end runner need a Backtrader engine
-root: a directory containing `backtrader/__init__.py` and `backtrader/version.py`
-(a source checkout, or the installed `site-packages` directory). It is resolved
-automatically by checking, in order: the `BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT`
-environment variable, sibling `backtrader` / `back_trader` source checkouts next
-to this repo, and the installed `backtrader` package. If auto-resolution fails,
-set it explicitly:
+The acceptance matrix and the end-to-end runner need a CloudQuant Backtrader
+engine root: a directory from
+[`cloudQuant/backtrader`](https://github.com/cloudQuant/backtrader) containing
+`backtrader/__init__.py` and `backtrader/version.py` (a source checkout, or the
+installed `site-packages` directory). It is resolved automatically by checking,
+in order: the `BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT` environment variable,
+sibling `backtrader` / `back_trader` source checkouts next to this repo, and the
+installed `backtrader` package. If auto-resolution fails, set it explicitly:
 
 ```bash
-export BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT=/path/to/backtrader-source
+export BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT=/path/to/cloudquant-backtrader
 ```
 
-`backtrader-agent doctor --json` reports registered engine roots and a hint when
-none is registered.
+`backtrader-agent doctor --json` reports registered engine roots, the installed
+Backtrader source status, and a hint when no engine is registered. It does not
+replace an existing non-CloudQuant package.
 
 The tests build a wheel in a temporary copy and prove that the seven public
 schemas, AgentSessionManifest/AgentEvent schema, ComparisonProfile, snapshot,
@@ -471,13 +491,27 @@ model API key。
 在本目录下，使用任意受支持的 Python 3.8+ 虚拟环境：
 
 ```bash
+# 基础运行时：离线数据、契约、校验、会话和 doctor。
 python -m pip install .
+
+# 受控 Backtrader 执行（安装 cloudQuant/backtrader 和 pandas）。
+python -m pip install '.[backtest]'
+
+backtrader-agent backtrader check
 backtrader-agent doctor --json
 backtrader-agent payload
 ```
 
-运行时没有强制的第三方依赖。受控回测需要同一 Python 环境中存在 Backtrader；生成的
-`single_test` profile 还需要子环境中存在 pytest。
+基础运行时没有强制的第三方依赖。受控执行前请安装 `backtest` extra；生成的
+`single_test` profile 还需要 `single-test` extra（或完整的 `test` extra）。可执行校验
+只接受已注册、只读的 `--engine-root-id`：engine 和环境哈希由运行时派生，不能作为 CLI
+参数传入。
+
+执行 extra 会把 `backtrader` 直接声明为
+[`cloudQuant/backtrader`](https://github.com/cloudQuant/backtrader)，而不是接受泛化的 PyPI
+版本范围。`backtrader-agent backtrader check` 与 `doctor --json` 会报告来源证据。若当前
+解释器缺少该包，可运行 `backtrader-agent backtrader ensure` 安装；受控运行的预检也只会在
+缺失时执行相同补齐。已有包若来源不同或无法验证，会输出警告，但绝不会被静默替换。
 
 下方示例假设包含 `backtrader-agent` 的环境已激活。Conda、`venv` 及等价的隔离
 Python 环境都受支持。
@@ -592,7 +626,7 @@ backtrader-agent --state-root /path/to/workspace/.backtrader-agent \
   roots register --id prices --kind dataset --path /path/to/offline-data
 
 backtrader-agent --state-root /path/to/workspace/.backtrader-agent \
-  roots register --id engine --kind engine --path /path/to/backtrader-source
+  roots register --id engine --kind engine --path /path/to/cloudquant-backtrader
 
 backtrader-agent --state-root /path/to/workspace/.backtrader-agent \
   engine --root-id engine
@@ -776,17 +810,19 @@ python scripts/audit_independence.py
 python scripts/run_acceptance.py
 ```
 
-验收矩阵和端到端 runner 需要一个 Backtrader engine root：一个包含
+验收矩阵和端到端 runner 需要一个 CloudQuant Backtrader engine root：即
+[`cloudQuant/backtrader`](https://github.com/cloudQuant/backtrader) 中包含
 `backtrader/__init__.py` 和 `backtrader/version.py` 的目录（源码检出，或已安装的
 `site-packages` 目录）。它会按以下顺序自动解析：`BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT`
 环境变量、与本仓库同级的 `backtrader` / `back_trader` 源码检出、以及已安装的
 `backtrader` 包。若自动解析失败，请显式设置：
 
 ```bash
-export BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT=/path/to/backtrader-source
+export BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT=/path/to/cloudquant-backtrader
 ```
 
-`backtrader-agent doctor --json` 会报告已注册的 engine root，并在未注册时给出提示。
+`backtrader-agent doctor --json` 会报告已注册的 engine root、已安装 Backtrader 的来源状态，
+并在未注册时给出提示；它不会替换已有的非 CloudQuant 包。
 
 测试在临时副本中构建 wheel，并证明七个公共 schema、AgentSessionManifest/AgentEvent
 schema、ComparisonProfile、快照、语料 manifest 和 agent payload 都在 wheel 中。它们

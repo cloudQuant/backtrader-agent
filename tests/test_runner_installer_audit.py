@@ -1,22 +1,26 @@
 import json
+import importlib.util
 import os
 import shlex
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Callable, Dict, Optional
 
 import pytest
 from jsonschema import Draft202012Validator
 
 import backtrader_agent
+from backtrader_agent import engines
 from backtrader_agent.audit import IndependenceAuditor
 from backtrader_agent.changes import ChangeManager
 from backtrader_agent.catalog import SnapshotCatalog
 from backtrader_agent.canonical import hash_object
 from backtrader_agent.contracts import ARCHETYPES, StrategySpec
 from backtrader_agent.data import DatasetService
-from backtrader_agent.engines import inspect_engine
+from backtrader_agent.doctor import diagnose
+from backtrader_agent.engines import inspect_engine, inspect_execution_environment
 from backtrader_agent.errors import AgentError
 from backtrader_agent.installer import AdapterInstaller
 from backtrader_agent.roots import RootRegistry
@@ -62,6 +66,52 @@ def test_controlled_child_environment_does_not_forward_home() -> None:
         text=True,
     )
     assert completed.stdout.strip() == "absent"
+
+
+def _registered_copied_engine(tmp_path: Path) -> tuple:
+    engine_root = tmp_path / "engine"
+    shutil.copytree(BACKTRADER_ROOT / "backtrader", engine_root / "backtrader")
+    roots = RootRegistry(tmp_path / "state")
+    roots.register("engine", engine_root, writable=False, kind="engine")
+    return roots, engine_root
+
+
+def test_inspect_engine_hashes_all_regular_package_members(tmp_path: Path) -> None:
+    roots, engine_root = _registered_copied_engine(tmp_path)
+    before = inspect_engine(roots, "engine")
+    assert before["source"]["status"] == "warning"
+
+    target = engine_root / "backtrader" / "cerebro.py"
+    target.write_text(target.read_text(encoding="utf-8") + "\n# test mutation\n", encoding="utf-8")
+
+    after = inspect_engine(roots, "engine")
+    assert before["package_tree_sha256"] != after["package_tree_sha256"]
+    assert before["package_file_count"] == after["package_file_count"]
+    assert before["engine_hash"] != after["engine_hash"]
+
+
+def test_inspect_engine_rejects_symlinked_package_member(tmp_path: Path) -> None:
+    roots, engine_root = _registered_copied_engine(tmp_path)
+    (engine_root / "backtrader" / "linked.py").symlink_to(
+        engine_root / "backtrader" / "__init__.py"
+    )
+
+    with pytest.raises(AgentError, match="BTAG-ENGINE-SYMLINK"):
+        inspect_engine(roots, "engine")
+
+
+def test_execution_environment_is_versioned_and_hash_bound() -> None:
+    descriptor = engines.inspect_execution_environment()
+    evidence = {key: value for key, value in descriptor.items() if key != "environment_hash"}
+
+    assert descriptor["schema_version"] == "execution-environment-v1"
+    assert descriptor["environment_hash"] == hash_object(evidence)
+    assert {
+        "python_executable",
+        "python_version",
+        "python_implementation",
+        "platform",
+    }.issubset(descriptor)
 
 
 ADAPTER_BY_ARCHETYPE = {
@@ -114,6 +164,11 @@ def _execute_matrix_mode(
     profile: str,
     archetype: str,
     mode: str,
+    *,
+    engine_root: Path = BACKTRADER_ROOT,
+    environment_hash: Optional[str] = None,
+    before_run: Optional[Callable[[], None]] = None,
+    run_context: Optional[Dict[str, Any]] = None,
 ) -> tuple:
     workspace = root / "workspace"
     input_root = root / "input"
@@ -132,7 +187,7 @@ def _execute_matrix_mode(
     roots = RootRegistry(state)
     roots.register("workspace", workspace, writable=True, kind="workspace")
     roots.register("input", input_root, writable=False, kind="dataset")
-    roots.register("engine", BACKTRADER_ROOT, writable=False, kind="engine")
+    roots.register("engine", engine_root, writable=False, kind="engine")
     engine = inspect_engine(roots, "engine")
     sessions = SessionStore(state)
     session_id = f"session-{mode}"
@@ -209,7 +264,7 @@ def _execute_matrix_mode(
             "dataset_hash": dataset["manifest_hash"],
             "engine_hash": engine["engine_hash"],
             "engine_root_id": "engine",
-            "environment_hash": "test-environment",
+            "environment_hash": environment_hash or inspect_execution_environment()["environment_hash"],
         },
         approval="validator",
         session_id=session_id,
@@ -309,6 +364,16 @@ def _execute_matrix_mode(
         confirmed=True,
     )["token"]
     assert sessions.load(session_id)["state"] == "RUN_APPROVED"
+    if run_context is not None:
+        run_context.update(
+            {
+                "authority": authority,
+                "run_token": run_token,
+                "state": state,
+            }
+        )
+    if before_run is not None:
+        before_run()
     result = ControlledRunner(roots, state, authority).run(
         applied,
         dataset,
@@ -353,6 +418,7 @@ def _execute_matrix_mode(
     assert run_manifest["engine"]["root_id"] == "engine"
     assert run_manifest["engine"]["hash"] == engine["engine_hash"]
     assert run_manifest["engine"]["version"] == engine["version"]
+    assert run_manifest["engine"]["package_tree_sha256"] == engine["package_tree_sha256"]
     assert run_manifest["engine"]["import_relative_path"] == "backtrader/__init__.py"
     assert (state / "runs" / result["run_id"] / "report.md").is_file()
     assert all(set(item) == {"path", "role", "bytes", "sha256"} for item in result["artifacts"])
@@ -368,6 +434,85 @@ def _execute_matrix_mode(
     )
     assert repeated == result
     return result, dataset, run_manifest, sources[0]
+
+
+def test_run_rejects_environment_change_before_token_consumption(tmp_path: Path) -> None:
+    context: Dict[str, Any] = {}
+
+    with pytest.raises(AgentError, match="BTAG-ENVIRONMENT-HASH"):
+        _execute_matrix_mode(
+            tmp_path,
+            "python_bundle",
+            "single_data_indicator",
+            "runonce",
+            environment_hash="e" * 64,
+            run_context=context,
+        )
+
+    context["authority"].require_issued(context["run_token"])
+    assert not list((context["state"] / "runs").rglob("run-result.json"))
+
+
+def test_run_rejects_engine_tree_mutation_before_token_consumption(tmp_path: Path) -> None:
+    engine_root = tmp_path / "engine"
+    shutil.copytree(BACKTRADER_ROOT / "backtrader", engine_root / "backtrader")
+    context: Dict[str, Any] = {}
+
+    def mutate_engine() -> None:
+        target = engine_root / "backtrader" / "cerebro.py"
+        target.write_text(target.read_text(encoding="utf-8") + "\n# test mutation\n", encoding="utf-8")
+
+    with pytest.raises(AgentError, match="BTAG-ENGINE-HASH"):
+        _execute_matrix_mode(
+            tmp_path / "run",
+            "python_bundle",
+            "single_data_indicator",
+            "runonce",
+            engine_root=engine_root,
+            before_run=mutate_engine,
+            run_context=context,
+        )
+
+    context["authority"].require_issued(context["run_token"])
+    assert not list((context["state"] / "runs").rglob("run-result.json"))
+
+
+def test_run_preflight_rejects_missing_profile_dependency_before_token_consumption(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context: Dict[str, Any] = {}
+    original_find_spec = importlib.util.find_spec
+    monkeypatch.setattr(
+        importlib.util,
+        "find_spec",
+        lambda name: None if name == "pandas" else original_find_spec(name),
+    )
+
+    with pytest.raises(AgentError, match="BTAG-RUN-DEPENDENCY") as failure:
+        _execute_matrix_mode(
+            tmp_path,
+            "python_bundle",
+            "single_data_indicator",
+            "runonce",
+            run_context=context,
+        )
+
+    assert failure.value.details == {"profile": "python_bundle", "missing": ["pandas"]}
+    context["authority"].require_issued(context["run_token"])
+    assert not list((context["state"] / "runs").rglob("run-result.json"))
+
+
+def test_doctor_distinguishes_execution_readiness(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    without_engine = diagnose(state_root=state)
+    assert without_engine["execution_ready"] is False
+    assert without_engine["execution_profiles"]["python_bundle"]["ready"] is True
+
+    roots = RootRegistry(state)
+    roots.register("engine", BACKTRADER_ROOT, writable=False, kind="engine")
+    with_engine = diagnose(state_root=state)
+    assert with_engine["execution_ready"] is True
+    assert with_engine["engines"][0]["source"]["status"] == "verified"
 
 
 @pytest.mark.parametrize("archetype", sorted(ARCHETYPES))
@@ -487,6 +632,7 @@ def test_executable_validation_requires_signed_product_provenance(tmp_path: Path
     bindings = {
         "dataset_hash": dataset["manifest_hash"],
         "engine_hash": "e" * 64,
+        "engine_root_id": "engine",
         "environment_hash": "test-environment",
     }
     assert (

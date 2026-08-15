@@ -30,7 +30,15 @@ PKG_MANIFEST = PACKAGE_ROOT / "resources" / "distribution-manifest.json"
 # Exclusion rules must match the consumers exactly:
 # - root manifest: tests/test_distribution_contracts.py::test_source_distribution_manifest_covers_every_file
 # - package manifest: src/backtrader_agent/audit.py (distribution_manifest check)
-ROOT_EXCLUDED_PARTS: Set[str] = {"__pycache__", ".pytest_cache", "dist", "build", ".git"}
+ROOT_EXCLUDED_PARTS: Set[str] = {
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "dist",
+    "build",
+    ".git",
+}
 PKG_EXCLUDED_PARTS: Set[str] = {"__pycache__"}
 VERSION_RE = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
 

@@ -6,6 +6,26 @@ described in [README.md](README.md) and [SECURITY.md](SECURITY.md).
 
 ## [Unreleased]
 
+### Security
+
+- Executable validation now derives its engine and interpreter evidence from a
+  registered read-only engine root. Caller-supplied engine/environment hashes
+  are no longer accepted, and every run rechecks the engine package tree,
+  execution environment, and profile dependencies before consuming its run
+  approval.
+
+### Changed
+
+- Controlled execution extras now use the direct
+  `cloudQuant/backtrader` Git dependency. Added `backtrader check|ensure`,
+  source-aware doctor output, missing-only bootstrap, and warnings for an
+  existing Backtrader installation that is not verifiably from that repository.
+- Packaging now declares MIT consistently with `LICENSE`, exposes explicit
+  `backtest`, `single-test`, and `test` extras, and CI verifies Python
+  3.8/3.9/3.11/3.12 from that install contract. The full acceptance matrix runs
+  once on Python 3.12 after the matrix succeeds.
+- The example walkthrough creates its session before registering data.
+
 ### Fixed
 
 - Distribution manifests were stale: the root `manifest.json` omitted

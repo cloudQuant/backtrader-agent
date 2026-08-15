@@ -4,9 +4,10 @@ import json
 import os
 import re
 import time
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from .canonical import (
     atomic_write_bytes,
@@ -16,6 +17,11 @@ from .canonical import (
     read_json,
 )
 from .errors import AgentError
+from .locking import (
+    LOCK_RETRY_SECONDS as DEFAULT_LOCK_RETRY_SECONDS,
+    LOCK_TIMEOUT_SECONDS as DEFAULT_LOCK_TIMEOUT_SECONDS,
+    exclusive_file_lock,
+)
 
 SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,79}$")
 TERMINAL = {"COMPLETED", "CANCELLED", "ARCHIVED"}
@@ -48,6 +54,9 @@ def _now() -> str:
 
 
 class SessionStore:
+    LOCK_RETRY_SECONDS = DEFAULT_LOCK_RETRY_SECONDS
+    LOCK_TIMEOUT_SECONDS = DEFAULT_LOCK_TIMEOUT_SECONDS
+
     def __init__(self, state_root: Path) -> None:
         self.state_root = Path(state_root)
         self.sessions_root = self.state_root / "sessions"
@@ -63,7 +72,28 @@ class SessionStore:
     def _journal_path(self, session_id: str) -> Path:
         return self._directory(session_id) / "journal.jsonl"
 
+    def _lock_path(self, session_id: str) -> Path:
+        self._directory(session_id)
+        return self.state_root / "session-locks" / f"{session_id}.lock"
+
+    @contextmanager
+    def _locked(self, session_id: str) -> Iterator[None]:
+        with exclusive_file_lock(
+            self._lock_path(session_id),
+            error_code="BTAG-SESSION-LOCK",
+            subject="session",
+            retry_seconds=self.LOCK_RETRY_SECONDS,
+            timeout_seconds=self.LOCK_TIMEOUT_SECONDS,
+        ):
+            yield
+
     def create(self, session_id: str, *, parent_session_id: Optional[str] = None) -> Dict[str, Any]:
+        with self._locked(session_id):
+            return self._create_unlocked(session_id, parent_session_id=parent_session_id)
+
+    def _create_unlocked(
+        self, session_id: str, *, parent_session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         directory = self._directory(session_id)
         manifest_path = directory / "manifest.json"
         if manifest_path.exists():
@@ -73,7 +103,7 @@ class SessionStore:
             raise AgentError("BTAG-SESSION-CONFLICT", "session path contains another session")
         directory.mkdir(parents=True, exist_ok=True)
         journal = directory / "journal.jsonl"
-        atomic_write_bytes(journal, b"", create_only=True)
+        self._ensure_empty_bootstrap_journal(journal)
         manifest: Dict[str, Any] = {
             "schema_version": "agent-session-manifest-v1",
             "session_id": session_id,
@@ -96,7 +126,52 @@ class SessionStore:
         atomic_write_json(manifest_path, manifest, create_only=True)
         return manifest
 
+    @staticmethod
+    def _ensure_empty_bootstrap_journal(journal: Path) -> None:
+        """Create or safely reuse the empty journal left before manifest publication.
+
+        A crash after the journal fsync but before the manifest create-only publish leaves
+        exactly one recoverable bootstrap state: a regular empty journal. Any other
+        leftover cannot be proven to represent a NEW session and must remain untouched.
+        """
+
+        def verify_existing() -> None:
+            try:
+                if journal.is_symlink() or not journal.is_file() or journal.read_bytes() != b"":
+                    raise AgentError(
+                        "BTAG-SESSION-BOOTSTRAP",
+                        "session bootstrap journal is not a safe empty regular file",
+                    )
+            except AgentError:
+                raise
+            except OSError as exc:
+                raise AgentError(
+                    "BTAG-SESSION-BOOTSTRAP",
+                    "session bootstrap journal could not be verified",
+                ) from exc
+
+        try:
+            existing = journal.exists() or journal.is_symlink()
+        except OSError as exc:
+            raise AgentError(
+                "BTAG-SESSION-BOOTSTRAP",
+                "session bootstrap journal could not be inspected",
+            ) from exc
+        if existing:
+            verify_existing()
+            return
+        try:
+            atomic_write_bytes(journal, b"", create_only=True)
+        except AgentError as exc:
+            if exc.code != "BTAG-WRITE-EXISTS":
+                raise
+            verify_existing()
+
     def load(self, session_id: str) -> Dict[str, Any]:
+        with self._locked(session_id):
+            return self._load_unlocked(session_id)
+
+    def _load_unlocked(self, session_id: str) -> Dict[str, Any]:
         path = self._manifest_path(session_id)
         if not path.exists():
             raise AgentError("BTAG-SESSION-UNKNOWN", "session does not exist")
@@ -130,7 +205,29 @@ class SessionStore:
         approval_token_id: Optional[str] = None,
         effect_references: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
-        manifest = self.load(session_id)
+        with self._locked(session_id):
+            return self._transition_unlocked(
+                session_id,
+                to_state,
+                action_type,
+                input_hashes,
+                idempotency_key=idempotency_key,
+                approval_token_id=approval_token_id,
+                effect_references=effect_references,
+            )
+
+    def _transition_unlocked(
+        self,
+        session_id: str,
+        to_state: str,
+        action_type: str,
+        input_hashes: Dict[str, str],
+        *,
+        idempotency_key: Optional[str] = None,
+        approval_token_id: Optional[str] = None,
+        effect_references: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
+        manifest = self._load_unlocked(session_id)
         from_state = manifest["state"]
         if to_state not in TRANSITIONS.get(from_state, set()):
             raise AgentError(
@@ -212,6 +309,10 @@ class SessionStore:
         return events, len(data)
 
     def recover(self, session_id: str) -> Dict[str, Any]:
+        with self._locked(session_id):
+            return self._recover_unlocked(session_id)
+
+    def _recover_unlocked(self, session_id: str) -> Dict[str, Any]:
         directory = self._directory(session_id)
         journal = directory / "journal.jsonl"
         if not journal.exists():
@@ -256,7 +357,7 @@ class SessionStore:
         )
         atomic_write_json(self._manifest_path(session_id), manifest)
         if state == "RUNNING":
-            manifest = self.transition(
+            manifest = self._transition_unlocked(
                 session_id,
                 "PAUSED",
                 "session-recover",
@@ -265,18 +366,20 @@ class SessionStore:
         return manifest
 
     def cancel(self, session_id: str) -> Dict[str, Any]:
-        manifest = self.load(session_id)
-        if manifest["state"] in TERMINAL:
-            raise AgentError("BTAG-STATE-TERMINAL", "terminal session cannot be cancelled")
-        return self.transition(session_id, "CANCELLED", "session-cancel", {})
+        with self._locked(session_id):
+            manifest = self._load_unlocked(session_id)
+            if manifest["state"] in TERMINAL:
+                raise AgentError("BTAG-STATE-TERMINAL", "terminal session cannot be cancelled")
+            return self._transition_unlocked(session_id, "CANCELLED", "session-cancel", {})
 
     def archive(self, session_id: str) -> Dict[str, Any]:
-        manifest = self.load(session_id)
-        if manifest["state"] not in {"COMPLETED", "CANCELLED"}:
-            raise AgentError(
-                "BTAG-STATE-ARCHIVE", "only completed or cancelled sessions may archive"
-            )
-        return self.transition(session_id, "ARCHIVED", "session-archive", {})
+        with self._locked(session_id):
+            manifest = self._load_unlocked(session_id)
+            if manifest["state"] not in {"COMPLETED", "CANCELLED"}:
+                raise AgentError(
+                    "BTAG-STATE-ARCHIVE", "only completed or cancelled sessions may archive"
+                )
+            return self._transition_unlocked(session_id, "ARCHIVED", "session-archive", {})
 
     def list(self) -> List[Dict[str, Any]]:
         """Return compact summaries of every session manifest on disk.
@@ -290,8 +393,8 @@ class SessionStore:
         summaries: List[Dict[str, Any]] = []
         for path in sorted(self.sessions_root.glob("*/manifest.json")):
             try:
-                manifest = read_json(path)
-            except (OSError, ValueError):
+                manifest = self.load(path.parent.name)
+            except AgentError:
                 continue
             summaries.append(
                 {

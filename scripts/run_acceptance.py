@@ -70,6 +70,8 @@ def _prepare_clean_install(
             "*.egg-info",
             "__pycache__",
             ".pytest_cache",
+            ".mypy_cache",
+            ".ruff_cache",
             "*.pyc",
         ),
     )

@@ -7,23 +7,25 @@ model, the content-addressed manifests, and the reproducible acceptance matrix.
 ## Development setup
 
 ```bash
-python -m pip install backtrader pandas jsonschema pytest setuptools wheel
+python -m pip install '.[test]'
 python -m pytest tests -q -p no:cacheprovider
 python scripts/audit_independence.py
 python scripts/doctor.py
 python scripts/run_acceptance.py
 ```
 
-The generated runner imports `pandas` at module load (the Pandas adapters and
-the canonical feed assembly path need it). `pip install backtrader` does not
-always pull pandas, so install it explicitly. The wheel-distribution test
-builds with `--no-build-isolation`, so `setuptools` and `wheel` must be present
-in the environment.
+The `test` extra is the contributor contract: it includes the controlled
+`cloudQuant/backtrader`/Pandas runtime, pytest, JSON Schema validation, and
+build tooling. If an already installed `backtrader` is not verifiably from that
+repository, `backtrader-agent backtrader check` reports a warning rather than
+silently replacing it.
+The wheel-distribution test builds with `--no-build-isolation`, so retain the
+declared build backend requirements when changing packaging metadata.
 
-The tests and acceptance matrix need a Backtrader engine root: a directory
-containing `backtrader/__init__.py` and `backtrader/version.py`. It is resolved
-automatically; set `BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT` explicitly if
-auto-resolution fails (see [README.md](README.md#verification)).
+The tests and acceptance matrix need a `cloudQuant/backtrader` engine root: a
+directory containing `backtrader/__init__.py` and `backtrader/version.py`. It
+is resolved automatically; set `BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT`
+explicitly if auto-resolution fails (see [README.md](README.md#verification)).
 
 ## Before opening a pull request
 

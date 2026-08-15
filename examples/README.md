@@ -16,10 +16,12 @@ own workspace and adjust paths; do not register files inside this repository.
 
 ## Walkthrough
 
-Assume a dedicated state root and a registered Backtrader engine root. The
-engine root is a directory containing `backtrader/__init__.py` and
+Assume a dedicated state root and a registered
+[`cloudQuant/backtrader`](https://github.com/cloudQuant/backtrader) engine root.
+The engine root is a directory containing `backtrader/__init__.py` and
 `backtrader/version.py` (a source checkout, or the installed `site-packages`
-directory). `backtrader-agent doctor --json` reports registered engine roots.
+directory). `backtrader-agent backtrader check` verifies the current interpreter
+and `backtrader-agent doctor --json` reports registered engine roots.
 
 ```bash
 STATE=/path/to/workspace/.backtrader-agent
@@ -27,20 +29,23 @@ EXAMPLES=/path/to/backtrader-agent/examples
 
 # 1. Register the engine and the directory holding prices.csv as opaque roots.
 backtrader-agent --state-root "$STATE" roots register \
-  --id engine --kind engine --path /path/to/backtrader-source
+  --id engine --kind engine --path /path/to/cloudquant-backtrader
 backtrader-agent --state-root "$STATE" roots register \
   --id input --kind dataset --path "$EXAMPLES"
 
-# 2. Inspect and register the offline data; capture dataset_id.
+# 2. Create the session before any command refers to session-001.
+backtrader-agent --state-root "$STATE" session create --session-id session-001
+
+# 3. Inspect and register the offline data; capture dataset_id.
 backtrader-agent --state-root "$STATE" data inspect --spec "$EXAMPLES/data-spec.json"
 backtrader-agent --state-root "$STATE" data register \
   --session-id session-001 --spec "$EXAMPLES/data-spec.json"
 
-# 3. Put the returned dataset_id into strategy-spec.json, then approve the spec.
+# 4. Put the returned dataset_id into strategy-spec.json, then approve the spec.
 backtrader-agent --state-root "$STATE" spec \
   --session-id session-001 --approve --file strategy-spec.json
 
-# 4. Render, validate, prepare, approve, apply, approve, run.
+# 5. Render, validate, prepare, approve, apply, approve, run.
 backtrader-agent --state-root "$STATE" draft \
   --session-id session-001 --spec strategy-spec.json \
   --dataset-manifest <dataset-manifest-from-step-2>

@@ -91,7 +91,13 @@ def atomic_write_bytes(path: Path, data: bytes, *, create_only: bool = False) ->
             os.fsync(handle.fileno())
         if create_only and path.exists():
             raise AgentError("BTAG-WRITE-EXISTS", "create-only target already exists")
-        os.replace(str(temporary), str(path))
+        if create_only:
+            try:
+                os.link(str(temporary), str(path))
+            except FileExistsError as exc:
+                raise AgentError("BTAG-WRITE-EXISTS", "create-only target already exists") from exc
+        else:
+            os.replace(str(temporary), str(path))
         try:
             directory_fd = os.open(str(path.parent), os.O_RDONLY)
         except OSError:
@@ -108,6 +114,77 @@ def atomic_write_bytes(path: Path, data: bytes, *, create_only: bool = False) ->
 
 def atomic_write_json(path: Path, value: Dict[str, Any], *, create_only: bool = False) -> None:
     atomic_write_bytes(path, canonical_json_bytes(value) + b"\n", create_only=create_only)
+
+
+def _verify_exact_existing(
+    path: Path,
+    data: bytes,
+    *,
+    conflict_code: str,
+    conflict_message: str,
+) -> None:
+    try:
+        if path.is_symlink() or not path.is_file() or path.read_bytes() != data:
+            raise AgentError(conflict_code, conflict_message)
+    except AgentError:
+        raise
+    except OSError as exc:
+        raise AgentError(conflict_code, conflict_message) from exc
+
+
+def create_or_verify_bytes(
+    path: Path,
+    data: bytes,
+    *,
+    conflict_code: str,
+    conflict_message: str,
+) -> bool:
+    """Create immutable bytes or verify a concurrent winner is byte-identical.
+
+    Returns ``True`` only when this caller published the new file. A same-content
+    concurrent winner is safe to replay and returns ``False``; any unsafe or
+    different existing target keeps the domain-specific conflict diagnostic.
+    """
+
+    destination = Path(path)
+    if destination.exists():
+        _verify_exact_existing(
+            destination,
+            data,
+            conflict_code=conflict_code,
+            conflict_message=conflict_message,
+        )
+        return False
+    try:
+        atomic_write_bytes(destination, data, create_only=True)
+    except AgentError as exc:
+        if exc.code != "BTAG-WRITE-EXISTS":
+            raise
+        _verify_exact_existing(
+            destination,
+            data,
+            conflict_code=conflict_code,
+            conflict_message=conflict_message,
+        )
+        return False
+    return True
+
+
+def create_or_verify_json(
+    path: Path,
+    value: Dict[str, Any],
+    *,
+    conflict_code: str,
+    conflict_message: str,
+) -> bool:
+    """Canonical-JSON wrapper for :func:`create_or_verify_bytes`."""
+
+    return create_or_verify_bytes(
+        path,
+        canonical_json_bytes(value) + b"\n",
+        conflict_code=conflict_code,
+        conflict_message=conflict_message,
+    )
 
 
 def content_hashes(files: Dict[str, bytes]) -> Dict[str, str]:

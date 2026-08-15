@@ -1,15 +1,47 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from backtrader_agent.canonical import hash_object
 from backtrader_agent.cli import build_parser, dispatch
 from backtrader_agent.contracts import StrategySpec
+from backtrader_agent.engines import inspect_execution_environment
 
-from helpers import data_spec, dump_json, strategy_spec, write_price_csv
+from helpers import (
+    data_spec,
+    dump_json,
+    resolve_acceptance_engine_root,
+    strategy_spec,
+    write_price_csv,
+)
 
 
 def _call(*arguments: str):
     return dispatch(build_parser().parse_args(list(arguments)))
+
+
+def test_validate_rejects_raw_engine_and_environment_hash_flags() -> None:
+    parser = build_parser()
+    arguments = [
+        "validate",
+        "--artifact-manifest",
+        "artifact.json",
+        "--draft-root",
+        "draft",
+        "--session-id",
+        "session-1",
+        "--dataset-hash",
+        "d" * 64,
+        "--engine-hash",
+        "untrusted-engine",
+        "--environment-hash",
+        "untrusted-environment",
+    ]
+
+    with pytest.raises(SystemExit) as failure:
+        parser.parse_args(arguments)
+    assert failure.value.code == 2
 
 
 def test_cli_data_to_run_workflow_is_hash_chained_and_completes(tmp_path: Path) -> None:
@@ -43,6 +75,17 @@ def test_cli_data_to_run_workflow_is_hash_chained_and_completes(tmp_path: Path) 
         str(inputs),
         "--kind",
         "dataset",
+    )
+    _call(
+        *common,
+        "roots",
+        "register",
+        "--id",
+        "engine",
+        "--path",
+        str(resolve_acceptance_engine_root(Path(__file__).resolve().parents[1])),
+        "--kind",
+        "engine",
     )
     _call(*common, "session", "create", "--session-id", "workflow-1")
 
@@ -95,10 +138,13 @@ def test_cli_data_to_run_workflow_is_hash_chained_and_completes(tmp_path: Path) 
         artifact["_draft_path"],
         "--dataset-hash",
         dataset["manifest_hash"],
-        "--engine-hash",
-        "local-engine",
-        "--environment-hash",
-        "test-environment",
+        "--engine-root-id",
+        "engine",
+    )
+    assert validation["validation_token"]["bindings"]["engine_root_id"] == "engine"
+    assert (
+        validation["validation_token"]["bindings"]["environment_hash"]
+        == inspect_execution_environment()["environment_hash"]
     )
     validation_token_path = dump_json(
         tmp_path / "validation-token.json", validation["validation_token"]

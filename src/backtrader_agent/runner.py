@@ -1,5 +1,7 @@
 """Fixed-profile child-process runner. Candidate modules are never host-imported."""
 
+import hmac
+import importlib.util
 import json
 import os
 import re
@@ -7,8 +9,10 @@ import subprocess
 import sys
 import tempfile
 import time
+import warnings
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from .canonical import (
     atomic_write_bytes,
@@ -17,9 +21,11 @@ from .canonical import (
     read_json,
     sha256_bytes,
 )
+from .backtrader_runtime import ensure_cloudquant_backtrader
 from .data import DatasetService
 from .errors import AgentError
-from .engines import inspect_engine
+from .engines import inspect_engine, inspect_execution_environment
+from .locking import exclusive_file_lock
 from .report import ReportRenderer, normalize_metrics
 from .roots import RootRegistry
 from .sessions import SessionStore
@@ -27,6 +33,18 @@ from .tokens import TokenAuthority
 
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$")
 RESULT_PREFIX = "BACKTRADER_AGENT_RESULT="
+RUN_ACTION_LOCK_GRACE_SECONDS = 60
+PROFILE_DEPENDENCIES = {
+    "python_bundle": ("backtrader", "pandas"),
+    "single_test": ("backtrader", "pandas", "pytest"),
+}
+
+
+def missing_profile_dependencies(profile: str) -> List[str]:
+    modules = PROFILE_DEPENDENCIES.get(profile)
+    if modules is None:
+        raise AgentError("BTAG-RUN-PROFILE", "controlled run profile is not allowlisted")
+    return [module for module in modules if importlib.util.find_spec(module) is None]
 
 
 def list_runs(state_root: Path) -> List[Dict[str, Any]]:
@@ -190,6 +208,19 @@ class ControlledRunner:
         if not IDEMPOTENCY_RE.fullmatch(key):
             raise AgentError("BTAG-IDEMPOTENCY-KEY", "idempotency key is malformed")
         return self.action_root / f"run-{sha256_bytes(key.encode('utf-8'))}.json"
+
+    def _action_lock_path(self, key: str) -> Path:
+        return self._action_path(key).with_suffix(".lock")
+
+    @contextmanager
+    def _locked_action(self, key: str, *, timeout_seconds: int) -> Iterator[None]:
+        with exclusive_file_lock(
+            self._action_lock_path(key),
+            error_code="BTAG-RUN-ACTION-LOCK",
+            subject="controlled run action",
+            timeout_seconds=float(timeout_seconds + RUN_ACTION_LOCK_GRACE_SECONDS),
+        ):
+            yield
 
     @staticmethod
     def _persist_exact_bytes(path: Path, content: bytes) -> None:
@@ -506,20 +537,23 @@ class ControlledRunner:
     def _resolve_engine(
         self,
         validation_token: Dict[str, Any],
-    ) -> Tuple[Optional[Path], Dict[str, Any]]:
+    ) -> Tuple[Path, Dict[str, Any]]:
         bindings = validation_token.get("bindings", {})
         root_id = bindings.get("engine_root_id")
-        if root_id is None:
-            return None, {
-                "hash": bindings.get("engine_hash"),
-                "kind": "active-python-environment",
-            }
+        if not isinstance(root_id, str) or not root_id:
+            raise AgentError(
+                "BTAG-ENGINE-BINDING",
+                "validation token must bind a registered Backtrader engine root",
+            )
         descriptor = inspect_engine(self.roots, str(root_id))
         if descriptor["engine_hash"] != bindings.get("engine_hash"):
             raise AgentError(
                 "BTAG-ENGINE-HASH",
                 "registered Backtrader engine changed after validation",
             )
+        source_warning = descriptor.get("source", {}).get("warning")
+        if isinstance(source_warning, str) and source_warning:
+            warnings.warn(source_warning, RuntimeWarning, stacklevel=2)
         record = self.roots.get_record(str(root_id))
         root = Path(record["path"]).resolve(strict=True)
         probe = subprocess.run(
@@ -560,10 +594,64 @@ class ControlledRunner:
             "root_id": descriptor["root_id"],
             "version": descriptor["version"],
             "version_file_sha256": descriptor["version_file_sha256"],
+            "package_tree_sha256": descriptor["package_tree_sha256"],
             "import_relative_path": relative_import,
         }
 
+    @staticmethod
+    def _verify_execution_environment(validation_token: Dict[str, Any]) -> Dict[str, Any]:
+        expected = validation_token.get("bindings", {}).get("environment_hash")
+        descriptor = inspect_execution_environment()
+        if not isinstance(expected, str) or not hmac.compare_digest(
+            descriptor["environment_hash"], expected
+        ):
+            raise AgentError(
+                "BTAG-ENVIRONMENT-HASH",
+                "Python execution environment changed after validation",
+            )
+        return descriptor
+
+    @staticmethod
+    def _require_profile_dependencies(profile: str) -> None:
+        if profile not in PROFILE_DEPENDENCIES:
+            raise AgentError("BTAG-RUN-PROFILE", "controlled run profile is not allowlisted")
+        backtrader_runtime = ensure_cloudquant_backtrader()
+        warning = backtrader_runtime.get("warning")
+        if isinstance(warning, str) and warning:
+            warnings.warn(warning, RuntimeWarning, stacklevel=2)
+        missing = missing_profile_dependencies(profile)
+        if missing:
+            raise AgentError(
+                "BTAG-RUN-DEPENDENCY",
+                "controlled run profile dependencies are unavailable",
+                details={"profile": profile, "missing": missing},
+            )
+
     def run(
+        self,
+        applied: Dict[str, Any],
+        dataset: Dict[str, Any],
+        validation_token: Dict[str, Any],
+        run_token: Dict[str, Any],
+        *,
+        mode: str,
+        idempotency_key: str,
+        timeout_seconds: int = 120,
+    ) -> Dict[str, Any]:
+        if timeout_seconds < 1 or timeout_seconds > 600:
+            raise AgentError("BTAG-RUN-TIMEOUT", "timeout must be between 1 and 600 seconds")
+        with self._locked_action(idempotency_key, timeout_seconds=timeout_seconds):
+            return self._run_locked(
+                applied,
+                dataset,
+                validation_token,
+                run_token,
+                mode=mode,
+                idempotency_key=idempotency_key,
+                timeout_seconds=timeout_seconds,
+            )
+
+    def _run_locked(
         self,
         applied: Dict[str, Any],
         dataset: Dict[str, Any],
@@ -638,20 +726,15 @@ class ControlledRunner:
         run_id = f"run-{subject[:20]}"
         run_root = self.state_root / "runs" / run_id
         engine_root, engine_descriptor = self._resolve_engine(validation_token)
+        environment = self._verify_execution_environment(validation_token)
+        self._require_profile_dependencies(str(applied.get("profile")))
         run_manifest: Dict[str, Any] = {
             "schema_version": "run-manifest-v1",
             "run_id": run_id,
             "artifact_hash": applied["artifact_hash"],
             "dataset_id": dataset["dataset_id"],
             "engine": engine_descriptor,
-            "environment_hash": (
-                validation_token["bindings"].get("environment_hash")
-                if re.fullmatch(
-                    r"[0-9a-f]{64}",
-                    str(validation_token["bindings"].get("environment_hash", "")),
-                )
-                else hash_object(validation_token["bindings"].get("environment_hash"))
-            ),
+            "environment_hash": environment["environment_hash"],
             "run_profile": {
                 "name": "controlled-runner-v1",
                 "output_profile": applied["profile"],

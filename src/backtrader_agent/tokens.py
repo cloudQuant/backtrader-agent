@@ -1,7 +1,6 @@
 """Short-lived, locally signed, hash-bound capability tokens."""
 
 import hmac
-import os
 import re
 import secrets
 import time
@@ -13,10 +12,12 @@ from .canonical import (
     atomic_write_bytes,
     atomic_write_json,
     canonical_json_bytes,
+    create_or_verify_json,
     hash_object,
     read_json,
 )
 from .errors import AgentError
+from .locking import exclusive_file_lock
 
 TOKEN_KINDS = {"validation", "change", "run"}
 ACTION_TOKEN_KINDS = {"change", "run"}
@@ -26,6 +27,7 @@ REQUIRED_BINDINGS = {
         "dataset_hash",
         "dataset_id",
         "engine_hash",
+        "engine_root_id",
         "environment_hash",
         "session_id",
         "spec_hash",
@@ -77,17 +79,26 @@ class TokenAuthority:
         self.approval_root = self.state_root / "approvals"
 
     def _secret(self) -> bytes:
-        if not self.secret_path.exists():
-            secret = secrets.token_bytes(32)
-            atomic_write_bytes(self.secret_path, secret, create_only=True)
-            try:
-                self.secret_path.chmod(0o600)
-            except OSError:
-                pass
-        secret = self.secret_path.read_bytes()
-        if len(secret) != 32:
-            raise AgentError("BTAG-TOKEN-SECRET", "local token secret has invalid length")
-        return secret
+        with exclusive_file_lock(
+            self.state_root / "token-secret.lock",
+            error_code="BTAG-TOKEN-LOCK",
+            subject="token secret",
+        ):
+            if not self.secret_path.exists():
+                secret = secrets.token_bytes(32)
+                try:
+                    atomic_write_bytes(self.secret_path, secret, create_only=True)
+                except AgentError as exc:
+                    if exc.code != "BTAG-WRITE-EXISTS" or not self.secret_path.exists():
+                        raise
+                try:
+                    self.secret_path.chmod(0o600)
+                except OSError:
+                    pass
+            secret = self.secret_path.read_bytes()
+            if len(secret) != 32:
+                raise AgentError("BTAG-TOKEN-SECRET", "local token secret has invalid length")
+            return secret
 
     def _signature(self, payload: Dict[str, Any]) -> str:
         return hmac.new(self._secret(), canonical_json_bytes(payload), "sha256").hexdigest()
@@ -146,14 +157,12 @@ class TokenAuthority:
             "signature": self.sign_product_record(portable),
         }
         path = self._bound_record_path(kind, session_id, subject_hash)
-        if path.exists():
-            if path.is_symlink() or not path.is_file() or read_json(path) != record:
-                raise AgentError(
-                    "BTAG-RECORD-CONFLICT",
-                    "bound product record conflicts with immutable product state",
-                )
-        else:
-            atomic_write_json(path, record, create_only=True)
+        create_or_verify_json(
+            path,
+            record,
+            conflict_code="BTAG-RECORD-CONFLICT",
+            conflict_message="bound product record conflicts with immutable product state",
+        )
         return portable
 
     def load_bound_record(
@@ -310,25 +319,12 @@ class TokenAuthority:
         if not APPROVAL_REQUEST_RE.fullmatch(request_id):
             raise AgentError("BTAG-APPROVAL-ID", "approval request ID is malformed")
         lock_path = self.approval_root / f"{request_id}.lock"
-        lock_path.parent.mkdir(parents=True, exist_ok=True)
-        try:
-            descriptor = os.open(
-                str(lock_path),
-                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
-                0o600,
-            )
-        except FileExistsError as exc:
-            raise AgentError(
-                "BTAG-APPROVAL-BUSY", "approval request is already being updated"
-            ) from exc
-        try:
-            os.close(descriptor)
+        with exclusive_file_lock(
+            lock_path,
+            error_code="BTAG-APPROVAL-LOCK",
+            subject="approval",
+        ):
             yield
-        finally:
-            try:
-                lock_path.unlink()
-            except FileNotFoundError:
-                pass
 
     def _approval_path(self, request_id: str) -> Path:
         if not APPROVAL_REQUEST_RE.fullmatch(request_id):

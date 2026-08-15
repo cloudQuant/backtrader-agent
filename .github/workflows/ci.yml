@@ -5,6 +5,9 @@ on:
     branches: [master]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
@@ -12,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.11", "3.12"]
+        python-version: ["3.8", "3.9", "3.11", "3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -25,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install backtrader pandas jsonschema pytest setuptools wheel
+          python -m pip install '.[test]'
 
       - name: Resolve Backtrader engine root
         run: |
@@ -44,6 +47,28 @@ jobs:
         run: |
           python scripts/build_manifest.py
           git diff --exit-code -- manifest.json src/backtrader_agent/resources/distribution-manifest.json
+
+  acceptance:
+    name: Acceptance (Python 3.12)
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install declared test profile
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install '.[test]'
+
+      - name: Resolve Backtrader engine root
+        run: |
+          echo "BACKTRADER_AGENT_ACCEPTANCE_ENGINE_ROOT=$(python -c 'import backtrader, pathlib; print(pathlib.Path(backtrader.__file__).resolve().parent.parent)')" >> "$GITHUB_ENV"
 
       - name: Acceptance matrix
         run: python scripts/run_acceptance.py

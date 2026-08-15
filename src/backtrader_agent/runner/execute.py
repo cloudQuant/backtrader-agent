@@ -51,6 +51,16 @@ def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int, ctime_ns: int) ->
 class ControlledRunner:
     MAX_OUTPUT_BYTES = 1024 * 1024
 
+    # Failure codes that admit a same-effect retry (R14). Enumerated from the
+    # actual runner error paths: the wall-clock timeout is the only
+    # environment-class failure the runner can observe. OS resource-limit kills
+    # (RLIMIT_CPU/RLIMIT_FSIZE in profiles._resource_limits) surface as a
+    # nonzero exit and are reported as BTAG-RUN-FAILED, which stays
+    # non-transient: the same effect would hit the same limit again, so repair
+    # (a different strategy) is the honest path. Output/result/metric codes are
+    # deterministic child-output failures and are likewise non-transient.
+    TRANSIENT_FAILURE_CODES = frozenset({"BTAG-RUN-TIMEOUT"})
+
     def __init__(
         self, roots: RootRegistry, state_root: Path, authority: TokenAuthority
     ) -> None:
@@ -78,6 +88,26 @@ class ControlledRunner:
                 "profile": "controlled-runner-v1",
             }
         )
+
+    @classmethod
+    def _retry_of_reference(
+        cls, session: Dict[str, Any], *, subject: str, run_id: str
+    ) -> Optional[str]:
+        """Return the failed run id when this run retries its transient failure.
+
+        Detection is artifacts-only so the same manifest (and therefore the
+        same ``retry_of``) is rebuilt on every idempotent replay of the retry,
+        regardless of how far the session has since progressed.
+        """
+
+        artifacts = session.get("artifacts") or {}
+        if (
+            session.get("retry_eligible") is True
+            and artifacts.get("run_failure_code") in cls.TRANSIENT_FAILURE_CODES
+            and artifacts.get("run_subject_hash") == subject
+        ):
+            return str(artifacts.get("run_id") or run_id)
+        return None
 
     def _verify_applied(self, applied: Dict[str, Any]) -> None:
         payload = {
@@ -520,6 +550,10 @@ class ControlledRunner:
         engine_root, engine_descriptor = self._resolve_engine(validation_token)
         environment = self._verify_execution_environment(validation_token)
         self._require_profile_dependencies(str(applied.get("profile")))
+        sessions = SessionStore(self.state_root)
+        retry_of = self._retry_of_reference(
+            sessions.load(applied["session_id"]), subject=subject, run_id=run_id
+        )
         run_manifest: Dict[str, Any] = {
             "schema_version": "run-manifest-v1",
             "run_id": run_id,
@@ -544,8 +578,9 @@ class ControlledRunner:
                 }
             },
         }
+        if retry_of is not None:
+            run_manifest["retry_of"] = retry_of
         run_manifest["manifest_hash"] = hash_object(run_manifest)
-        sessions = SessionStore(self.state_root)
         if action_path.exists():
             recorded = read_json(action_path)
             if recorded.get("request_hash") != request_hash:
@@ -648,7 +683,11 @@ class ControlledRunner:
                     {"diagnostic": hash_object({"code": code, "subject": subject})},
                     idempotency_key=idempotency_key,
                     approval_token_id=run_token["token_id"],
-                    effect_references={"run_failure_code": code},
+                    effect_references={
+                        "run_failure_code": code,
+                        "run_id": run_id,
+                    },
+                    retry_eligible=code in self.TRANSIENT_FAILURE_CODES,
                 )
 
         started = time.monotonic()

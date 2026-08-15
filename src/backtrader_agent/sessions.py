@@ -37,7 +37,7 @@ TRANSITIONS = {
     "APPLIED": {"RUN_APPROVED", "NEEDS_REVALIDATION", "CANCELLED"},
     "RUN_APPROVED": {"RUNNING", "NEEDS_REVALIDATION", "CANCELLED"},
     "RUNNING": {"PASSED", "FAILED", "PAUSED"},
-    "FAILED": {"REPAIRING", "CANCELLED"},
+    "FAILED": {"REPAIRING", "CANCELLED", "RUN_APPROVED"},
     "REPAIRING": {"DRAFT_READY", "CANCELLED"},
     "PASSED": {"REPORTED", "CANCELLED"},
     "REPORTED": {"COMPLETED", "CANCELLED"},
@@ -204,6 +204,7 @@ class SessionStore:
         idempotency_key: Optional[str] = None,
         approval_token_id: Optional[str] = None,
         effect_references: Optional[Dict[str, str]] = None,
+        retry_eligible: Optional[bool] = None,
     ) -> Dict[str, Any]:
         with self._locked(session_id):
             return self._transition_unlocked(
@@ -214,6 +215,7 @@ class SessionStore:
                 idempotency_key=idempotency_key,
                 approval_token_id=approval_token_id,
                 effect_references=effect_references,
+                retry_eligible=retry_eligible,
             )
 
     def _transition_unlocked(
@@ -226,6 +228,7 @@ class SessionStore:
         idempotency_key: Optional[str] = None,
         approval_token_id: Optional[str] = None,
         effect_references: Optional[Dict[str, str]] = None,
+        retry_eligible: Optional[bool] = None,
     ) -> Dict[str, Any]:
         manifest = self._load_unlocked(session_id)
         from_state = manifest["state"]
@@ -237,6 +240,8 @@ class SessionStore:
             )
         normalized_inputs = {str(key): str(value) for key, value in input_hashes.items()}
         effects = {str(key): str(value) for key, value in (effect_references or {}).items()}
+        if from_state == "FAILED" and to_state == "RUN_APPROVED":
+            self._guard_retry_transition(manifest, normalized_inputs, effects)
         sequence = int(manifest["last_sequence"]) + 1
         event: Dict[str, Any] = {
             "schema_version": "agent-event-v1",
@@ -254,6 +259,8 @@ class SessionStore:
             "status": "committed",
             "timestamp": _now(),
         }
+        if to_state == "FAILED":
+            event["retry_eligible"] = bool(retry_eligible)
         event["event_hash"] = hash_object(event)
         self._append(session_id, event)
         manifest["state"] = to_state
@@ -262,6 +269,8 @@ class SessionStore:
         manifest["last_event_hash"] = event["event_hash"]
         manifest["allowed_next_actions"] = sorted(TRANSITIONS[to_state])
         manifest["artifacts"].update(effects)
+        if to_state == "FAILED":
+            manifest["retry_eligible"] = bool(retry_eligible)
         if approval_token_id and to_state == "APPLIED":
             manifest["approvals"]["apply"] = approval_token_id
         if approval_token_id and to_state == "RUN_APPROVED":
@@ -271,6 +280,36 @@ class SessionStore:
         )
         atomic_write_json(self._manifest_path(session_id), manifest)
         return manifest
+
+    @staticmethod
+    def _guard_retry_transition(
+        manifest: Dict[str, Any],
+        normalized_inputs: Dict[str, str],
+        effects: Dict[str, str],
+    ) -> None:
+        """Gate ``FAILED → RUN_APPROVED``: transient failure plus the same subject.
+
+        The retry flag is written by the controlled runner only for whitelisted
+        transient failure codes, and the new approval must carry the run
+        subject hash of the failed effect. Anything else must repair.
+        """
+
+        if not manifest.get("retry_eligible"):
+            raise AgentError(
+                "BTAG-STATE-TRANSITION",
+                "retry requires a transient run failure of the same approved effect",
+                details={"from": "FAILED", "to": "RUN_APPROVED"},
+            )
+        failed_subject = (manifest.get("artifacts") or {}).get("run_subject_hash")
+        retry_subject = normalized_inputs.get("run_subject") or effects.get(
+            "run_subject_hash"
+        )
+        if not failed_subject or retry_subject != failed_subject:
+            raise AgentError(
+                "BTAG-STATE-TRANSITION",
+                "retry run subject does not match the failed approved effect",
+                details={"from": "FAILED", "to": "RUN_APPROVED"},
+            )
 
     def _parse_valid_prefix(self, session_id: str, data: bytes) -> Tuple[List[Dict[str, Any]], int]:
         events: List[Dict[str, Any]] = []
@@ -329,8 +368,11 @@ class SessionStore:
         last_hash = events[-1]["event_hash"] if events else "0" * 64
         artifacts: Dict[str, str] = {}
         approvals = {"apply": None, "execute": None}
+        retry_eligible: Optional[bool] = None
         for event in events:
             artifacts.update(event.get("effect_references", {}))
+            if event.get("to_state") == "FAILED":
+                retry_eligible = bool(event.get("retry_eligible", False))
             token_id = event.get("approval_token_id")
             if token_id and event.get("to_state") == "APPLIED":
                 approvals["apply"] = token_id
@@ -352,6 +394,8 @@ class SessionStore:
             "approvals": approvals,
             "diagnostics": previous.get("diagnostics", []),
         }
+        if retry_eligible is not None:
+            manifest["retry_eligible"] = retry_eligible
         manifest["checkpoint_hash"] = hash_object(
             {key: value for key, value in manifest.items() if key != "checkpoint_hash"}
         )

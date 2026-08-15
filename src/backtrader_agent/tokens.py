@@ -256,13 +256,19 @@ class TokenAuthority:
         session_id = bindings["session_id"]
         session = SessionStore(self.state_root).load(session_id)
         expected_state = APPROVAL_SESSION_STATES[kind]
-        if session.get("state") != expected_state:
+        state = session.get("state")
+        retrying_run = (
+            kind == "run"
+            and state == "FAILED"
+            and session.get("retry_eligible") is True
+        )
+        if state != expected_state and not retrying_run:
             raise AgentError(
                 "BTAG-APPROVAL-SESSION",
                 "session is not ready for this approval",
                 details={
                     "expected_state": expected_state,
-                    "state": session.get("state"),
+                    "state": state,
                 },
             )
         artifacts = session.get("artifacts", {})

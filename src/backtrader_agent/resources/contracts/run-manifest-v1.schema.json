@@ -17,6 +17,7 @@
   "properties": {
     "schema_version": {"const": "run-manifest-v1"},
     "run_id": {"type": "string", "minLength": 1},
+    "retry_of": {"type": "string", "minLength": 1},
     "artifact_hash": {"$ref": "#/$defs/Hash"},
     "dataset_id": {"type": "string", "pattern": "^ds_[0-9a-f]{64}$"},
     "engine": {"type": "object", "minProperties": 1},

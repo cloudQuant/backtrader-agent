@@ -161,11 +161,16 @@ def schema(ctx: GradeContext, expected: Any) -> GradeResult:
         return _fail("schema expectation must be an inline object or a file path")
     try:
         from jsonschema import Draft202012Validator
+        from jsonschema.exceptions import SchemaError, ValidationError
 
-        Draft202012Validator(expected).validate(ctx.parsed)
+        validator = Draft202012Validator(expected)
+        validator.check_schema(expected)
+        validator.validate(ctx.parsed)
     except ImportError:
-        return _fail("jsonschema is not installed")
-    except ValueError as exc:
+        return _fail("jsonschema is not installed (>=4.18 required)")
+    except SchemaError as exc:
+        return _fail("schema is invalid: {}".format(exc))
+    except ValidationError as exc:
         return _fail("schema validation failed: {}".format(exc))
     return _ok("stdout validates against the schema")
 
@@ -221,7 +226,12 @@ def file_exists(ctx: GradeContext, expected: Any) -> GradeResult:
     if isinstance(expected, str):
         path_value, wanted = expected, True
     elif isinstance(expected, dict) and set(expected) == {"path", "exists"}:
-        path_value, wanted = expected["path"], bool(expected["exists"])
+        exists_value = expected["exists"]
+        if not isinstance(exists_value, bool):
+            return _fail(
+                "file_exists 'exists' must be a boolean, got {!r}".format(exists_value)
+            )
+        path_value, wanted = expected["path"], exists_value
     else:
         return _fail(
             "file_exists expectation must be a path string or "

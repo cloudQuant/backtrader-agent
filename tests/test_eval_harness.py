@@ -1,4 +1,7 @@
 import json
+import subprocess
+
+import pytest
 
 # Imported as ``evals`` (rather than ``tests.evals``) because pytest puts the
 # tests/ directory itself on sys.path, and a site-packages package named
@@ -123,6 +126,84 @@ def test_file_exists_grader_negative(tmp_path):
     passed, detail = GRADERS["file_exists"](ctx, "absent.txt")
     assert passed is False
     assert "exists=False" in detail
+
+
+def test_file_exists_rejects_non_bool_exists(tmp_path):
+    ctx = _context(tmp_path, parsed={"status": "ok"})
+    passed, detail = GRADERS["file_exists"](
+        ctx, {"path": "absent.txt", "exists": "false"}
+    )
+    assert passed is False
+    assert "'exists' must be a boolean" in detail
+
+
+def test_schema_grader_validates_and_rejects(tmp_path):
+    pytest.importorskip("jsonschema")
+    ctx = _context(tmp_path, parsed={"status": "ok", "result": {"status": "ready"}})
+    valid_schema = {
+        "type": "object",
+        "required": ["status", "result"],
+        "properties": {"status": {"const": "ok"}},
+    }
+    passed, detail = GRADERS["schema"](ctx, valid_schema)
+    assert passed is True
+    assert "validates" in detail
+    rejecting_schema = {
+        "type": "object",
+        "required": ["status", "result"],
+        "properties": {"status": {"const": "failed"}},
+    }
+    passed, detail = GRADERS["schema"](ctx, rejecting_schema)
+    assert passed is False
+    assert "schema validation failed" in detail
+    # A schema that is itself invalid must be reported, not crash.
+    passed, detail = GRADERS["schema"](ctx, {"properties": 5})
+    assert passed is False
+    assert "schema is invalid" in detail
+
+
+def test_run_task_rejects_missing_or_empty_expect(tmp_path):
+    base = {"task_id": "no-expect", "intent": "x", "fixture": None}
+    with pytest.raises(ValueError, match="non-empty expect"):
+        harness.run_task(
+            {**base, "steps": [{"argv": ["doctor", "--json"]}]}, tmp_path / "s", {}
+        )
+    with pytest.raises(ValueError, match="non-empty expect"):
+        harness.run_task(
+            {**base, "steps": [{"argv": ["doctor", "--json"], "expect": {}}]},
+            tmp_path / "s",
+            {},
+        )
+
+
+def test_timeout_forces_step_failure(tmp_path, monkeypatch):
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0] if args else kwargs["args"], 300)
+
+    monkeypatch.setattr(harness.subprocess, "run", fake_run)
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    (state_root / "artifact.txt").write_text("x", encoding="utf-8")
+    task = {
+        "task_id": "hung-cli",
+        "intent": "x",
+        "fixture": None,
+        # file_exists alone would pass vacuously on timeout if the timeout
+        # were not forced to fail the step.
+        "steps": [
+            {
+                "argv": ["doctor", "--json"],
+                "expect": {"file_exists": "artifact.txt"},
+            }
+        ],
+    }
+    result = harness.run_task(task, state_root, {})
+    assert result.passed is False
+    timeout_check = next(
+        check for check in result.steps[0].checks if check.name == "timeout"
+    )
+    assert timeout_check.passed is False
+    assert "timed out" in timeout_check.detail
 
 
 def test_unknown_grader_fails_the_step(tmp_path):

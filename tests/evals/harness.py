@@ -131,10 +131,12 @@ def _run_step(
         )
         returncode: Optional[int] = proc.returncode
         stdout, stderr = proc.stdout, proc.stderr
+        timed_out = False
     except subprocess.TimeoutExpired as exc:
         returncode = None
         stdout = exc.stdout.decode("utf-8", "replace") if exc.stdout else ""
         stderr = "step timed out after {}s".format(STEP_TIMEOUT_SECONDS)
+        timed_out = True
 
     parsed = _parse_stdout(stdout)
     context = GradeContext(
@@ -165,7 +167,17 @@ def _run_step(
                 exc.__class__.__name__, exc
             )
         checks.append(CheckResult(name, passed, detail))
-    step_passed = all(check.passed for check in checks) if checks else True
+    if timed_out:
+        # A hung CLI must fail the step no matter what the expect dict says:
+        # graders like file_exists would otherwise pass vacuously.
+        checks.append(
+            CheckResult(
+                "timeout",
+                False,
+                "step timed out after {}s".format(STEP_TIMEOUT_SECONDS),
+            )
+        )
+    step_passed = bool(checks) and all(check.passed for check in checks)
     return StepResult(
         argv=command,
         returncode=returncode,
@@ -198,7 +210,7 @@ def run_task(task: Dict[str, Any], state_root: Path, env: Dict[str, str]) -> Tas
                 "task {!r} step {} is not an object".format(task_id, index)
             )
         argv = step.get("argv")
-        expect = step.get("expect", {})
+        expect = step.get("expect") or {}
         if not isinstance(argv, list) or not all(
             isinstance(item, str) for item in argv
         ):
@@ -210,6 +222,14 @@ def run_task(task: Dict[str, Any], state_root: Path, env: Dict[str, str]) -> Tas
         if not isinstance(expect, dict):
             raise ValueError(
                 "task {!r} step {} expect must be an object".format(task_id, index)
+            )
+        if not expect:
+            # A step with no assertions would pass vacuously (and a typo like
+            # "expects" would silently become an empty expect), so refuse it.
+            raise ValueError(
+                "task {!r} step {} is missing a non-empty expect object".format(
+                    task_id, index
+                )
             )
         step_results.append(_run_step(argv, state_root, env, expect))
     return TaskResult(

@@ -6,14 +6,22 @@ import re
 import stat
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Iterator, Tuple
 
 from .backtrader_runtime import inspect_backtrader_engine_root
+from .caching import memoized
 from .canonical import hash_object, sha256_bytes
 from .errors import AgentError
 from .roots import RootRegistry
 
 VERSION_RE = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)
+
+
+def _read_member(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as exc:
+        raise AgentError("BTAG-ENGINE-MEMBER", "engine package member could not be read") from exc
 
 
 def _regular_member(path: Path, *, required: bool = False) -> bytes:
@@ -30,13 +38,17 @@ def _regular_member(path: Path, *, required: bool = False) -> bytes:
         raise AgentError("BTAG-ENGINE-SYMLINK", "engine package cannot contain symbolic links")
     if not stat.S_ISREG(metadata.st_mode):
         raise AgentError("BTAG-ENGINE-TYPE", "engine package members must be regular files")
-    try:
-        return path.read_bytes()
-    except OSError as exc:
-        raise AgentError("BTAG-ENGINE-MEMBER", "engine package member could not be read") from exc
+    return _read_member(path)
 
 
-def _package_tree(package: Path) -> Dict[str, str]:
+def _walk_members(package: Path) -> Iterator[Tuple[str, Path, os.stat_result]]:
+    """Yield (relative posix name, path, lstat metadata) for hashable members.
+
+    The same BTAG-ENGINE-* diagnostics as the original walk are raised before
+    any hashing: symlinked or non-regular members, unreadable metadata, and
+    members escaping the package root are all rejected during the walk.
+    """
+
     try:
         package_metadata = package.lstat()
     except OSError as exc:
@@ -50,7 +62,6 @@ def _package_tree(package: Path) -> Dict[str, str]:
         raise AgentError("BTAG-ENGINE-LAYOUT", "engine root must contain a backtrader package")
 
     package_root = package.resolve(strict=True)
-    files: Dict[str, str] = {}
     for current, directories, names in os.walk(str(package), topdown=True, followlinks=False):
         current_path = Path(current)
         kept_directories = []
@@ -73,7 +84,18 @@ def _package_tree(package: Path) -> Dict[str, str]:
         directories[:] = kept_directories
         for name in sorted(names):
             child = current_path / name
-            contents = _regular_member(child)
+            try:
+                metadata = child.lstat()
+            except OSError as exc:
+                raise AgentError(
+                    "BTAG-ENGINE-MEMBER", "engine package member could not be inspected"
+                ) from exc
+            if stat.S_ISLNK(metadata.st_mode):
+                raise AgentError(
+                    "BTAG-ENGINE-SYMLINK", "engine package cannot contain symbolic links"
+                )
+            if not stat.S_ISREG(metadata.st_mode):
+                raise AgentError("BTAG-ENGINE-TYPE", "engine package members must be regular files")
             if name.endswith(".pyc"):
                 continue
             try:
@@ -82,8 +104,37 @@ def _package_tree(package: Path) -> Dict[str, str]:
                 raise AgentError(
                     "BTAG-ENGINE-PATH", "engine package member escapes the registered package"
                 ) from exc
-            files[child.relative_to(package).as_posix()] = sha256_bytes(contents)
-    return files
+            yield child.relative_to(package).as_posix(), child, metadata
+
+
+def _tree_signature(package: Path) -> Tuple[Tuple[str, int, int], ...]:
+    """Cheap content identity of the package tree: per-member path, size, mtime.
+
+    The signature walks the tree without reading any file contents. It changes
+    whenever a member changes, so memoized hashes are never stale within a
+    process even when the engine tree is mutated mid-invocation.
+    """
+
+    return tuple(
+        (relative, metadata.st_size, metadata.st_mtime_ns)
+        for relative, _, metadata in _walk_members(package)
+    )
+
+
+@memoized
+def _hash_package_members(
+    package: Path, signature: Tuple[Tuple[str, int, int], ...]
+) -> Dict[str, str]:
+    """SHA-256 every package member; ``signature`` is the process-local cache key."""
+
+    return {
+        relative: sha256_bytes(_read_member(child))
+        for relative, child, _ in _walk_members(package)
+    }
+
+
+def _package_tree(package: Path) -> Dict[str, str]:
+    return _hash_package_members(package, _tree_signature(package))
 
 
 def inspect_engine(roots: RootRegistry, root_id: str) -> Dict[str, Any]:

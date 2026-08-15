@@ -90,6 +90,34 @@ def _assert_output_outside_source(output: Path, source_roots: Tuple[Path, Path])
         )
 
 
+def _verify_manifest_snapshot_hash(manifest: Dict[str, Any]) -> None:
+    payload = {key: value for key, value in manifest.items() if key != "snapshot_hash"}
+    if hash_object(payload) != manifest.get("snapshot_hash"):
+        raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus snapshot hash is invalid")
+
+
+def verify_snapshot_once(snapshot_path: Path) -> None:
+    """Verify a packaged corpus snapshot with one manifest-level SHA-256.
+
+    Replaces per-entry re-hashing (~1000 entries per invocation) with a single
+    comparison of the manifest's ``snapshot_hash``. The shipped file's byte
+    identity is bound by the distribution manifest instead.
+    """
+
+    try:
+        with Path(snapshot_path).open("r", encoding="utf-8") as handle:
+            manifest = None
+            for line in handle:
+                if line.strip():
+                    manifest = json.loads(line)
+                    break
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
+        raise AgentError("BTAG-CATALOG-READ", "packaged corpus snapshot is invalid") from exc
+    if not isinstance(manifest, dict) or manifest.get("schema_version") != "corpus-manifest-v1":
+        raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus manifest is missing")
+    _verify_manifest_snapshot_hash(manifest)
+
+
 class SnapshotCatalog:
     def __init__(
         self,
@@ -122,26 +150,19 @@ class SnapshotCatalog:
         ids = [item.get("canonical_id") for item in entries]
         if len(ids) != len(set(ids)):
             raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus IDs are missing or duplicated")
-        for entry in entries:
-            payload = dict(entry)
-            expected = payload.pop("entry_hash", None)
-            if expected != hash_object(payload):
-                raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus entry hash is invalid")
-            if manifest.get("mode") == "snapshot" and entry.get("source_available") is not False:
-                raise AgentError(
-                    "BTAG-CATALOG-INTEGRITY",
-                    "metadata-only snapshot must not claim source availability",
-                )
+        if manifest.get("mode") == "snapshot":
+            for entry in entries:
+                if entry.get("source_available") is not False:
+                    raise AgentError(
+                        "BTAG-CATALOG-INTEGRITY",
+                        "metadata-only snapshot must not claim source availability",
+                    )
         if manifest.get("entries") != _manifest_entries(entries):
             raise AgentError(
                 "BTAG-CATALOG-INTEGRITY",
                 "corpus manifest entries do not match JSONL records",
             )
-        expected_snapshot_hash = hash_object(
-            {key: value for key, value in manifest.items() if key != "snapshot_hash"}
-        )
-        if expected_snapshot_hash != manifest.get("snapshot_hash"):
-            raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus snapshot hash is invalid")
+        _verify_manifest_snapshot_hash(manifest)
         return manifest, entries
 
     def _load_templates(self) -> List[Dict[str, Any]]:

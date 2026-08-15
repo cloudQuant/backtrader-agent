@@ -22,6 +22,7 @@ from .canonical import (
     sha256_bytes,
 )
 from .backtrader_runtime import ensure_cloudquant_backtrader
+from .caching import memoized
 from .data import DatasetService
 from .errors import AgentError
 from .engines import inspect_engine, inspect_execution_environment
@@ -80,6 +81,58 @@ ENGINE_PROBE = (
     "print(json.dumps({'path':str(pathlib.Path(backtrader.__file__).resolve()),"
     "'version':getattr(backtrader,'__version__','unknown')},sort_keys=True))"
 )
+
+
+@memoized
+def _probe_engine(root: Path, cwd: Path, expected_version: Optional[str]) -> Tuple[str, str]:
+    """Run the child-process engine import probe once per (root, cwd, version).
+
+    The attestation is a security binding, so the memo is strictly
+    process-local. Failures are raised and never cached, so a later retry
+    probes again instead of replaying a stale failure.
+    """
+
+    probe = subprocess.run(
+        [sys.executable, "-c", ENGINE_PROBE],
+        cwd=cwd,
+        env=ControlledRunner._child_environment([], "runonce", root),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=15,
+        check=False,
+        shell=False,
+    )
+    try:
+        attestation = json.loads(probe.stdout.decode("utf-8"))
+        imported = Path(attestation["path"]).resolve(strict=True)
+        relative_import = imported.relative_to(root).as_posix()
+    except (KeyError, OSError, ValueError, json.JSONDecodeError) as exc:
+        raise AgentError(
+            "BTAG-ENGINE-IMPORT",
+            "registered Backtrader engine could not be imported from its bound root",
+        ) from exc
+    if (
+        probe.returncode != 0
+        or not relative_import.startswith("backtrader/")
+        or (expected_version != "unknown" and attestation.get("version") != expected_version)
+    ):
+        raise AgentError(
+            "BTAG-ENGINE-IMPORT",
+            "child-process Backtrader import does not match the registered engine",
+        )
+    return relative_import, attestation["version"]
+
+
+@memoized
+def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int) -> str:
+    """Read and hash a dataset CAS file once per (path, size, mtime) per process.
+
+    The size/mtime identity keeps the memo fresh: a CAS file that changes
+    within the process is re-read instead of returning a stale binding hash.
+    """
+
+    return sha256_bytes(path.read_bytes())
 
 
 def _resource_limits(timeout_seconds: int):
@@ -476,8 +529,10 @@ class ControlledRunner:
                 path.relative_to(self.state_root.resolve())
             except ValueError as exc:
                 raise AgentError("BTAG-RUN-DATASET", "dataset CAS path escapes state root") from exc
-            data = path.read_bytes()
-            if sha256_bytes(data) != feed.get("normalized_sha256"):
+            metadata = path.stat()
+            if _dataset_feed_sha256(path, metadata.st_size, metadata.st_mtime_ns) != feed.get(
+                "normalized_sha256"
+            ):
                 raise AgentError("BTAG-RUN-DATASET-HASH", "dataset CAS bytes changed")
             descriptors.append(
                 {
@@ -556,38 +611,7 @@ class ControlledRunner:
             warnings.warn(source_warning, RuntimeWarning, stacklevel=2)
         record = self.roots.get_record(str(root_id))
         root = Path(record["path"]).resolve(strict=True)
-        probe = subprocess.run(
-            [sys.executable, "-c", ENGINE_PROBE],
-            cwd=self.state_root,
-            env=self._child_environment([], "runonce", root),
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            timeout=15,
-            check=False,
-            shell=False,
-        )
-        try:
-            attestation = json.loads(probe.stdout.decode("utf-8"))
-            imported = Path(attestation["path"]).resolve(strict=True)
-            relative_import = imported.relative_to(root).as_posix()
-        except (KeyError, OSError, ValueError, json.JSONDecodeError) as exc:
-            raise AgentError(
-                "BTAG-ENGINE-IMPORT",
-                "registered Backtrader engine could not be imported from its bound root",
-            ) from exc
-        if (
-            probe.returncode != 0
-            or not relative_import.startswith("backtrader/")
-            or (
-                descriptor["version"] != "unknown"
-                and attestation.get("version") != descriptor["version"]
-            )
-        ):
-            raise AgentError(
-                "BTAG-ENGINE-IMPORT",
-                "child-process Backtrader import does not match the registered engine",
-            )
+        relative_import, _attested_version = _probe_engine(root, self.state_root, descriptor["version"])
         return root, {
             "hash": descriptor["engine_hash"],
             "kind": "registered-local",

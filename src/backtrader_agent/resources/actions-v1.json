@@ -1029,6 +1029,59 @@
         }
       ]
     },
+    "sweep": {
+      "help": "prepare immutable bounded parameter sweep plans",
+      "params": []
+    },
+    "sweep prepare": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "approved StrategySpec JSON",
+          "name": "spec",
+          "option_strings": [
+            "--spec"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "registered DatasetManifest JSON",
+          "name": "dataset_manifest",
+          "option_strings": [
+            "--dataset-manifest"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "JSON object mapping parameter names to non-empty numeric lists",
+          "name": "param_grid",
+          "option_strings": [
+            "--param-grid"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
     "validate": {
       "help": "AST/security validate a draft artifact",
       "params": [

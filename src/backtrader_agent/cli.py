@@ -24,6 +24,7 @@ from .roots import RootRegistry
 from .runner import ControlledRunner, list_runs
 from .scaffold import ArtifactRenderer
 from .sessions import SessionStore
+from .sweep import prepare_sweep
 from .tokens import TokenAuthority
 from .validator import StrategyValidator
 
@@ -353,6 +354,24 @@ def build_parser() -> argparse.ArgumentParser:
     repair.add_argument("--dataset-manifest", required=True)
     repair.add_argument("--failure-report", required=True)
 
+    sweep = sub.add_parser(
+        "sweep", help="prepare immutable bounded parameter sweep plans"
+    )
+    sweep_sub = sweep.add_subparsers(dest="sweep_command", required=True)
+    sweep_prepare = sweep_sub.add_parser("prepare")
+    sweep_prepare.add_argument("--session-id", required=True)
+    sweep_prepare.add_argument(
+        "--spec", required=True, help="approved StrategySpec JSON"
+    )
+    sweep_prepare.add_argument(
+        "--dataset-manifest", required=True, help="registered DatasetManifest JSON"
+    )
+    sweep_prepare.add_argument(
+        "--param-grid",
+        required=True,
+        help="JSON object mapping parameter names to non-empty numeric lists",
+    )
+
     session = sub.add_parser(
         "session", help="create, inspect, recover, cancel, or archive"
     )
@@ -632,6 +651,17 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             _json_load(args.dataset_manifest),
             _json_load(args.failure_report),
         )
+    if args.command == "sweep":
+        if args.sweep_command == "prepare":
+            specification = StrategySpec.from_dict(_json_load(args.spec))
+            return prepare_sweep(
+                state,
+                args.session_id,
+                specification,
+                _json_load(args.dataset_manifest),
+                _json_load(args.param_grid),
+            )
+        raise AgentError("BTAG-CLI-COMMAND", "unknown sweep subcommand")
     if args.command == "session":
         sessions = SessionStore(state)
         if args.session_command == "create":

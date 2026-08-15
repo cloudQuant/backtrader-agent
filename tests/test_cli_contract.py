@@ -1,4 +1,7 @@
 import json
+
+import pytest
+
 from backtrader_agent import cli
 
 
@@ -43,3 +46,16 @@ def test_exit_code_input_error(monkeypatch, capsys):
     monkeypatch.setattr(cli, "dispatch", boom)
     assert cli.main(["doctor", "--json"]) == 3
     assert json.loads(capsys.readouterr().out)["diagnostic"]["code"] == "BTAG-CLI-INPUT"
+
+
+def test_json_load_inline_and_file_equivalent(tmp_path):
+    path = tmp_path / "s.json"
+    path.write_text('{"a": 1}', encoding="utf-8")
+    assert cli._json_load('{"a": 1}') == {"a": 1}
+    assert cli._json_load("@" + str(path)) == {"a": 1}
+    assert cli._json_load(str(path)) == {"a": 1}
+
+
+def test_json_load_missing_file_raises_oserror(tmp_path):
+    with pytest.raises(OSError):
+        cli._json_load(str(tmp_path / "nope.json"))

@@ -36,6 +36,18 @@ def _json_file(path: str) -> Dict[str, Any]:
     return value
 
 
+def _json_load(value: str) -> Any:
+    if value.startswith("@"):
+        return _json_file(value[1:])
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return _json_file(value)
+    if not isinstance(parsed, dict):
+        raise AgentError("BTAG-CLI-JSON", "input JSON must be an object")
+    return parsed
+
+
 def _emit(value: Dict[str, Any]) -> None:
     print(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True))
 
@@ -287,11 +299,11 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.command == "data":
         service = DatasetService(roots, state)
         if args.data_command == "inspect":
-            value = service.inspect(_json_file(args.spec))
+            value = service.inspect(_json_load(args.spec))
             value.pop("_canonical_feeds", None)
             return value
         if args.data_command == "register":
-            value = service.register(_json_file(args.spec))
+            value = service.register(_json_load(args.spec))
             SessionStore(state).transition(
                 args.session_id,
                 "DATA_READY",
@@ -307,7 +319,7 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             return {"datasets": service.list()}
         return service.preview(args.dataset_id, rows=args.rows)
     if args.command == "spec":
-        specification = StrategySpec.from_dict(_json_file(args.file))
+        specification = StrategySpec.from_dict(_json_load(args.file))
         sessions = SessionStore(state)
         sessions.transition(
             args.session_id,
@@ -352,9 +364,9 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             require_verified_counts=not args.allow_count_drift,
         )
     if args.command == "draft":
-        specification = StrategySpec.from_dict(_json_file(args.spec))
+        specification = StrategySpec.from_dict(_json_load(args.spec))
         value = ArtifactRenderer(state).render(
-            args.session_id, specification, _json_file(args.dataset_manifest)
+            args.session_id, specification, _json_load(args.dataset_manifest)
         )
         sessions = SessionStore(state)
         sessions.transition(
@@ -372,7 +384,7 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
         )
         return value
     if args.command == "validate":
-        artifact = _json_file(args.artifact_manifest)
+        artifact = _json_load(args.artifact_manifest)
         artifact["_draft_path"] = str(Path(args.draft_root).resolve())
         engine = inspect_engine(roots, args.engine_root_id)
         environment = inspect_execution_environment()
@@ -432,29 +444,29 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
                 draft_root=Path(args.draft_root),
                 files=files,
                 target_root_id=args.target_root_id,
-                validation_token=_json_file(args.validation_token),
+                validation_token=_json_load(args.validation_token),
             )
-        manifest = _json_file(args.manifest)
+        manifest = _json_load(args.manifest)
         return manager.apply(
             manifest,
-            _json_file(args.change_token),
+            _json_load(args.change_token),
             idempotency_key=args.idempotency_key,
         )
     if args.command == "run":
         return ControlledRunner(roots, state, authority).run(
-            _json_file(args.applied_artifact),
-            _json_file(args.dataset_manifest),
-            _json_file(args.validation_token),
-            _json_file(args.run_token),
+            _json_load(args.applied_artifact),
+            _json_load(args.dataset_manifest),
+            _json_load(args.validation_token),
+            _json_load(args.run_token),
             mode=args.mode,
             idempotency_key=args.idempotency_key,
             timeout_seconds=args.timeout,
         )
     if args.command == "run-subject":
         subject = ControlledRunner.compute_run_subject(
-            _json_file(args.applied_artifact),
-            _json_file(args.dataset_manifest),
-            _json_file(args.validation_token),
+            _json_load(args.applied_artifact),
+            _json_load(args.dataset_manifest),
+            _json_load(args.validation_token),
             mode=args.mode,
         )
         return {"schema_version": "run-subject-v1", "subject_hash": subject}
@@ -486,9 +498,9 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.command == "repair":
         return RepairWorkflow(state).rerender(
             args.session_id,
-            _json_file(args.spec),
-            _json_file(args.dataset_manifest),
-            _json_file(args.failure_report),
+            _json_load(args.spec),
+            _json_load(args.dataset_manifest),
+            _json_load(args.failure_report),
         )
     if args.command == "session":
         sessions = SessionStore(state)

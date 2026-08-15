@@ -94,8 +94,9 @@ hash 绑定参数值,防止 plan 被篡改后复用 token。token 消费、重�
 ### 3.3 有界执行
 
 `--max-cells` 默认上限(如 100),`--timeout-per-cell` 逐 cell 生效;cell 级瞬态失败按
-R14 重试语义处理,重试次数有界。会话 journal 记录 `sweep` action 事件,复用 `RUNNING`
-状态;中断恢复沿用 PAUSED/恢复路径。
+R14 重试语义处理,重试次数有界。会话 journal 记录 `sweep` action 事件:`sweep prepare`
+落新状态 `SWEEP_PREPARED`(复用 `RUNNING` 会与 `recover()` 对 RUNNING 的强制
+PAUSE 语义冲突);cell 运行(T15)复用 `RUNNING` 状态,中断恢复沿用 PAUSED/恢复路径。
 
 ### 3.4 参数消费
 

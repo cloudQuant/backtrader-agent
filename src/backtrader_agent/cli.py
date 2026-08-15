@@ -523,8 +523,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         result = dispatch(args)
     except AgentError as exc:
         _emit({"status": "failed", "diagnostic": exc.as_dict()})
-        return 2
-    except (OSError, ValueError, json.JSONDecodeError):
+        return 3
+    except OSError as exc:
+        _emit(
+            {
+                "status": "failed",
+                "diagnostic": {
+                    "code": "BTAG-CLI-IO",
+                    "severity": "error",
+                    "message": "runtime I/O failure: {}".format(exc.__class__.__name__),
+                },
+            }
+        )
+        return 4
+    except (ValueError, json.JSONDecodeError):
         _emit(
             {
                 "status": "failed",
@@ -535,7 +547,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 },
             }
         )
-        return 2
+        return 3
     warnings = result.get("warnings", [])
     if not isinstance(warnings, list):
         warnings = []

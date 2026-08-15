@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .archetypes import ARCHETYPE_SPECS
-from .canonical import atomic_write_bytes, hash_object
+from .canonical import atomic_write_bytes, hash_object, read_json, sha256_bytes
 from .errors import AgentError
 
 TOKEN_RE = re.compile(r"[a-z0-9_]+")
@@ -72,12 +72,16 @@ def _package_hash(directory: Path) -> Tuple[str, List[Dict[str, str]]]:
     )
     candidates = [*strategy_files[:1], directory / "config.yaml", directory / "run.py"]
     files = [
-        {"path": path.name, "sha256": _file_hash(path)} for path in candidates if path.is_file()
+        {"path": path.name, "sha256": _file_hash(path)}
+        for path in candidates
+        if path.is_file()
     ]
     return hash_object(files), files
 
 
-def _assert_output_outside_source(output: Path, source_roots: Tuple[Path, Path]) -> None:
+def _assert_output_outside_source(
+    output: Path, source_roots: Tuple[Path, Path]
+) -> None:
     output = output.resolve(strict=False)
     for root in source_roots:
         try:
@@ -112,10 +116,45 @@ def verify_snapshot_once(snapshot_path: Path) -> None:
                     manifest = json.loads(line)
                     break
     except (OSError, ValueError, json.JSONDecodeError) as exc:
-        raise AgentError("BTAG-CATALOG-READ", "packaged corpus snapshot is invalid") from exc
-    if not isinstance(manifest, dict) or manifest.get("schema_version") != "corpus-manifest-v1":
+        raise AgentError(
+            "BTAG-CATALOG-READ", "packaged corpus snapshot is invalid"
+        ) from exc
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schema_version") != "corpus-manifest-v1"
+    ):
         raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus manifest is missing")
     _verify_manifest_snapshot_hash(manifest)
+
+
+PACKAGE_ROOT = Path(__file__).resolve().parent
+PACKAGED_SNAPSHOT_PATH = PACKAGE_ROOT / "resources" / "catalog" / "corpus-v1.jsonl"
+
+
+def _verify_packaged_snapshot_bytes(raw: bytes) -> None:
+    """Pin the packaged corpus to the distribution manifest's whole-file SHA-256.
+
+    A single SHA-256 of the raw snapshot bytes is the complete integrity check
+    for the shipped asset: every entry byte is covered, which replaces both
+    per-entry re-hashing and the manifest projection comparison for the
+    packaged corpus. Non-packaged snapshots have no distribution pin and keep
+    per-entry verification instead.
+    """
+
+    try:
+        pinned = read_json(PACKAGE_ROOT / "resources" / "distribution-manifest.json")[
+            "files"
+        ]["resources/catalog/corpus-v1.jsonl"]
+    except (AgentError, KeyError, TypeError) as exc:
+        raise AgentError(
+            "BTAG-CATALOG-INTEGRITY",
+            "distribution pin for the packaged corpus is unavailable",
+        ) from exc
+    if sha256_bytes(raw) != pinned:
+        raise AgentError(
+            "BTAG-CATALOG-INTEGRITY",
+            "corpus snapshot bytes do not match the distribution pin",
+        )
 
 
 class SnapshotCatalog:
@@ -124,24 +163,34 @@ class SnapshotCatalog:
         snapshot_path: Optional[Path] = None,
         template_path: Optional[Path] = None,
     ) -> None:
-        resource_root = Path(__file__).resolve().parent / "resources" / "catalog"
+        resource_root = PACKAGE_ROOT / "resources" / "catalog"
         self.snapshot_path = snapshot_path or (resource_root / "corpus-v1.jsonl")
         self.template_path = template_path or (resource_root / "snapshot.jsonl")
         self.manifest, self._entries = self._load_corpus()
         self._templates = self._load_templates()
 
     def _load_corpus(self) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        try:
+            raw = self.snapshot_path.read_bytes()
+        except OSError as exc:
+            raise AgentError(
+                "BTAG-CATALOG-READ", "packaged corpus snapshot is invalid"
+            ) from exc
+        packaged = self.snapshot_path.resolve() == PACKAGED_SNAPSHOT_PATH.resolve()
+        if packaged:
+            _verify_packaged_snapshot_bytes(raw)
         records: List[Dict[str, Any]] = []
         try:
-            with self.snapshot_path.open("r", encoding="utf-8") as handle:
-                for line in handle:
-                    if line.strip():
-                        item = json.loads(line)
-                        if not isinstance(item, dict):
-                            raise ValueError("catalog record is not an object")
-                        records.append(item)
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
-            raise AgentError("BTAG-CATALOG-READ", "packaged corpus snapshot is invalid") from exc
+            for line in raw.decode("utf-8").splitlines():
+                if line.strip():
+                    item = json.loads(line)
+                    if not isinstance(item, dict):
+                        raise ValueError("catalog record is not an object")
+                    records.append(item)
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise AgentError(
+                "BTAG-CATALOG-READ", "packaged corpus snapshot is invalid"
+            ) from exc
         if not records or records[0].get("schema_version") != "corpus-manifest-v1":
             raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus manifest is missing")
         manifest, entries = records[0], records[1:]
@@ -149,7 +198,9 @@ class SnapshotCatalog:
             raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus entry count is invalid")
         ids = [item.get("canonical_id") for item in entries]
         if len(ids) != len(set(ids)):
-            raise AgentError("BTAG-CATALOG-INTEGRITY", "corpus IDs are missing or duplicated")
+            raise AgentError(
+                "BTAG-CATALOG-INTEGRITY", "corpus IDs are missing or duplicated"
+            )
         if manifest.get("mode") == "snapshot":
             for entry in entries:
                 if entry.get("source_available") is not False:
@@ -162,7 +213,15 @@ class SnapshotCatalog:
                 "BTAG-CATALOG-INTEGRITY",
                 "corpus manifest entries do not match JSONL records",
             )
-        _verify_manifest_snapshot_hash(manifest)
+        if not packaged:
+            _verify_manifest_snapshot_hash(manifest)
+            for entry in entries:
+                payload = dict(entry)
+                expected = payload.pop("entry_hash", None)
+                if expected != hash_object(payload):
+                    raise AgentError(
+                        "BTAG-CATALOG-INTEGRITY", "corpus entry hash is invalid"
+                    )
         return manifest, entries
 
     def _load_templates(self) -> List[Dict[str, Any]]:
@@ -176,14 +235,18 @@ class SnapshotCatalog:
                             raise ValueError("template entry is not an object")
                         entries.append(item)
         except (OSError, ValueError, json.JSONDecodeError) as exc:
-            raise AgentError("BTAG-CATALOG-READ", "packaged template catalog is invalid") from exc
+            raise AgentError(
+                "BTAG-CATALOG-READ", "packaged template catalog is invalid"
+            ) from exc
         ids = [item.get("entry_id") for item in entries]
         pairs = [(item.get("archetype"), item.get("profile")) for item in entries]
         if (
             len(entries) != len(ARCHETYPES) * len(PROFILES)
             or len(ids) != len(set(ids))
             or set(pairs)
-            != {(archetype, profile) for archetype in ARCHETYPES for profile in PROFILES}
+            != {
+                (archetype, profile) for archetype in ARCHETYPES for profile in PROFILES
+            }
         ):
             raise AgentError(
                 "BTAG-CATALOG-INTEGRITY",
@@ -314,7 +377,9 @@ class SnapshotCatalog:
         functional_root = Path(functional_root).resolve(strict=True)
         package_root = Path(package_root).resolve(strict=True)
         if not functional_root.is_dir() or not package_root.is_dir():
-            raise AgentError("BTAG-CATALOG-ROOT", "both corpus roots must be directories")
+            raise AgentError(
+                "BTAG-CATALOG-ROOT", "both corpus roots must be directories"
+            )
         output = Path(output)
         _assert_output_outside_source(output, (functional_root, package_root))
 
@@ -373,7 +438,9 @@ class SnapshotCatalog:
                 "profiles": list(PROFILES),
                 "functional_test": (
                     {
-                        "relative_path": test_path.relative_to(functional_root).as_posix(),
+                        "relative_path": test_path.relative_to(
+                            functional_root
+                        ).as_posix(),
                         "sha256": _file_hash(test_path),
                     }
                     if test_path
@@ -381,7 +448,9 @@ class SnapshotCatalog:
                 ),
                 "strategy_package": (
                     {
-                        "relative_path": package_path.relative_to(package_root).as_posix(),
+                        "relative_path": package_path.relative_to(
+                            package_root
+                        ).as_posix(),
                         "sha256": package_hash,
                         "files": package_files,
                     }
@@ -395,7 +464,9 @@ class SnapshotCatalog:
                 ),
                 "source_available": True,
                 "dependencies": [],
-                "risk_tags": (["multi_label_review"] if category in MULTI_LABEL_CATEGORIES else []),
+                "risk_tags": (
+                    ["multi_label_review"] if category in MULTI_LABEL_CATEGORIES else []
+                ),
             }
             entry["entry_hash"] = hash_object(entry)
             entries.append(entry)

@@ -21,7 +21,9 @@ def _read_member(path: Path) -> bytes:
     try:
         return path.read_bytes()
     except OSError as exc:
-        raise AgentError("BTAG-ENGINE-MEMBER", "engine package member could not be read") from exc
+        raise AgentError(
+            "BTAG-ENGINE-MEMBER", "engine package member could not be read"
+        ) from exc
 
 
 def _regular_member(path: Path, *, required: bool = False) -> bytes:
@@ -33,11 +35,17 @@ def _regular_member(path: Path, *, required: bool = False) -> bytes:
                 "BTAG-ENGINE-LAYOUT",
                 "engine root must contain backtrader/__init__.py and backtrader/version.py",
             ) from exc
-        raise AgentError("BTAG-ENGINE-MEMBER", "engine package member could not be inspected") from exc
+        raise AgentError(
+            "BTAG-ENGINE-MEMBER", "engine package member could not be inspected"
+        ) from exc
     if stat.S_ISLNK(metadata.st_mode):
-        raise AgentError("BTAG-ENGINE-SYMLINK", "engine package cannot contain symbolic links")
+        raise AgentError(
+            "BTAG-ENGINE-SYMLINK", "engine package cannot contain symbolic links"
+        )
     if not stat.S_ISREG(metadata.st_mode):
-        raise AgentError("BTAG-ENGINE-TYPE", "engine package members must be regular files")
+        raise AgentError(
+            "BTAG-ENGINE-TYPE", "engine package members must be regular files"
+        )
     return _read_member(path)
 
 
@@ -57,12 +65,18 @@ def _walk_members(package: Path) -> Iterator[Tuple[str, Path, os.stat_result]]:
             "engine root must contain backtrader/__init__.py and backtrader/version.py",
         ) from exc
     if stat.S_ISLNK(package_metadata.st_mode):
-        raise AgentError("BTAG-ENGINE-SYMLINK", "engine package cannot be a symbolic link")
+        raise AgentError(
+            "BTAG-ENGINE-SYMLINK", "engine package cannot be a symbolic link"
+        )
     if not stat.S_ISDIR(package_metadata.st_mode):
-        raise AgentError("BTAG-ENGINE-LAYOUT", "engine root must contain a backtrader package")
+        raise AgentError(
+            "BTAG-ENGINE-LAYOUT", "engine root must contain a backtrader package"
+        )
 
     package_root = package.resolve(strict=True)
-    for current, directories, names in os.walk(str(package), topdown=True, followlinks=False):
+    for current, directories, names in os.walk(
+        str(package), topdown=True, followlinks=False
+    ):
         current_path = Path(current)
         kept_directories = []
         for name in sorted(directories):
@@ -75,10 +89,13 @@ def _walk_members(package: Path) -> Iterator[Tuple[str, Path, os.stat_result]]:
                 ) from exc
             if stat.S_ISLNK(metadata.st_mode):
                 raise AgentError(
-                    "BTAG-ENGINE-SYMLINK", "engine package cannot contain symbolic links"
+                    "BTAG-ENGINE-SYMLINK",
+                    "engine package cannot contain symbolic links",
                 )
             if not stat.S_ISDIR(metadata.st_mode):
-                raise AgentError("BTAG-ENGINE-TYPE", "engine package member must be a directory")
+                raise AgentError(
+                    "BTAG-ENGINE-TYPE", "engine package member must be a directory"
+                )
             if name != "__pycache__":
                 kept_directories.append(name)
         directories[:] = kept_directories
@@ -92,38 +109,44 @@ def _walk_members(package: Path) -> Iterator[Tuple[str, Path, os.stat_result]]:
                 ) from exc
             if stat.S_ISLNK(metadata.st_mode):
                 raise AgentError(
-                    "BTAG-ENGINE-SYMLINK", "engine package cannot contain symbolic links"
+                    "BTAG-ENGINE-SYMLINK",
+                    "engine package cannot contain symbolic links",
                 )
             if not stat.S_ISREG(metadata.st_mode):
-                raise AgentError("BTAG-ENGINE-TYPE", "engine package members must be regular files")
+                raise AgentError(
+                    "BTAG-ENGINE-TYPE", "engine package members must be regular files"
+                )
             if name.endswith(".pyc"):
                 continue
             try:
                 child.resolve(strict=True).relative_to(package_root)
             except (OSError, ValueError) as exc:
                 raise AgentError(
-                    "BTAG-ENGINE-PATH", "engine package member escapes the registered package"
+                    "BTAG-ENGINE-PATH",
+                    "engine package member escapes the registered package",
                 ) from exc
             yield child.relative_to(package).as_posix(), child, metadata
 
 
-def _tree_signature(package: Path) -> Tuple[Tuple[str, int, int], ...]:
-    """Cheap content identity of the package tree: per-member path, size, mtime.
+def _tree_signature(package: Path) -> Tuple[Tuple[str, int, int, int], ...]:
+    """Cheap content identity: per-member path, size, mtime, and ctime.
 
     The signature walks the tree without reading any file contents. It changes
     whenever a member changes, so memoized hashes are never stale within a
-    process even when the engine tree is mutated mid-invocation.
+    process even when the engine tree is mutated mid-invocation. ``ctime_ns``
+    is included because an in-place tamper can preserve size and restore mtime
+    via ``os.utime``, while ctime cannot be restored by an unprivileged writer.
     """
 
     return tuple(
-        (relative, metadata.st_size, metadata.st_mtime_ns)
+        (relative, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns)
         for relative, _, metadata in _walk_members(package)
     )
 
 
 @memoized
 def _hash_package_members(
-    package: Path, signature: Tuple[Tuple[str, int, int], ...]
+    package: Path, signature: Tuple[Tuple[str, int, int, int], ...]
 ) -> Dict[str, str]:
     """SHA-256 every package member; ``signature`` is the process-local cache key."""
 
@@ -147,7 +170,9 @@ def inspect_engine(roots: RootRegistry, root_id: str) -> Dict[str, Any]:
     try:
         root = Path(record["path"]).resolve(strict=True)
     except OSError as exc:
-        raise AgentError("BTAG-ENGINE-ROOT", "registered engine root is unavailable") from exc
+        raise AgentError(
+            "BTAG-ENGINE-ROOT", "registered engine root is unavailable"
+        ) from exc
     package = root / "backtrader"
     initializer = package / "__init__.py"
     version_file = package / "version.py"
@@ -157,7 +182,9 @@ def inspect_engine(roots: RootRegistry, root_id: str) -> Dict[str, Any]:
     try:
         version_source = version_bytes.decode("utf-8")
     except UnicodeDecodeError as exc:
-        raise AgentError("BTAG-ENGINE-VERSION", "engine version file must be UTF-8 text") from exc
+        raise AgentError(
+            "BTAG-ENGINE-VERSION", "engine version file must be UTF-8 text"
+        ) from exc
     match = VERSION_RE.search(version_source)
     descriptor: Dict[str, Any] = {
         "schema_version": "engine-runtime-v2",

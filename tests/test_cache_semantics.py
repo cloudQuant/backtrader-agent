@@ -1,6 +1,7 @@
 """R7 caching discipline: process-local memoization and manifest-level verification."""
 
 import json
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -49,6 +50,17 @@ def test_engine_tree_hash_cache_does_not_mask_member_mutation(tmp_path: Path) ->
     assert before != after
 
 
+def test_engine_tree_hash_cache_detects_mtime_restored_tamper(tmp_path: Path) -> None:
+    engine = _fake_engine_root(tmp_path)
+    member = engine / "backtrader" / "__init__.py"
+    original = member.stat()
+    before = engines._package_tree(engine / "backtrader")
+    member.write_text("__version__ = '2.0.0'\n", encoding="utf-8")  # same size
+    os.utime(member, ns=(original.st_atime_ns, original.st_mtime_ns))
+    after = engines._package_tree(engine / "backtrader")
+    assert before != after  # ctime cannot be restored by an unprivileged writer
+
+
 def test_dataset_feed_hash_computed_once_per_process(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -62,10 +74,30 @@ def test_dataset_feed_hash_computed_once_per_process(
         "sha256_bytes",
         lambda data: (calls.append(data) or real(data)),
     )
-    first = runner._dataset_feed_sha256(feed, metadata.st_size, metadata.st_mtime_ns)
-    second = runner._dataset_feed_sha256(feed, metadata.st_size, metadata.st_mtime_ns)
+    first = runner._dataset_feed_sha256(
+        feed, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns
+    )
+    second = runner._dataset_feed_sha256(
+        feed, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns
+    )
     assert first == second
     assert len(calls) == 1
+
+
+def test_dataset_feed_hash_detects_mtime_restored_tamper(tmp_path: Path) -> None:
+    feed = tmp_path / "feeds.csv"
+    feed.write_bytes(b"timestamp,close\n2024-01-01,1.0\n")
+    original = feed.stat()
+    first = runner._dataset_feed_sha256(
+        feed, original.st_size, original.st_mtime_ns, original.st_ctime_ns
+    )
+    feed.write_bytes(b"timestamp,cloze\n2024-01-01,9.9\n")  # same size
+    os.utime(feed, ns=(original.st_atime_ns, original.st_mtime_ns))
+    current = feed.stat()
+    second = runner._dataset_feed_sha256(
+        feed, current.st_size, current.st_mtime_ns, current.st_ctime_ns
+    )
+    assert first != second
 
 
 def test_engine_probe_computed_once_per_process(
@@ -106,21 +138,58 @@ def test_no_persistent_cache_for_security_hashes(tmp_path: Path) -> None:
     assert not list(tmp_path.rglob("*cache*"))
 
 
-def test_catalog_verifies_snapshot_hash_not_each_entry(
+def test_packaged_catalog_verifies_whole_file_once_not_each_entry(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    hits = []
-    real = catalog.hash_object
+    hashes = []
+    real = catalog.sha256_bytes
     monkeypatch.setattr(
         catalog,
-        "hash_object",
-        lambda value: (hits.append(value) or real(value)),
+        "sha256_bytes",
+        lambda data: (hashes.append(data) or real(data)),
     )
     loaded = catalog.SnapshotCatalog()
     assert loaded.manifest["entry_count"] > 1000
-    assert len(hits) == 1  # single manifest-level snapshot_hash comparison
-    assert "snapshot_hash" not in hits[0]
-    assert hits[0]["schema_version"] == "corpus-manifest-v1"
+    assert len(hashes) == 1  # one whole-file SHA-256 against the distribution pin
+
+
+def test_source_attached_catalog_retains_per_entry_verification(tmp_path: Path) -> None:
+    functional = tmp_path / "functional"
+    packages = tmp_path / "packages"
+    output = tmp_path / "catalog.jsonl"
+    test_dir = functional / "trend"
+    package_dir = packages / "trend" / "0001_example"
+    test_dir.mkdir(parents=True)
+    package_dir.mkdir(parents=True)
+    (test_dir / "test_0001_example.py").write_text(
+        "import backtrader as bt\nclass Example(bt.Strategy):\n    pass\n",
+        encoding="utf-8",
+    )
+    (package_dir / "strategy_example.py").write_text(
+        "import backtrader as bt\nclass Example(bt.Strategy):\n    pass\n",
+        encoding="utf-8",
+    )
+    (package_dir / "config.yaml").write_text("period: 5\n", encoding="utf-8")
+    (package_dir / "run.py").write_text(
+        "from strategy_example import Example\n", encoding="utf-8"
+    )
+    catalog.SnapshotCatalog.refresh_source_attached(
+        functional, packages, output, require_verified_counts=False
+    )
+    lines = output.read_text(encoding="utf-8").splitlines()
+    entry = json.loads(lines[1])
+    entry["slug"] = entry["slug"] + "_tampered"
+    lines[1] = json.dumps(entry, sort_keys=True)
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with pytest.raises(AgentError) as error:
+        catalog.SnapshotCatalog(snapshot_path=output)
+    assert error.value.code == "BTAG-CATALOG-INTEGRITY"
+
+
+def test_packaged_corpus_pin_rejects_tampered_bytes() -> None:
+    with pytest.raises(AgentError) as error:
+        catalog._verify_packaged_snapshot_bytes(b"tampered corpus bytes")
+    assert error.value.code == "BTAG-CATALOG-INTEGRITY"
 
 
 def test_verify_snapshot_once_accepts_packaged_snapshot(tmp_path: Path) -> None:
@@ -165,3 +234,17 @@ def test_memoized_is_process_local_and_never_caches_failures() -> None:
     with pytest.raises(ValueError):
         flaky("boom")
     assert calls == ["x", "boom", "boom"]  # failures are retried, never cached
+
+
+def test_memoized_distinguishes_container_forms_and_mixed_key_types() -> None:
+    calls = []
+
+    @caching.memoized
+    def identify(value):
+        calls.append(value)
+        return "done"
+
+    identify({"a": 1})
+    identify([("a", 1)])  # list-of-pairs form must not collide with the dict form
+    identify({1: "x", "a": 2})  # heterogeneous dict keys must not raise
+    assert len(calls) == 3

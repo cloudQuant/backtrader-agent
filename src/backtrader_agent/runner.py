@@ -44,7 +44,9 @@ PROFILE_DEPENDENCIES = {
 def missing_profile_dependencies(profile: str) -> List[str]:
     modules = PROFILE_DEPENDENCIES.get(profile)
     if modules is None:
-        raise AgentError("BTAG-RUN-PROFILE", "controlled run profile is not allowlisted")
+        raise AgentError(
+            "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
+        )
     return [module for module in modules if importlib.util.find_spec(module) is None]
 
 
@@ -76,6 +78,8 @@ def list_runs(state_root: Path) -> List[Dict[str, Any]]:
             }
         )
     return summaries
+
+
 ENGINE_PROBE = (
     "import json,pathlib,backtrader;"
     "print(json.dumps({'path':str(pathlib.Path(backtrader.__file__).resolve()),"
@@ -84,12 +88,20 @@ ENGINE_PROBE = (
 
 
 @memoized
-def _probe_engine(root: Path, cwd: Path, expected_version: Optional[str]) -> Tuple[str, str]:
+def _probe_engine(
+    root: Path, cwd: Path, expected_version: Optional[str]
+) -> Tuple[str, str]:
     """Run the child-process engine import probe once per (root, cwd, version).
 
     The attestation is a security binding, so the memo is strictly
     process-local. Failures are raised and never cached, so a later retry
     probes again instead of replaying a stale failure.
+
+    The key deliberately carries no stat freshness signal: any stat-visible
+    change to the engine root is already rejected by the fresh
+    ``inspect_engine`` binding check in ``_resolve_engine`` before this probe
+    is consulted, and a version change alters ``expected_version`` and
+    therefore the key itself.
     """
 
     probe = subprocess.run(
@@ -115,7 +127,10 @@ def _probe_engine(root: Path, cwd: Path, expected_version: Optional[str]) -> Tup
     if (
         probe.returncode != 0
         or not relative_import.startswith("backtrader/")
-        or (expected_version != "unknown" and attestation.get("version") != expected_version)
+        or (
+            expected_version != "unknown"
+            and attestation.get("version") != expected_version
+        )
     ):
         raise AgentError(
             "BTAG-ENGINE-IMPORT",
@@ -125,11 +140,14 @@ def _probe_engine(root: Path, cwd: Path, expected_version: Optional[str]) -> Tup
 
 
 @memoized
-def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int) -> str:
-    """Read and hash a dataset CAS file once per (path, size, mtime) per process.
+def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int, ctime_ns: int) -> str:
+    """Read and hash a dataset CAS file once per (path, size, mtime, ctime).
 
-    The size/mtime identity keeps the memo fresh: a CAS file that changes
-    within the process is re-read instead of returning a stale binding hash.
+    The stat identity keeps the memo fresh: a CAS file that changes within
+    the process is re-read instead of returning a stale binding hash.
+    ``ctime_ns`` covers an in-place tamper that preserves size and restores
+    mtime via ``os.utime`` (ctime cannot be restored by an unprivileged
+    writer).
     """
 
     return sha256_bytes(path.read_bytes())
@@ -147,8 +165,12 @@ def _resource_limits(timeout_seconds: int):
             # resident memory stays small, producing false BTAG-RUN-FAILED
             # kills. The wall-clock timeout and RLIMIT_CPU remain the real
             # runaway guards; this is defense in depth, not an OS sandbox.
-            resource.setrlimit(resource.RLIMIT_CPU, (timeout_seconds + 2, timeout_seconds + 2))
-            resource.setrlimit(resource.RLIMIT_FSIZE, (16 * 1024 * 1024, 16 * 1024 * 1024))
+            resource.setrlimit(
+                resource.RLIMIT_CPU, (timeout_seconds + 2, timeout_seconds + 2)
+            )
+            resource.setrlimit(
+                resource.RLIMIT_FSIZE, (16 * 1024 * 1024, 16 * 1024 * 1024)
+            )
         except (ImportError, OSError, ValueError):
             # The command remains allowlisted and timeout-bound where a specific
             # POSIX resource limit is unavailable.
@@ -160,7 +182,9 @@ def _resource_limits(timeout_seconds: int):
 class ControlledRunner:
     MAX_OUTPUT_BYTES = 1024 * 1024
 
-    def __init__(self, roots: RootRegistry, state_root: Path, authority: TokenAuthority) -> None:
+    def __init__(
+        self, roots: RootRegistry, state_root: Path, authority: TokenAuthority
+    ) -> None:
         self.roots = roots
         self.state_root = Path(state_root)
         self.authority = authority
@@ -193,9 +217,13 @@ class ControlledRunner:
             if key not in {"applied_artifact_hash", "applied_record_hash", "status"}
         }
         if hash_object(payload) != applied.get("applied_artifact_hash"):
-            raise AgentError("BTAG-RUN-ARTIFACT-HASH", "applied artifact hash is invalid")
+            raise AgentError(
+                "BTAG-RUN-ARTIFACT-HASH", "applied artifact hash is invalid"
+            )
         if applied.get("generated_by") != "backtrader-agent":
-            raise AgentError("BTAG-RUN-ORIGIN", "runner only accepts product-generated artifacts")
+            raise AgentError(
+                "BTAG-RUN-ORIGIN", "runner only accepts product-generated artifacts"
+            )
         required = {
             "artifact_record_hash",
             "dataset_id",
@@ -206,7 +234,9 @@ class ControlledRunner:
             "validation_token_id",
         }
         if any(not isinstance(applied.get(field), str) for field in required):
-            raise AgentError("BTAG-RUN-PROVENANCE", "applied artifact provenance is incomplete")
+            raise AgentError(
+                "BTAG-RUN-PROVENANCE", "applied artifact provenance is incomplete"
+            )
         record = self.authority.load_bound_record(
             "applied-artifact",
             applied["session_id"],
@@ -244,12 +274,20 @@ class ControlledRunner:
             )
 
     def _verify_registered_dataset(self, dataset: Dict[str, Any]) -> Dict[str, Any]:
-        payload = {key: value for key, value in dataset.items() if key != "manifest_hash"}
+        payload = {
+            key: value for key, value in dataset.items() if key != "manifest_hash"
+        }
         if hash_object(payload) != dataset.get("manifest_hash"):
-            raise AgentError("BTAG-RUN-DATASET-HASH", "dataset manifest hash is invalid")
+            raise AgentError(
+                "BTAG-RUN-DATASET-HASH", "dataset manifest hash is invalid"
+            )
         if dataset.get("schema_version") != "dataset-manifest-v1":
-            raise AgentError("BTAG-RUN-DATASET-HASH", "dataset manifest version is invalid")
-        registered = DatasetService(self.roots, self.state_root).load(str(dataset["dataset_id"]))
+            raise AgentError(
+                "BTAG-RUN-DATASET-HASH", "dataset manifest version is invalid"
+            )
+        registered = DatasetService(self.roots, self.state_root).load(
+            str(dataset["dataset_id"])
+        )
         if registered != dataset:
             raise AgentError(
                 "BTAG-RUN-DATASET-REGISTRY",
@@ -298,7 +336,9 @@ class ControlledRunner:
     @classmethod
     def _persist_exact_json(cls, path: Path, value: Dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix=".json-stage-", dir=str(path.parent)) as name:
+        with tempfile.TemporaryDirectory(
+            prefix=".json-stage-", dir=str(path.parent)
+        ) as name:
             staged = Path(name) / "value.json"
             atomic_write_json(staged, value, create_only=True)
             cls._persist_exact_bytes(path, staged.read_bytes())
@@ -345,7 +385,8 @@ class ControlledRunner:
             or hash_object(payload) != result.get("result_hash")
             or extension.get("mode") != mode
             or extension.get("dataset_manifest_hash") != dataset["manifest_hash"]
-            or extension.get("applied_artifact_hash") != applied["applied_artifact_hash"]
+            or extension.get("applied_artifact_hash")
+            != applied["applied_artifact_hash"]
             or extension.get("validation_token_id") != validation_token["token_id"]
             or extension.get("run_token_id") != run_token["token_id"]
         ):
@@ -362,14 +403,20 @@ class ControlledRunner:
     ) -> None:
         manifest_path = run_root / "run-manifest.json"
         if not manifest_path.is_file() or manifest_path.is_symlink():
-            raise AgentError("BTAG-RUN-CONFLICT", "persisted run manifest is absent or unsafe")
+            raise AgentError(
+                "BTAG-RUN-CONFLICT", "persisted run manifest is absent or unsafe"
+            )
         manifest = read_json(manifest_path)
-        payload = {key: value for key, value in manifest.items() if key != "manifest_hash"}
+        payload = {
+            key: value for key, value in manifest.items() if key != "manifest_hash"
+        }
         if (
             manifest != expected
             or hash_object(payload) != manifest.get("manifest_hash")
             or manifest.get("manifest_hash")
-            != result.get("extensions", {}).get("backtrader_agent", {}).get("manifest_hash")
+            != result.get("extensions", {})
+            .get("backtrader_agent", {})
+            .get("manifest_hash")
         ):
             raise AgentError("BTAG-RUN-CONFLICT", "persisted run manifest is invalid")
 
@@ -390,7 +437,9 @@ class ControlledRunner:
         replacements.update(
             {str(Path(item["path"]).resolve()): "<dataset>" for item in descriptors}
         )
-        for value, label in sorted(replacements.items(), key=lambda item: -len(item[0])):
+        for value, label in sorted(
+            replacements.items(), key=lambda item: -len(item[0])
+        ):
             redacted = redacted.replace(value, label)
         redacted = re.sub(
             r"(?<![A-Za-z0-9_])/(?:[A-Za-z0-9._~+@%=-]+/)*[A-Za-z0-9._~+@%=-]+",
@@ -520,19 +569,25 @@ class ControlledRunner:
         }
         for feed in dataset.get("feeds", []):
             relative = (
-                feed.get("extensions", {}).get("backtrader_agent", {}).get("cas_relative_path")
+                feed.get("extensions", {})
+                .get("backtrader_agent", {})
+                .get("cas_relative_path")
             )
             if not isinstance(relative, str):
-                raise AgentError("BTAG-RUN-DATASET", "dataset has no registered CAS path")
+                raise AgentError(
+                    "BTAG-RUN-DATASET", "dataset has no registered CAS path"
+                )
             path = (self.state_root / relative).resolve(strict=True)
             try:
                 path.relative_to(self.state_root.resolve())
             except ValueError as exc:
-                raise AgentError("BTAG-RUN-DATASET", "dataset CAS path escapes state root") from exc
+                raise AgentError(
+                    "BTAG-RUN-DATASET", "dataset CAS path escapes state root"
+                ) from exc
             metadata = path.stat()
-            if _dataset_feed_sha256(path, metadata.st_size, metadata.st_mtime_ns) != feed.get(
-                "normalized_sha256"
-            ):
+            if _dataset_feed_sha256(
+                path, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns
+            ) != feed.get("normalized_sha256"):
                 raise AgentError("BTAG-RUN-DATASET-HASH", "dataset CAS bytes changed")
             descriptors.append(
                 {
@@ -555,7 +610,9 @@ class ControlledRunner:
                 applied["target_root_id"], item["relative_path"], require_file=True
             )
             if sha256_bytes(path.read_bytes()) != item["sha256"]:
-                raise AgentError("BTAG-RUN-SOURCE-HASH", "applied source changed after approval")
+                raise AgentError(
+                    "BTAG-RUN-SOURCE-HASH", "applied source changed after approval"
+                )
             if item["relative_path"] == applied.get("entrypoint"):
                 entrypoint = path
         if entrypoint is None:
@@ -565,7 +622,9 @@ class ControlledRunner:
         if profile == "python_bundle" and name != "run.py":
             raise AgentError("BTAG-RUN-PROFILE", "bundle entrypoint must be run.py")
         if profile == "single_test" and not name.startswith("test_"):
-            raise AgentError("BTAG-RUN-PROFILE", "test entrypoint must be a generated test")
+            raise AgentError(
+                "BTAG-RUN-PROFILE", "test entrypoint must be a generated test"
+            )
         return entrypoint
 
     @staticmethod
@@ -611,7 +670,9 @@ class ControlledRunner:
             warnings.warn(source_warning, RuntimeWarning, stacklevel=2)
         record = self.roots.get_record(str(root_id))
         root = Path(record["path"]).resolve(strict=True)
-        relative_import, _attested_version = _probe_engine(root, self.state_root, descriptor["version"])
+        relative_import, _attested_version = _probe_engine(
+            root, self.state_root, descriptor["version"]
+        )
         return root, {
             "hash": descriptor["engine_hash"],
             "kind": "registered-local",
@@ -623,7 +684,9 @@ class ControlledRunner:
         }
 
     @staticmethod
-    def _verify_execution_environment(validation_token: Dict[str, Any]) -> Dict[str, Any]:
+    def _verify_execution_environment(
+        validation_token: Dict[str, Any],
+    ) -> Dict[str, Any]:
         expected = validation_token.get("bindings", {}).get("environment_hash")
         descriptor = inspect_execution_environment()
         if not isinstance(expected, str) or not hmac.compare_digest(
@@ -638,7 +701,9 @@ class ControlledRunner:
     @staticmethod
     def _require_profile_dependencies(profile: str) -> None:
         if profile not in PROFILE_DEPENDENCIES:
-            raise AgentError("BTAG-RUN-PROFILE", "controlled run profile is not allowlisted")
+            raise AgentError(
+                "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
+            )
         backtrader_runtime = ensure_cloudquant_backtrader()
         warning = backtrader_runtime.get("warning")
         if isinstance(warning, str) and warning:
@@ -663,7 +728,9 @@ class ControlledRunner:
         timeout_seconds: int = 120,
     ) -> Dict[str, Any]:
         if timeout_seconds < 1 or timeout_seconds > 600:
-            raise AgentError("BTAG-RUN-TIMEOUT", "timeout must be between 1 and 600 seconds")
+            raise AgentError(
+                "BTAG-RUN-TIMEOUT", "timeout must be between 1 and 600 seconds"
+            )
         with self._locked_action(idempotency_key, timeout_seconds=timeout_seconds):
             return self._run_locked(
                 applied,
@@ -687,7 +754,9 @@ class ControlledRunner:
         timeout_seconds: int = 120,
     ) -> Dict[str, Any]:
         if timeout_seconds < 1 or timeout_seconds > 600:
-            raise AgentError("BTAG-RUN-TIMEOUT", "timeout must be between 1 and 600 seconds")
+            raise AgentError(
+                "BTAG-RUN-TIMEOUT", "timeout must be between 1 and 600 seconds"
+            )
         self._verify_applied(applied)
         dataset = self._verify_registered_dataset(dataset)
         self.authority.verify(
@@ -712,7 +781,9 @@ class ControlledRunner:
                 "BTAG-RUN-PROVENANCE",
                 "applied artifact, validation, and registered dataset bindings disagree",
             )
-        subject = self.compute_run_subject(applied, dataset, validation_token, mode=mode)
+        subject = self.compute_run_subject(
+            applied, dataset, validation_token, mode=mode
+        )
         self.authority.verify(
             run_token,
             kind="run",
@@ -895,11 +966,15 @@ class ControlledRunner:
                 timeout=timeout_seconds,
                 check=False,
                 shell=False,
-                preexec_fn=_resource_limits(timeout_seconds) if os.name == "posix" else None,
+                preexec_fn=(
+                    _resource_limits(timeout_seconds) if os.name == "posix" else None
+                ),
             )
         except subprocess.TimeoutExpired as exc:
             mark_failed("BTAG-RUN-TIMEOUT")
-            raise AgentError("BTAG-RUN-TIMEOUT", "controlled child process timed out") from exc
+            raise AgentError(
+                "BTAG-RUN-TIMEOUT", "controlled child process timed out"
+            ) from exc
         duration = time.monotonic() - started
         stdout = completed.stdout
         stderr = completed.stderr
@@ -931,7 +1006,9 @@ class ControlledRunner:
                     raise AgentError(
                         "BTAG-RUN-RESULT", "child emitted malformed structured result"
                     ) from exc
-        if not isinstance(payload, dict) or not isinstance(payload.get("metrics"), dict):
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("metrics"), dict
+        ):
             mark_failed("BTAG-RUN-RESULT")
             raise AgentError("BTAG-RUN-RESULT", "child emitted no structured metrics")
         try:

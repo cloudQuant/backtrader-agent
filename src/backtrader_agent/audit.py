@@ -16,6 +16,7 @@ SCHEMA_NAMES = {
     "run-manifest-v1.schema.json",
     "run-result-v1.schema.json",
     "agent-session-manifest-v1.schema.json",
+    "actions-v1.schema.json",
 }
 FORBIDDEN_IMPORT_PREFIXES = {
     "backtrader_mcp",
@@ -39,7 +40,11 @@ class IndependenceAuditor:
                 tree = ast.parse(path.read_text(encoding="utf-8"), filename=relative)
             except (OSError, SyntaxError):
                 diagnostics.append(
-                    {"code": "BTAG-AUDIT-SYNTAX", "path": relative, "message": "source unreadable"}
+                    {
+                        "code": "BTAG-AUDIT-SYNTAX",
+                        "path": relative,
+                        "message": "source unreadable",
+                    }
                 )
                 continue
             for node in ast.walk(tree):
@@ -74,7 +79,9 @@ class IndependenceAuditor:
                                 "message": "dynamic execution call",
                             }
                         )
-                elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+                elif isinstance(node, ast.Call) and isinstance(
+                    node.func, ast.Attribute
+                ):
                     if node.func.attr in {"read_text", "read_bytes", "open"}:
                         for argument in node.args:
                             if isinstance(argument, ast.Constant) and isinstance(
@@ -137,7 +144,10 @@ class IndependenceAuditor:
                 if set(declared) != actual_paths:
                     raise ValueError("file set differs")
                 for relative, expected_hash in declared.items():
-                    if sha256_bytes((source_root / relative).read_bytes()) != expected_hash:
+                    if (
+                        sha256_bytes((source_root / relative).read_bytes())
+                        != expected_hash
+                    ):
                         raise ValueError("hash differs")
             except (KeyError, OSError, ValueError, json.JSONDecodeError):
                 diagnostics.append(
@@ -154,32 +164,47 @@ class IndependenceAuditor:
             "checks": {
                 "forbidden_imports": (
                     "passed"
-                    if not any(item["code"] == "BTAG-AUDIT-SIBLING-IMPORT" for item in diagnostics)
+                    if not any(
+                        item["code"] == "BTAG-AUDIT-SIBLING-IMPORT"
+                        for item in diagnostics
+                    )
                     else "failed"
                 ),
                 "forbidden_reads": (
                     "passed"
-                    if not any(item["code"] == "BTAG-AUDIT-SIBLING-READ" for item in diagnostics)
+                    if not any(
+                        item["code"] == "BTAG-AUDIT-SIBLING-READ"
+                        for item in diagnostics
+                    )
                     else "failed"
                 ),
                 "dynamic_execution": (
                     "passed"
-                    if not any(item["code"] == "BTAG-AUDIT-DYNAMIC" for item in diagnostics)
+                    if not any(
+                        item["code"] == "BTAG-AUDIT-DYNAMIC" for item in diagnostics
+                    )
                     else "failed"
                 ),
                 "packaged_contracts": (
                     "passed"
-                    if not any(item["code"] == "BTAG-AUDIT-SCHEMAS" for item in diagnostics)
+                    if not any(
+                        item["code"] == "BTAG-AUDIT-SCHEMAS" for item in diagnostics
+                    )
                     else "failed"
                 ),
                 "comparison_profile": (
                     "passed"
-                    if not any(item["code"] == "BTAG-AUDIT-POLICY" for item in diagnostics)
+                    if not any(
+                        item["code"] == "BTAG-AUDIT-POLICY" for item in diagnostics
+                    )
                     else "failed"
                 ),
                 "distribution_manifest": (
                     "passed"
-                    if not any(item["code"] == "BTAG-AUDIT-DISTRIBUTION" for item in diagnostics)
+                    if not any(
+                        item["code"] == "BTAG-AUDIT-DISTRIBUTION"
+                        for item in diagnostics
+                    )
                     else "failed"
                 ),
             },

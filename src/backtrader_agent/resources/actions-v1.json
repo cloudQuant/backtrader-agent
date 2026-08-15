@@ -1,0 +1,1072 @@
+{
+  "actions": {
+    "actions": {
+      "help": "emit the machine-readable action schema",
+      "params": [
+        {
+          "choices": null,
+          "default": false,
+          "help": "emit machine-readable JSON",
+          "name": "json",
+          "option_strings": [
+            "--json"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "approval": {
+      "help": "request and locally grant one-time actions",
+      "params": []
+    },
+    "approval grant": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "request_id",
+          "option_strings": [
+            "--request-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "approver",
+          "option_strings": [
+            "--approver"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "confirm",
+          "option_strings": [
+            "--confirm"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "approval request": {
+      "help": null,
+      "params": [
+        {
+          "choices": [
+            "change",
+            "run"
+          ],
+          "default": null,
+          "help": null,
+          "name": "kind",
+          "option_strings": [
+            "--kind"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "subject_hash",
+          "option_strings": [
+            "--subject-hash"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "JSON object",
+          "name": "bindings",
+          "option_strings": [
+            "--bindings"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "audit-independence": {
+      "help": "verify no sibling product dependency",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": "product root to audit (defaults to the installed source tree)",
+          "name": "product_root",
+          "option_strings": [
+            "--product-root"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "backtrader": {
+      "help": "inspect or install the required CloudQuant Backtrader runtime",
+      "params": []
+    },
+    "backtrader check": {
+      "help": "check the current interpreter without changing it",
+      "params": []
+    },
+    "backtrader ensure": {
+      "help": "install CloudQuant Backtrader when it is missing",
+      "params": []
+    },
+    "catalog": {
+      "help": "search or inspect packaged snapshot",
+      "params": []
+    },
+    "catalog inspect": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "entry_id",
+          "option_strings": [
+            "--entry-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "catalog refresh": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "functional_root_id",
+          "option_strings": [
+            "--functional-root-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "package_root_id",
+          "option_strings": [
+            "--package-root-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "allow_count_drift",
+          "option_strings": [
+            "--allow-count-drift"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "catalog search": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "query",
+          "option_strings": [
+            "--query"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "archetype",
+          "option_strings": [
+            "--archetype"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": [
+            "single_test",
+            "python_bundle"
+          ],
+          "default": null,
+          "help": null,
+          "name": "profile",
+          "option_strings": [
+            "--profile"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": 5,
+          "help": null,
+          "name": "top_k",
+          "option_strings": [
+            "--top-k"
+          ],
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    "changes": {
+      "help": "prepare or apply a confined change set",
+      "params": []
+    },
+    "changes apply": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "manifest",
+          "option_strings": [
+            "--manifest"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "change_token",
+          "option_strings": [
+            "--change-token"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "idempotency_key",
+          "option_strings": [
+            "--idempotency-key"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "changes prepare": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "draft_root",
+          "option_strings": [
+            "--draft-root"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "JSON array of source/target entries",
+          "name": "files",
+          "option_strings": [
+            "--files"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "target_root_id",
+          "option_strings": [
+            "--target-root-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "validation_token",
+          "option_strings": [
+            "--validation-token"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "compare": {
+      "help": "compare two immutable local RunResult objects",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "left_run_id",
+          "option_strings": [
+            "--left-run-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "right_run_id",
+          "option_strings": [
+            "--right-run-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "data": {
+      "help": "inspect, register, or preview offline data",
+      "params": []
+    },
+    "data inspect": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": "DataSpec JSON",
+          "name": "spec",
+          "option_strings": [
+            "--spec"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "data list": {
+      "help": "list registered dataset manifests",
+      "params": []
+    },
+    "data preview": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_id",
+          "option_strings": [
+            "--dataset-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": 5,
+          "help": null,
+          "name": "rows",
+          "option_strings": [
+            "--rows"
+          ],
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    "data register": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": "DataSpec JSON",
+          "name": "spec",
+          "option_strings": [
+            "--spec"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "doctor": {
+      "help": "diagnose environment and packaged capabilities",
+      "params": [
+        {
+          "choices": null,
+          "default": false,
+          "help": "emit machine-readable JSON",
+          "name": "json",
+          "option_strings": [
+            "--json"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "draft": {
+      "help": "render a product-owned scaffold",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "spec",
+          "option_strings": [
+            "--spec"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_manifest",
+          "option_strings": [
+            "--dataset-manifest"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "engine": {
+      "help": "inspect or list registered Backtrader runtimes",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "root_id",
+          "option_strings": [
+            "--root-id"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "list",
+          "option_strings": [
+            "--list"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "install": {
+      "help": "preview/apply a native host adapter",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "target",
+          "option_strings": [
+            "--target"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": [
+            "claude",
+            "codex",
+            "opencode",
+            "openclaw"
+          ],
+          "default": null,
+          "help": null,
+          "name": "host",
+          "option_strings": [
+            "--host"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "preview",
+          "option_strings": [
+            "--preview"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "apply",
+          "option_strings": [
+            "--apply"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "uninstall",
+          "option_strings": [
+            "--uninstall"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "payload": {
+      "help": "return packaged product-owned agent instructions",
+      "params": []
+    },
+    "repair": {
+      "help": "revise StrategySpec and deterministically re-render a failed owned draft",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "spec",
+          "option_strings": [
+            "--spec"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_manifest",
+          "option_strings": [
+            "--dataset-manifest"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "failure_report",
+          "option_strings": [
+            "--failure-report"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "report": {
+      "help": "read an immutable local run report",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "run_id",
+          "option_strings": [
+            "--run-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": [
+            "json",
+            "markdown",
+            "html"
+          ],
+          "default": "markdown",
+          "help": null,
+          "name": "format",
+          "option_strings": [
+            "--format"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "roots": {
+      "help": "manage opaque controlled roots",
+      "params": []
+    },
+    "roots list": {
+      "help": null,
+      "params": []
+    },
+    "roots register": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "id",
+          "option_strings": [
+            "--id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "path",
+          "option_strings": [
+            "--path"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": [
+            "workspace",
+            "dataset",
+            "engine",
+            "runtime"
+          ],
+          "default": null,
+          "help": null,
+          "name": "kind",
+          "option_strings": [
+            "--kind"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "writable",
+          "option_strings": [
+            "--writable"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "run": {
+      "help": "execute a fixed controlled child-process profile",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "applied_artifact",
+          "option_strings": [
+            "--applied-artifact"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_manifest",
+          "option_strings": [
+            "--dataset-manifest"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "validation_token",
+          "option_strings": [
+            "--validation-token"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "run_token",
+          "option_strings": [
+            "--run-token"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": [
+            "runonce",
+            "runnext"
+          ],
+          "default": null,
+          "help": null,
+          "name": "mode",
+          "option_strings": [
+            "--mode"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "idempotency_key",
+          "option_strings": [
+            "--idempotency-key"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": 120,
+          "help": null,
+          "name": "timeout",
+          "option_strings": [
+            "--timeout"
+          ],
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
+    "run-subject": {
+      "help": "compute the exact hash that a run approval must bind",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "applied_artifact",
+          "option_strings": [
+            "--applied-artifact"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_manifest",
+          "option_strings": [
+            "--dataset-manifest"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "validation_token",
+          "option_strings": [
+            "--validation-token"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": [
+            "runonce",
+            "runnext"
+          ],
+          "default": null,
+          "help": null,
+          "name": "mode",
+          "option_strings": [
+            "--mode"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "runs": {
+      "help": "list persisted run results",
+      "params": []
+    },
+    "runs list": {
+      "help": null,
+      "params": []
+    },
+    "session": {
+      "help": "create, inspect, recover, cancel, or archive",
+      "params": []
+    },
+    "session archive": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "session cancel": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "session create": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "session list": {
+      "help": "list session manifests",
+      "params": []
+    },
+    "session recover": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "session status": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "spec": {
+      "help": "validate StrategySpec",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "file",
+          "option_strings": [
+            "--file"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": null,
+          "name": "approve",
+          "option_strings": [
+            "--approve"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "validate": {
+      "help": "AST/security validate a draft artifact",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "artifact_manifest",
+          "option_strings": [
+            "--artifact-manifest"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "draft_root",
+          "option_strings": [
+            "--draft-root"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "session_id",
+          "option_strings": [
+            "--session-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_hash",
+          "option_strings": [
+            "--dataset-hash"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "engine_root_id",
+          "option_strings": [
+            "--engine-root-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    }
+  },
+  "schema_version": "actions-v1"
+}

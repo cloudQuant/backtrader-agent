@@ -78,7 +78,8 @@ def test_public_contract_assets_are_named_and_canonical() -> None:
     contracts = PACKAGE_ROOT / "resources" / "contracts"
     assert {path.name for path in contracts.glob("*.json")} == SCHEMA_NAMES
     parsed = {
-        path.name: json.loads(path.read_text(encoding="utf-8")) for path in contracts.glob("*.json")
+        path.name: json.loads(path.read_text(encoding="utf-8"))
+        for path in contracts.glob("*.json")
     }
     for schema in parsed.values():
         Draft202012Validator.check_schema(schema)
@@ -95,7 +96,9 @@ def test_public_contract_assets_are_named_and_canonical() -> None:
     session_schema = parsed["agent-session-manifest-v1.schema.json"]
     assert "AgentEvent" in session_schema["$defs"]
     comparison = json.loads(
-        (PACKAGE_ROOT / "resources/policies/comparison-profile-v1.json").read_text(encoding="utf-8")
+        (PACKAGE_ROOT / "resources/policies/comparison-profile-v1.json").read_text(
+            encoding="utf-8"
+        )
     )
     assert comparison["profile_version"] == "comparison-profile-v1"
     assert comparison["integer_metrics"] == [
@@ -138,12 +141,22 @@ def test_public_contract_assets_are_named_and_canonical() -> None:
     assert migrated["run_modes"] == ["runonce", "runnext"]
 
     corpus = json.loads(
-        (PACKAGE_ROOT / "resources/catalog/corpus-manifest.json").read_text(encoding="utf-8")
+        (PACKAGE_ROOT / "resources/catalog/corpus-manifest.json").read_text(
+            encoding="utf-8"
+        )
     )
     Draft202012Validator(parsed["corpus-manifest-v1.schema.json"]).validate(corpus)
 
+    actions_snapshot = json.loads(
+        (PACKAGE_ROOT / "resources" / "actions-v1.json").read_text(encoding="utf-8")
+    )
+    Draft202012Validator(parsed["actions-v1.schema.json"]).validate(actions_snapshot)
+    assert actions_snapshot["schema_version"] == "actions-v1"
 
-def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path: Path) -> None:
+
+def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(
+    tmp_path: Path,
+) -> None:
     source_copy = tmp_path / "source"
     shutil.copytree(
         PRODUCT_ROOT,
@@ -180,7 +193,9 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path:
     wheel = next(wheel_dir.glob("backtrader_agent-*.whl"))
     with zipfile.ZipFile(wheel) as archive:
         names = set(archive.namelist())
-        metadata_name = next(name for name in names if name.endswith(".dist-info/METADATA"))
+        metadata_name = next(
+            name for name in names if name.endswith(".dist-info/METADATA")
+        )
         metadata = BytesParser(policy=default).parsebytes(archive.read(metadata_name))
     assert metadata["License"] == "MIT"
     assert set(metadata.get_all("Provides-Extra", [])) == {
@@ -204,15 +219,15 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path:
     metadata_requirements = metadata.get_all("Requires-Dist", [])
     for extra, expected_distributions in requirements_by_extra.items():
         extra_requirements = {
-                re.split(r"[<>=!~ @]", requirement, maxsplit=1)[0].lower()
+            re.split(r"[<>=!~ @]", requirement, maxsplit=1)[0].lower()
             for requirement in metadata_requirements
-            if "extra == \"{}\"".format(extra) in requirement
+            if 'extra == "{}"'.format(extra) in requirement
         }
         assert expected_distributions <= extra_requirements
     cloudquant_requirement = "git+https://github.com/cloudquant/backtrader.git"
     for extra in ("backtest", "test"):
         assert any(
-            "extra == \"{}\"".format(extra) in requirement
+            'extra == "{}"'.format(extra) in requirement
             and cloudquant_requirement in requirement.lower()
             for requirement in metadata_requirements
         )
@@ -223,6 +238,7 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(tmp_path:
     assert "backtrader_agent/resources/catalog/snapshot.jsonl" in names
     assert "backtrader_agent/resources/catalog/corpus-manifest.json" in names
     assert "backtrader_agent/resources/agent-payload.md" in names
+    assert "backtrader_agent/resources/actions-v1.json" in names
     for relative in (
         "claude-code/backtrader-agent.md",
         "codex/backtrader-agent.toml",
@@ -290,9 +306,9 @@ def test_docs_and_ci_consume_the_declared_execution_contract() -> None:
     assert readme.count("python -m pip install '.[backtest]'") == 2
     assert "python -m pip install '.[test]'" in contributing
     walkthrough = example.split("## Walkthrough", 1)[1]
-    assert walkthrough.index("session create --session-id session-001") < walkthrough.index(
-        "data register"
-    )
+    assert walkthrough.index(
+        "session create --session-id session-001"
+    ) < walkthrough.index("data register")
     assert 'python-version: ["3.8", "3.9", "3.11", "3.12"]' in workflow
     assert "python -m pip install '.[test]'" in workflow
     assert "pip install backtrader pandas jsonschema pytest" not in workflow

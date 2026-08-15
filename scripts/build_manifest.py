@@ -8,6 +8,12 @@ distribution manifests stay exact. The independence audit
 fail closed when a manifest drifts, so this script is the single source of
 truth for keeping them in sync.
 
+The script also refreshes the packaged action-schema snapshot
+(``src/backtrader_agent/resources/actions-v1.json``) from the live CLI parser
+before building either manifest, so the snapshot and its recorded hashes can
+never drift apart. The snapshot is machine-independent (parameter defaults
+contain no absolute paths), so regeneration is byte-stable on any checkout.
+
 Usage::
 
     python scripts/build_manifest.py
@@ -64,7 +70,9 @@ def _iter_files(root: Path, excluded_parts: Set[str], skip: Path) -> Iterable[Pa
 
 
 def _version() -> str:
-    match = VERSION_RE.search((PACKAGE_ROOT / "__init__.py").read_text(encoding="utf-8"))
+    match = VERSION_RE.search(
+        (PACKAGE_ROOT / "__init__.py").read_text(encoding="utf-8")
+    )
     return match.group(1) if match else "0.0.0"
 
 
@@ -109,16 +117,50 @@ def build_package_manifest() -> Dict[str, Any]:
 
 
 def _write(path: Path, value: Dict[str, Any]) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+
+
+def build_actions_resource() -> Dict[str, Any]:
+    """Refresh ``resources/actions-v1.json`` from the live CLI parser.
+
+    The snapshot is the canonical serialization of ``build_action_schema``;
+    regenerating it here keeps the packaged resource byte-identical to what
+    ``backtrader-agent actions --json`` emits.
+    """
+
+    src_root = str(PACKAGE_ROOT.parent)
+    if src_root not in sys.path:
+        sys.path.insert(0, src_root)
+    from backtrader_agent.cli import (
+        build_action_schema,
+        build_parser,
+    )  # generator-only import
+
+    schema = build_action_schema(build_parser())
+    path = PACKAGE_ROOT / "resources" / "actions-v1.json"
+    path.write_text(
+        json.dumps(schema, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return schema
 
 
 def main() -> int:
+    # Refresh the action schema snapshot first: the manifests below record its
+    # sha256, so the snapshot must be final before either manifest is built.
+    actions_schema = build_actions_resource()
     # Write the package manifest first: the root manifest records the package
     # manifest's sha256, so it must hash the final package manifest bytes.
     package = build_package_manifest()
     _write(PKG_MANIFEST, package)
     root = build_root_manifest()
     _write(ROOT_MANIFEST, root)
+    print(
+        f"action schema:     {len(actions_schema['actions'])} actions -> "
+        f"{(PACKAGE_ROOT / 'resources' / 'actions-v1.json').relative_to(PROJECT_ROOT)}"
+    )
     print(
         f"root manifest:     {root['file_count']} files -> {ROOT_MANIFEST.relative_to(PROJECT_ROOT)}"
     )

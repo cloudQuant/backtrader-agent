@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://backtrader.org/contracts/ai-strategy/v1/actions.schema.json",
+  "title": "Backtrader Action Schema v1",
+  "description": "Machine-readable reflection of every CLI subcommand, mirrored by the packaged snapshot at resources/actions-v1.json so hosts can generate tool definitions without parsing --help prose.",
+  "type": "object",
+  "required": ["schema_version", "actions"],
+  "properties": {
+    "schema_version": {"const": "actions-v1"},
+    "actions": {
+      "type": "object",
+      "description": "Flat command path (e.g. \"data register\") to action definition.",
+      "additionalProperties": {"$ref": "#/$defs/Action"}
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "Action": {
+      "type": "object",
+      "required": ["params", "help"],
+      "properties": {
+        "params": {
+          "type": "array",
+          "description": "Leaf parameters of this command's own parser; a group parser that only routes to subcommands has an empty list.",
+          "items": {"$ref": "#/$defs/Param"}
+        },
+        "help": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "Param": {
+      "type": "object",
+      "required": [
+        "name",
+        "option_strings",
+        "required",
+        "type",
+        "choices",
+        "default",
+        "help"
+      ],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "option_strings": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1}
+        },
+        "required": {"type": "boolean"},
+        "type": {
+          "type": ["string", "null"],
+          "description": "argparse type name (e.g. \"int\") or null when untyped."
+        },
+        "choices": {
+          "type": ["array", "null"],
+          "items": {"type": "string"}
+        },
+        "default": {},
+        "help": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    }
+  }
+}

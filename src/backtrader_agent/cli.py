@@ -74,7 +74,10 @@ def _list_engines(roots: RootRegistry) -> List[Dict[str, Any]]:
     for record in roots.list():
         if record["kind"] != "engine":
             continue
-        entry: Dict[str, Any] = {"root_id": record["root_id"], "writable": record["writable"]}
+        entry: Dict[str, Any] = {
+            "root_id": record["root_id"],
+            "writable": record["writable"],
+        }
         try:
             descriptor = inspect_engine(roots, record["root_id"])
             entry.update(
@@ -111,6 +114,82 @@ def _state_run_result(state: Path, run_id: str) -> Dict[str, Any]:
     return result
 
 
+def _subparsers_action(parser: argparse.ArgumentParser) -> Optional[argparse.Action]:
+    """Return the parser's subparsers action across supported Python versions.
+
+    Python 3.13+ exposes ``parser._subparsers`` as an argument group whose
+    actions hold the ``_SubParsersAction``; earlier versions may surface the
+    action through the shared actions list instead. Scan every candidate
+    container so the reflection never depends on one private layout.
+    """
+
+    containers = [parser]
+    group = getattr(parser, "_subparsers", None)
+    if group is not None and group is not parser:
+        containers.append(group)
+    for container in containers:
+        actions = getattr(container, "_group_actions", None)
+        if actions is None:
+            actions = getattr(container, "_actions", ())
+        for action in actions:
+            if isinstance(action, argparse._SubParsersAction):
+                return action
+    return None
+
+
+def _action_param(action: argparse.Action) -> Dict[str, Any]:
+    """Describe one leaf argparse action as a machine-readable parameter."""
+
+    action_type = action.type
+    return {
+        "name": action.dest,
+        "option_strings": list(action.option_strings),
+        "required": bool(action.required),
+        "type": (
+            getattr(action_type, "__name__", None) if action_type is not None else None
+        ),
+        "choices": list(action.choices) if action.choices else None,
+        "default": action.default,
+        "help": action.help,
+    }
+
+
+def build_action_schema(parser: argparse.ArgumentParser) -> Dict[str, Any]:
+    """Reflect every CLI subcommand into the machine-readable ``actions-v1`` shape.
+
+    Subcommand groups are flattened into path keys (``"data register"``). Each
+    entry lists the leaf parameters of its own parser; a group parser's own
+    entry carries an empty parameter list because subcommand routing is not a
+    leaf parameter.
+    """
+
+    actions: Dict[str, Any] = {}
+
+    def walk(subparsers: argparse.Action, prefix: str) -> None:
+        help_by_name = {
+            choice.dest: choice.help
+            for choice in getattr(subparsers, "_choices_actions", ()) or ()
+        }
+        for name, child in subparsers.choices.items():
+            key = f"{prefix} {name}".strip()
+            params = [
+                _action_param(action)
+                for action in child._actions
+                if not isinstance(
+                    action, (argparse._HelpAction, argparse._SubParsersAction)
+                )
+            ]
+            actions[key] = {"params": params, "help": help_by_name.get(name)}
+            nested = _subparsers_action(child)
+            if nested is not None:
+                walk(nested, key)
+
+    top = _subparsers_action(parser)
+    if top is not None:
+        walk(top, "")
+    return {"schema_version": "actions-v1", "actions": actions}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="backtrader-agent",
@@ -119,14 +198,23 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--state-root", default=".backtrader-agent")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    doctor = sub.add_parser("doctor", help="diagnose environment and packaged capabilities")
-    doctor.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    doctor = sub.add_parser(
+        "doctor", help="diagnose environment and packaged capabilities"
+    )
+    doctor.add_argument(
+        "--json", action="store_true", help="emit machine-readable JSON"
+    )
     backtrader = sub.add_parser(
-        "backtrader", help="inspect or install the required CloudQuant Backtrader runtime"
+        "backtrader",
+        help="inspect or install the required CloudQuant Backtrader runtime",
     )
     backtrader_sub = backtrader.add_subparsers(dest="backtrader_command", required=True)
-    backtrader_sub.add_parser("check", help="check the current interpreter without changing it")
-    backtrader_sub.add_parser("ensure", help="install CloudQuant Backtrader when it is missing")
+    backtrader_sub.add_parser(
+        "check", help="check the current interpreter without changing it"
+    )
+    backtrader_sub.add_parser(
+        "ensure", help="install CloudQuant Backtrader when it is missing"
+    )
     sub.add_parser("payload", help="return packaged product-owned agent instructions")
 
     roots = sub.add_parser("roots", help="manage opaque controlled roots")
@@ -140,7 +228,9 @@ def build_parser() -> argparse.ArgumentParser:
     root_register.add_argument("--writable", action="store_true")
     roots_sub.add_parser("list")
 
-    engine = sub.add_parser("engine", help="inspect or list registered Backtrader runtimes")
+    engine = sub.add_parser(
+        "engine", help="inspect or list registered Backtrader runtimes"
+    )
     engine_mode = engine.add_mutually_exclusive_group(required=True)
     engine_mode.add_argument("--root-id")
     engine_mode.add_argument("--list", action="store_true")
@@ -188,7 +278,9 @@ def build_parser() -> argparse.ArgumentParser:
     validate.add_argument("--dataset-hash", required=True)
     validate.add_argument("--engine-root-id", required=True)
 
-    approval = sub.add_parser("approval", help="request and locally grant one-time actions")
+    approval = sub.add_parser(
+        "approval", help="request and locally grant one-time actions"
+    )
     approval_sub = approval.add_subparsers(dest="approval_command", required=True)
     approval_request = approval_sub.add_parser("request")
     approval_request.add_argument("--kind", choices=["change", "run"], required=True)
@@ -204,7 +296,9 @@ def build_parser() -> argparse.ArgumentParser:
     prepare = change_sub.add_parser("prepare")
     prepare.add_argument("--session-id", required=True)
     prepare.add_argument("--draft-root", required=True)
-    prepare.add_argument("--files", required=True, help="JSON array of source/target entries")
+    prepare.add_argument(
+        "--files", required=True, help="JSON array of source/target entries"
+    )
     prepare.add_argument("--target-root-id", required=True)
     prepare.add_argument("--validation-token", required=True)
     apply_action = change_sub.add_parser("apply")
@@ -229,13 +323,17 @@ def build_parser() -> argparse.ArgumentParser:
     run_subject.add_argument("--validation-token", required=True)
     run_subject.add_argument("--mode", choices=["runonce", "runnext"], required=True)
 
-    compare = sub.add_parser("compare", help="compare two immutable local RunResult objects")
+    compare = sub.add_parser(
+        "compare", help="compare two immutable local RunResult objects"
+    )
     compare.add_argument("--left-run-id", required=True)
     compare.add_argument("--right-run-id", required=True)
 
     report = sub.add_parser("report", help="read an immutable local run report")
     report.add_argument("--run-id", required=True)
-    report.add_argument("--format", choices=["json", "markdown", "html"], default="markdown")
+    report.add_argument(
+        "--format", choices=["json", "markdown", "html"], default="markdown"
+    )
 
     repair = sub.add_parser(
         "repair",
@@ -246,7 +344,9 @@ def build_parser() -> argparse.ArgumentParser:
     repair.add_argument("--dataset-manifest", required=True)
     repair.add_argument("--failure-report", required=True)
 
-    session = sub.add_parser("session", help="create, inspect, recover, cancel, or archive")
+    session = sub.add_parser(
+        "session", help="create, inspect, recover, cancel, or archive"
+    )
     session_sub = session.add_subparsers(dest="session_command", required=True)
     for name in ("create", "status", "recover", "cancel", "archive"):
         action = session_sub.add_parser(name)
@@ -267,20 +367,35 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--apply", action="store_true")
     mode.add_argument("--uninstall", action="store_true")
 
-    audit = sub.add_parser("audit-independence", help="verify no sibling product dependency")
-    audit.add_argument("--product-root", default=str(Path(__file__).resolve().parents[2]))
+    audit = sub.add_parser(
+        "audit-independence", help="verify no sibling product dependency"
+    )
+    audit.add_argument(
+        "--product-root",
+        default=None,
+        help="product root to audit (defaults to the installed source tree)",
+    )
+
+    actions = sub.add_parser("actions", help="emit the machine-readable action schema")
+    actions.add_argument(
+        "--json", action="store_true", help="emit machine-readable JSON"
+    )
     return parser
 
 
 def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.command == "doctor":
         return diagnose(state_root=_state(args))
+    if args.command == "actions":
+        return build_action_schema(build_parser())
     if args.command == "backtrader":
         if args.backtrader_command == "ensure":
             return ensure_cloudquant_backtrader()
         return inspect_backtrader_runtime()
     if args.command == "payload":
-        payload_path = Path(__file__).resolve().parent / "resources" / "agent-payload.md"
+        payload_path = (
+            Path(__file__).resolve().parent / "resources" / "agent-payload.md"
+        )
         content = payload_path.read_text(encoding="utf-8")
         return {
             "schema_version": "agent-payload-v1",
@@ -290,7 +405,9 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     state, roots, authority = _runtime(args)
     if args.command == "roots":
         if args.roots_command == "register":
-            return roots.register(args.id, Path(args.path), writable=args.writable, kind=args.kind)
+            return roots.register(
+                args.id, Path(args.path), writable=args.writable, kind=args.kind
+            )
         return {"roots": roots.list()}
     if args.command == "engine":
         if args.list:
@@ -427,7 +544,9 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             )
         bindings = json.loads(args.bindings)
         if not isinstance(bindings, dict):
-            raise AgentError("BTAG-CLI-BINDINGS", "token bindings must be a JSON object")
+            raise AgentError(
+                "BTAG-CLI-BINDINGS", "token bindings must be a JSON object"
+            )
         return authority.prepare_approval(
             args.kind,
             args.subject_hash,
@@ -486,7 +605,9 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
         suffix = "md" if args.format == "markdown" else "html"
         report_path = state / "runs" / args.run_id / f"report.{suffix}"
         if not report_path.is_file():
-            raise AgentError("BTAG-REPORT-MISSING", "requested immutable report does not exist")
+            raise AgentError(
+                "BTAG-REPORT-MISSING", "requested immutable report does not exist"
+            )
         content = report_path.read_text(encoding="utf-8")
         return {
             "schema_version": "report-view-v1",
@@ -524,7 +645,10 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             return installer.uninstall(Path(args.target), args.host, apply=True)
         return installer.install(Path(args.target), args.host, apply=args.apply)
     if args.command == "audit-independence":
-        return IndependenceAuditor(Path(args.product_root)).audit()
+        product_root = args.product_root
+        if product_root is None:
+            product_root = str(Path(__file__).resolve().parents[2])
+        return IndependenceAuditor(Path(product_root)).audit()
     raise AgentError("BTAG-CLI-COMMAND", "unknown command")
 
 
@@ -566,7 +690,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     runtime_warning = result.get("warning")
     if isinstance(runtime_warning, str) and runtime_warning:
         warnings.append(runtime_warning)
-    for warning in dict.fromkeys(item for item in warnings if isinstance(item, str) and item):
+    for warning in dict.fromkeys(
+        item for item in warnings if isinstance(item, str) and item
+    ):
         print("WARNING: {}".format(warning), file=sys.stderr)
     _emit({"status": "ok", "result": result})
     return 0

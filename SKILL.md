@@ -5,7 +5,7 @@ description: Independent, stateless Backtrader strategy authoring and controlled
 
 # Backtrader Agent
 
-version: "13.0.1"
+version: "13.0.2"
 
 Any content change to this payload MUST bump the version line above, update
 the golden SHA-256 in tests/test_payload_contract.py, mirror this file
@@ -228,7 +228,7 @@ the message and hint, and never mutate artifacts to “fix” a hash mismatch.
 | BTAG-CLI-INPUT | Raised when `changes prepare --files` or `approval request --bindings` cannot be parsed — those two accept inline JSON only (no @file). Check the JSON syntax and retry. |
 | BTAG-CLI-IO | Check disk space, permissions, and the file path; fix the filesystem and retry. A file-typed JSON argument that is empty, whitespace-only, or malformed is treated as a file path and surfaces here — check the JSON syntax too. |
 | BTAG-CLI-JSON | The top-level JSON argument must be an object; an array or scalar is rejected. |
-| BTAG-TOKEN-EXPIRED | Run `validate` again for a fresh validation token, then re-request and re-grant the approval (tokens are TTL-bound). |
+| BTAG-TOKEN-EXPIRED | A failed or stale token requires a new validation/approval cycle. From APPLY_PREPARED, re-run the full approval cycle (`changes prepare` → `approval request` → `approval grant` → `changes apply`); never reuse the expired token. |
 | BTAG-TOKEN-CONSUMED | A one-time token was already spent; run a new validation/approval cycle. Never reuse a token. |
 | BTAG-APPROVAL-NOT-FOUND / BTAG-APPROVAL-EXPIRED | The approval request or grant is gone or expired; re-request with the same bindings and grant again. |
 | BTAG-APPROVAL-REQUIRED | This action needs a granted approval; run `approval request` then `approval grant` for the right kind first. |
@@ -236,7 +236,7 @@ the message and hint, and never mutate artifacts to “fix” a hash mismatch.
 | BTAG-STATE-TERMINAL | The session is COMPLETED, CANCELLED, or ARCHIVED; never reactivate it. Create a new session. |
 | BTAG-SESSION-UNKNOWN | Run `session list` for real session ids, or `session create` a new one. |
 | BTAG-SESSION-JOURNAL / BTAG-SESSION-CHECKPOINT | Run `session recover --session-id ...` to rebuild the verified prefix, then `session status`. Never guess past damage. |
-| BTAG-CHANGE-PREIMAGE | The target file changed externally between prepare and apply; stop, report to the user, and prepare a fresh change set. Never overwrite. |
+| BTAG-CHANGE-PREIMAGE | The target file changed externally between prepare and apply. Stop and report that the target was modified externally. Optionally restore the expected preimage and re-apply the same manifest under the same idempotency key; never overwrite, and never prepare a fresh change set against a tampered target silently. |
 | BTAG-CHANGE-SOURCE-HASH | Draft bytes changed after validation; re-run `validate` on the current draft. |
 | BTAG-CHANGE-ROLLBACK | Apply is atomic and rolled back; report and re-apply the same manifest with the same idempotency key. |
 | BTAG-IDEMPOTENCY-CONFLICT | The same idempotency key was reused with different bytes; pick a new key for a new effect. |

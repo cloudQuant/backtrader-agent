@@ -8,6 +8,38 @@ Every content change to `src/backtrader_agent/resources/agent-payload.md`
 3. add an entry here recording the motivation and the corresponding eval
    baseline.
 
+## 13.0.2 — 2026-08-16
+
+**Motivation.** Empirical correction driven by the deterministic eval harness
+(Task 10): two recovery-table rows described recoveries the runtime rejects
+from the states the rows are reached in, which would strand a host following
+the table. The scripted-host tasks assert the verified paths and are the
+executable ground truth.
+
+**Changes.**
+
+- BTAG-TOKEN-EXPIRED: "run `validate` again for a fresh validation token"
+  fails from APPLY_PREPARED with BTAG-PROVENANCE-BINDING (validation requires
+  DRAFT_READY, and a fresh token would also break the prepare session
+  evidence). The row now matches the Error-handling section exactly: a failed
+  or stale token requires a new validation/approval cycle; from
+  APPLY_PREPARED, re-run the full approval cycle (`changes prepare` →
+  `approval request` → `approval grant` → `changes apply`).
+- BTAG-CHANGE-PREIMAGE: "prepare a fresh change set" fails with
+  BTAG-CHANGE-SESSION (the session is APPLY_PREPARED and bound to the first
+  manifest hash). The row now says: stop and report the external
+  modification; optionally restore the expected preimage and re-apply the
+  same manifest under the same idempotency key; never overwrite and never
+  prepare a fresh change set against a tampered target silently.
+- Payload contract test: version regex pinned to 13.0.2.
+
+**Eval baseline.** Task 10 suite: 23/23 scripted-host tasks pass
+(`python scripts/run_evals.py`), including
+`inject-expired-token` (BTAG-TOKEN-EXPIRED + full-cycle recovery) and
+`inject-preimage` (BTAG-CHANGE-PREIMAGE + restore-and-reapply recovery).
+This entry pins the golden SHA-256
+`ddaa0ee19c75cbbc5d054e038bfd7d9fb62f96108b99e0e81e0283be9bcb1df4`.
+
 ## 13.0.1 — 2026-08-16
 
 **Motivation.** Post-review correction of the 13.0.0 compression rules: the

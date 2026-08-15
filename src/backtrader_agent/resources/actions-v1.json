@@ -1079,6 +1079,17 @@
           ],
           "required": true,
           "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "registered engine root id",
+          "name": "engine_root_id",
+          "option_strings": [
+            "--engine-root-id"
+          ],
+          "required": true,
+          "type": null
         }
       ]
     },

@@ -3,9 +3,11 @@
 ``prepare_sweep`` enumerates the cartesian product of an approved spec's
 numeric parameter grid, checks every value against the spec-declared
 ``minimum``/``maximum`` bounds, and persists a content-addressed, hash-sealed
-SweepPlan at ``<state>/sweeps/sweep_<64hex>/sweep-plan.json``. ``load_plan``
-re-verifies the embedded ``plan_hash`` and every per-cell ``cell_hash`` and
-rejects any tampering with ``BTAG-SWEEP-PLAN``.
+SweepPlan at ``<state>/sweeps/sweep_<64hex>/sweep-plan.json``. The plan binds
+the spec, dataset, engine root, and execution environment hashes alongside
+the per-cell parameter values. ``load_plan`` re-verifies the embedded
+``plan_hash`` and every per-cell ``cell_hash`` and rejects any tampering with
+``BTAG-SWEEP-PLAN``.
 
 Cell rendering/execution (R17) is deliberately not part of this module: this
 task only produces the immutable plan records.
@@ -19,7 +21,9 @@ from typing import Any, Dict, List
 
 from .canonical import create_or_verify_json, hash_object, read_json
 from .contracts import DatasetManifest, StrategySpec
+from .engines import inspect_engine, inspect_execution_environment
 from .errors import AgentError
+from .roots import RootRegistry
 from .sessions import SessionStore
 
 SCHEMA_VERSION = "sweep-plan-v1"
@@ -152,12 +156,19 @@ def _build_plan(
     spec_hash: str,
     dataset_manifest_hash: str,
     cells: List[Dict[str, Any]],
+    *,
+    engine_hash: str,
+    engine_root_id: str,
+    environment_hash: str,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "session_id": session_id,
         "spec_hash": spec_hash,
         "dataset_manifest_hash": dataset_manifest_hash,
+        "engine_hash": engine_hash,
+        "engine_root_id": engine_root_id,
+        "environment_hash": environment_hash,
         "cells": cells,
     }
     sweep_id = _derive_sweep_id(payload)
@@ -200,11 +211,15 @@ def prepare_sweep(
     spec: StrategySpec,
     dataset_manifest: Dict[str, Any],
     param_grid: Dict[str, List[float]],
+    *,
+    engine_root_id: str,
 ) -> Dict[str, Any]:
     """Enumerate a bounded parameter grid into a persisted immutable SweepPlan.
 
     The session must hold the same approved spec (state ``SPEC_APPROVED``)
-    and the same registered dataset manifest. The plan is content-addressed:
+    and the same registered dataset manifest. The engine root is resolved the
+    same way the ``validate`` command does it, and its hash plus the execution
+    environment hash are sealed into the plan. The plan is content-addressed:
     re-preparing identical inputs replays the stored plan without journaling
     another event.
     """
@@ -217,7 +232,17 @@ def prepare_sweep(
     _validate_grid(spec, param_grid)
     cells = _expand_cells(spec.spec_hash, param_grid)
     manifest_hash = _dataset_manifest_hash(spec, dataset_manifest)
-    plan = _build_plan(session_id, spec.spec_hash, manifest_hash, cells)
+    engine = inspect_engine(RootRegistry(state_root), engine_root_id)
+    environment = inspect_execution_environment()
+    plan = _build_plan(
+        session_id,
+        spec.spec_hash,
+        manifest_hash,
+        cells,
+        engine_hash=engine["engine_hash"],
+        engine_root_id=engine["root_id"],
+        environment_hash=environment["environment_hash"],
+    )
     sweep_id = plan["sweep_id"]
 
     sessions = SessionStore(state_root)
@@ -267,7 +292,10 @@ def load_plan(state: Path, sweep_id: str) -> Dict[str, Any]:
     path = Path(state) / "sweeps" / sweep_id / "sweep-plan.json"
     if path.is_symlink() or not path.is_file():
         raise AgentError("BTAG-SWEEP-PLAN", "sweep plan does not exist")
-    plan = read_json(path)
+    try:
+        plan = read_json(path)
+    except AgentError as exc:
+        raise AgentError("BTAG-SWEEP-PLAN", "sweep plan file is corrupt") from exc
     expected = plan.get("plan_hash")
     actual = hash_object(
         {key: value for key, value in plan.items() if key != "plan_hash"}
@@ -294,9 +322,11 @@ def load_plan(state: Path, sweep_id: str) -> Dict[str, Any]:
         raise AgentError("BTAG-SWEEP-PLAN", "sweep plan cells are missing")
     spec_hash = plan.get("spec_hash")
     for cell in cells:
+        if not isinstance(cell, dict):
+            raise AgentError("BTAG-SWEEP-PLAN", "sweep plan cell is malformed")
         params = cell.get("params")
         cell_hash = cell.get("cell_hash")
-        if not isinstance(cell, dict) or not isinstance(params, dict):
+        if not isinstance(params, dict):
             raise AgentError("BTAG-SWEEP-PLAN", "sweep plan cell is malformed")
         if (
             not isinstance(cell_hash, str)

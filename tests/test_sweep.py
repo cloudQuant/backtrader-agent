@@ -25,12 +25,30 @@ from backtrader_agent import sweep
 from backtrader_agent.canonical import hash_object, read_json
 from backtrader_agent.cli import build_parser, dispatch
 from backtrader_agent.contracts import StrategySpec
+from backtrader_agent.engines import inspect_engine, inspect_execution_environment
 from backtrader_agent.errors import AgentError
+from backtrader_agent.roots import RootRegistry
 from backtrader_agent.sessions import SessionStore
 
-from helpers import data_spec, dump_json, strategy_spec, write_price_csv
+from helpers import (
+    data_spec,
+    dump_json,
+    resolve_acceptance_engine_root,
+    strategy_spec,
+    write_price_csv,
+)
 
 DATASET_ID = "ds_" + "d" * 64
+
+
+def _register_engine(state: Path) -> str:
+    RootRegistry(state).register(
+        "engine",
+        resolve_acceptance_engine_root(Path(__file__).resolve().parents[1]),
+        writable=False,
+        kind="engine",
+    )
+    return "engine"
 
 
 def _call(*arguments: str):
@@ -98,6 +116,7 @@ def _prepared_plan(
 ) -> Dict[str, Any]:
     spec = StrategySpec.from_dict(_sweep_strategy_spec(DATASET_ID))
     dataset = _dataset_manifest()
+    engine_root_id = _register_engine(state)
     if not (state / "sessions" / session_id / "manifest.json").exists():
         _drive_approved_session(state, session_id, spec, dataset)
     return sweep.prepare_sweep(
@@ -110,6 +129,7 @@ def _prepared_plan(
             if grid is not None
             else {"fast_period": [10, 20], "slow_period": [30, 40]}
         ),
+        engine_root_id=engine_root_id,
     )
 
 
@@ -117,6 +137,7 @@ def test_sweep_prepare_enumerates_grid(tmp_path: Path) -> None:
     state = tmp_path / "state"
     spec = StrategySpec.from_dict(_sweep_strategy_spec(DATASET_ID))
     dataset = _dataset_manifest()
+    engine_root_id = _register_engine(state)
     _drive_approved_session(state, "session-001", spec, dataset)
 
     plan = sweep.prepare_sweep(
@@ -125,6 +146,7 @@ def test_sweep_prepare_enumerates_grid(tmp_path: Path) -> None:
         spec,
         dataset,
         {"fast_period": [10, 20], "slow_period": [30, 40]},
+        engine_root_id=engine_root_id,
     )
 
     assert plan["schema_version"] == "sweep-plan-v1"
@@ -133,6 +155,11 @@ def test_sweep_prepare_enumerates_grid(tmp_path: Path) -> None:
     assert plan["session_id"] == "session-001"
     assert plan["spec_hash"] == spec.spec_hash
     assert plan["dataset_manifest_hash"] == dataset["manifest_hash"]
+    engine = inspect_engine(RootRegistry(state), engine_root_id)
+    environment = inspect_execution_environment()
+    assert plan["engine_root_id"] == engine_root_id
+    assert plan["engine_hash"] == engine["engine_hash"]
+    assert plan["environment_hash"] == environment["environment_hash"]
     assert len(plan["cells"]) == 4
     # Deterministic sorted-key order: fast_period varies slowest.
     assert [cell["params"] for cell in plan["cells"]] == [
@@ -171,10 +198,16 @@ def test_sweep_prepare_is_deterministic_across_states(tmp_path: Path) -> None:
 
     first = tmp_path / "first"
     second = tmp_path / "second"
+    _register_engine(first)
+    _register_engine(second)
     _drive_approved_session(first, "session-001", spec, dataset)
     _drive_approved_session(second, "session-001", spec, dataset)
-    plan_a = sweep.prepare_sweep(first, "session-001", spec, dataset, grid)
-    plan_b = sweep.prepare_sweep(second, "session-001", spec, dataset, grid)
+    plan_a = sweep.prepare_sweep(
+        first, "session-001", spec, dataset, grid, engine_root_id="engine"
+    )
+    plan_b = sweep.prepare_sweep(
+        second, "session-001", spec, dataset, grid, engine_root_id="engine"
+    )
 
     assert plan_a == plan_b
     assert plan_a["sweep_id"] == plan_b["sweep_id"]
@@ -204,11 +237,17 @@ def test_sweep_prepare_rejects_unbounded_spec_param(tmp_path: Path) -> None:
     raw = strategy_spec(DATASET_ID)  # helpers declare minimum only, no maximum
     spec = StrategySpec.from_dict(raw)
     dataset = _dataset_manifest()
+    _register_engine(state)
     _drive_approved_session(state, "session-001", spec, dataset)
 
     with pytest.raises(AgentError) as raised:
         sweep.prepare_sweep(
-            state, "session-001", spec, dataset, {"fast_period": [10, 20]}
+            state,
+            "session-001",
+            spec,
+            dataset,
+            {"fast_period": [10, 20]},
+            engine_root_id="engine",
         )
     assert raised.value.code == "BTAG-SWEEP-BOUNDS"
 
@@ -219,10 +258,18 @@ def test_sweep_prepare_rejects_non_numeric_spec_param(tmp_path: Path) -> None:
     raw["parameters"]["verbose"] = {"type": "boolean", "default": False}
     spec = StrategySpec.from_dict(raw)
     dataset = _dataset_manifest()
+    _register_engine(state)
     _drive_approved_session(state, "session-001", spec, dataset)
 
     with pytest.raises(AgentError) as raised:
-        sweep.prepare_sweep(state, "session-001", spec, dataset, {"verbose": [True]})
+        sweep.prepare_sweep(
+            state,
+            "session-001",
+            spec,
+            dataset,
+            {"verbose": [True]},
+            engine_root_id="engine",
+        )
     assert raised.value.code == "BTAG-SWEEP-PARAM"
 
 
@@ -274,6 +321,69 @@ def test_sweep_plan_tamper_rejected_on_load(tmp_path: Path) -> None:
     assert raised.value.code == "BTAG-SWEEP-PLAN"
 
 
+def test_sweep_plan_binds_engine_and_environment(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    path = state / "sweeps" / plan["sweep_id"] / "sweep-plan.json"
+
+    # An environment_hash swap with a recomputed plan_hash must still reject:
+    # the sweep id is content-derived over the sealed fields.
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["environment_hash"] = "f" * 64
+    payload["plan_hash"] = hash_object(
+        {key: value for key, value in payload.items() if key != "plan_hash"}
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(AgentError) as raised:
+        sweep.load_plan(state, plan["sweep_id"])
+    assert raised.value.code == "BTAG-SWEEP-PLAN"
+
+    path.write_text(json.dumps(plan), encoding="utf-8")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["engine_hash"] = "e" * 64
+    payload["plan_hash"] = hash_object(
+        {key: value for key, value in payload.items() if key != "plan_hash"}
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(AgentError) as raised:
+        sweep.load_plan(state, plan["sweep_id"])
+    assert raised.value.code == "BTAG-SWEEP-PLAN"
+
+
+def test_load_plan_rejects_non_dict_cell_with_recomputed_hash(
+    tmp_path: Path,
+) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    path = state / "sweeps" / plan["sweep_id"] / "sweep-plan.json"
+
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["cells"][0] = "tampered"
+    payload["plan_hash"] = hash_object(
+        {key: value for key, value in payload.items() if key != "plan_hash"}
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(AgentError) as raised:
+        sweep.load_plan(state, plan["sweep_id"])
+    assert raised.value.code == "BTAG-SWEEP-PLAN"
+
+
+def test_load_plan_rejects_corrupt_or_non_object_plan(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    path = state / "sweeps" / plan["sweep_id"] / "sweep-plan.json"
+
+    path.write_text("{definitely not json", encoding="utf-8")
+    with pytest.raises(AgentError) as raised:
+        sweep.load_plan(state, plan["sweep_id"])
+    assert raised.value.code == "BTAG-SWEEP-PLAN"
+
+    path.write_text("[1, 2, 3]", encoding="utf-8")
+    with pytest.raises(AgentError) as raised:
+        sweep.load_plan(state, plan["sweep_id"])
+    assert raised.value.code == "BTAG-SWEEP-PLAN"
+
+
 def test_load_plan_rejects_missing_and_malformed_ids(tmp_path: Path) -> None:
     state = tmp_path / "state"
     with pytest.raises(AgentError) as missing:
@@ -289,9 +399,17 @@ def test_sweep_prepare_requires_approved_session(tmp_path: Path) -> None:
     spec = StrategySpec.from_dict(_sweep_strategy_spec(DATASET_ID))
     dataset = _dataset_manifest()
     state = tmp_path / "state"
+    _register_engine(state)
 
     with pytest.raises(AgentError) as raised:
-        sweep.prepare_sweep(state, "session-001", spec, dataset, {"fast_period": [10]})
+        sweep.prepare_sweep(
+            state,
+            "session-001",
+            spec,
+            dataset,
+            {"fast_period": [10]},
+            engine_root_id="engine",
+        )
     assert raised.value.code == "BTAG-SESSION-UNKNOWN"
 
     # A session whose approved spec differs must reject the sweep spec.
@@ -323,7 +441,14 @@ def test_sweep_prepare_requires_approved_session(tmp_path: Path) -> None:
         effect_references={"approved_spec_hash": other.spec_hash},
     )
     with pytest.raises(AgentError) as raised:
-        sweep.prepare_sweep(state, "session-001", spec, dataset, {"fast_period": [10]})
+        sweep.prepare_sweep(
+            state,
+            "session-001",
+            spec,
+            dataset,
+            {"fast_period": [10]},
+            engine_root_id="engine",
+        )
     assert raised.value.code == "BTAG-SWEEP-SESSION"
 
 
@@ -340,7 +465,14 @@ def test_sweep_prepare_rejects_mismatched_dataset(tmp_path: Path) -> None:
         {key: value for key, value in other.items() if key != "manifest_hash"}
     )
     with pytest.raises(AgentError) as raised:
-        sweep.prepare_sweep(state, "session-001", spec, other, {"fast_period": [10]})
+        sweep.prepare_sweep(
+            state,
+            "session-001",
+            spec,
+            other,
+            {"fast_period": [10]},
+            engine_root_id="engine",
+        )
     assert raised.value.code == "BTAG-SWEEP-DATASET"
 
 
@@ -393,6 +525,17 @@ def test_cli_sweep_prepare_workflow(tmp_path: Path) -> None:
         "--kind",
         "dataset",
     )
+    _call(
+        *common,
+        "roots",
+        "register",
+        "--id",
+        "engine",
+        "--path",
+        str(resolve_acceptance_engine_root(Path(__file__).resolve().parents[1])),
+        "--kind",
+        "engine",
+    )
     _call(*common, "session", "create", "--session-id", "sweep-1")
 
     data_spec_path = dump_json(tmp_path / "data-spec.json", data_spec())
@@ -430,8 +573,11 @@ def test_cli_sweep_prepare_workflow(tmp_path: Path) -> None:
         json.dumps(dataset),
         "--param-grid",
         json.dumps({"fast_period": [10, 20], "slow_period": [30, 40]}),
+        "--engine-root-id",
+        "engine",
     )
     assert plan["schema_version"] == "sweep-plan-v1"
+    assert plan["engine_root_id"] == "engine"
     assert len(plan["cells"]) == 4
 
     session = _call(*common, "session", "status", "--session-id", "sweep-1")

@@ -371,6 +371,9 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
         help="JSON object mapping parameter names to non-empty numeric lists",
     )
+    sweep_prepare.add_argument(
+        "--engine-root-id", required=True, help="registered engine root id"
+    )
 
     session = sub.add_parser(
         "session", help="create, inspect, recover, cancel, or archive"
@@ -660,6 +663,7 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
                 specification,
                 _json_load(args.dataset_manifest),
                 _json_load(args.param_grid),
+                engine_root_id=args.engine_root_id,
             )
         raise AgentError("BTAG-CLI-COMMAND", "unknown sweep subcommand")
     if args.command == "session":

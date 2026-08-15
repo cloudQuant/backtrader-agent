@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from .adapters import ADAPTER_FORMATS, ADAPTER_SPECS
 from .canonical import (
     create_or_verify_bytes,
     create_or_verify_json,
@@ -20,14 +21,7 @@ from .errors import AgentError
 from .roots import RootRegistry
 
 STANDARD_COLUMNS = ("datetime", "open", "high", "low", "close", "volume", "openinterest")
-ALLOWED_FORMATS = {
-    "generic_csv",
-    "backtrader_csv",
-    "yahoo_csv",
-    "mt5_csv",
-    "pandas",
-    "pandas_custom_lines",
-}
+ALLOWED_FORMATS = set(ADAPTER_FORMATS)
 TIMEFRAMES = {
     "Ticks",
     "MicroSeconds",
@@ -40,60 +34,7 @@ TIMEFRAMES = {
 }
 TRANSFORM_PROFILES = {"resample", "replay"}
 DEFAULT_COLUMN_NAMES = {
-    "generic_csv": {
-        "datetime": "datetime",
-        "open": "open",
-        "high": "high",
-        "low": "low",
-        "close": "close",
-        "volume": "volume",
-        "openinterest": "openinterest",
-    },
-    "backtrader_csv": {
-        "datetime": "date",
-        "open": "open",
-        "high": "high",
-        "low": "low",
-        "close": "close",
-        "volume": "volume",
-        "openinterest": "openinterest",
-    },
-    "yahoo_csv": {
-        "datetime": "Date",
-        "open": "Open",
-        "high": "High",
-        "low": "Low",
-        "close": "Close",
-        "volume": "Volume",
-        "openinterest": None,
-    },
-    "mt5_csv": {
-        "datetime": "<DATE>",
-        "open": "<OPEN>",
-        "high": "<HIGH>",
-        "low": "<LOW>",
-        "close": "<CLOSE>",
-        "volume": "<TICKVOL>",
-        "openinterest": None,
-    },
-    "pandas": {
-        "datetime": "datetime",
-        "open": "open",
-        "high": "high",
-        "low": "low",
-        "close": "close",
-        "volume": "volume",
-        "openinterest": "openinterest",
-    },
-    "pandas_custom_lines": {
-        "datetime": "datetime",
-        "open": "open",
-        "high": "high",
-        "low": "low",
-        "close": "close",
-        "volume": "volume",
-        "openinterest": "openinterest",
-    },
+    name: dict(spec.default_columns) for name, spec in ADAPTER_SPECS.items()
 }
 
 

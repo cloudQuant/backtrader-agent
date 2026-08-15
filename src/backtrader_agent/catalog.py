@@ -6,19 +6,12 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from .archetypes import ARCHETYPE_SPECS
 from .canonical import atomic_write_bytes, hash_object
 from .errors import AgentError
 
 TOKEN_RE = re.compile(r"[a-z0-9_]+")
-ARCHETYPES = (
-    "single_data_indicator",
-    "multi_indicator_system",
-    "multi_asset_allocation",
-    "multi_timeframe",
-    "pairs_spread",
-    "order_risk",
-    "precomputed_ml",
-)
+ARCHETYPES = tuple(ARCHETYPE_SPECS)
 PROFILES = ("single_test", "python_bundle")
 EXPECTED_COUNTS = {
     "functional_tests": 1152,

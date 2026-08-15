@@ -4,18 +4,12 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict
 
+from .adapters import ADAPTER_FORMATS
+from .archetypes import ARCHETYPE_IDS
 from .canonical import hash_object
 from .errors import AgentError
 
-ARCHETYPES = {
-    "single_data_indicator",
-    "multi_indicator_system",
-    "multi_asset_allocation",
-    "multi_timeframe",
-    "pairs_spread",
-    "order_risk",
-    "precomputed_ml",
-}
+ARCHETYPES = set(ARCHETYPE_IDS)
 PROFILES = {"single_test", "python_bundle"}
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 DATASET_ID_RE = re.compile(r"^ds_[0-9a-f]{64}$")
@@ -252,15 +246,7 @@ class DatasetManifest:
         if not isinstance(raw.get("feeds"), list) or not raw["feeds"]:
             raise AgentError("BTAG-DATASET-FEEDS", "DatasetManifest requires feeds")
         for feed in raw["feeds"]:
-            if feed.get("format") not in {
-                "generic_csv",
-                "backtrader_csv",
-                "yahoo_csv",
-                "mt5_csv",
-                "pandas",
-                "pandas_custom_lines",
-                "canonical_csv_v1",
-            }:
+            if feed.get("format") not in ADAPTER_FORMATS:
                 raise AgentError("BTAG-DATASET-FORMAT", "dataset adapter is not allowlisted")
         return cls(dict(raw))
 

@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
+from .adapters import ADAPTER_SPECS, CSV_FORMATS, PANDAS_FORMATS
+from .archetypes import ARCHETYPE_IDS, ARCHETYPE_SPECS
 from .canonical import (
     create_or_verify_bytes,
     create_or_verify_json,
@@ -11,13 +13,13 @@ from .canonical import (
     read_json,
     sha256_bytes,
 )
-from .contracts import ARCHETYPES as CONTRACT_ARCHETYPES
 from .contracts import PROFILES as CONTRACT_PROFILES
 from .contracts import StrategySpec
 from .errors import AgentError
 from .tokens import TokenAuthority
 
-ARCHETYPES = tuple(sorted(CONTRACT_ARCHETYPES))
+ARCHETYPES = tuple(sorted(ARCHETYPE_IDS))
+ARCHETYPE_CODE = {name: spec.template for name, spec in ARCHETYPE_SPECS.items()}
 PROFILES = tuple(sorted(CONTRACT_PROFILES))
 SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,79}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -56,82 +58,6 @@ def load_product_artifact_record(
     ):
         raise AgentError("BTAG-PROVENANCE-BINDING", "artifact provenance record is inconsistent")
     return payload
-
-
-ARCHETYPE_CODE = {
-    "single_data_indicator": (
-        """        self.fast = bt.ind.SMA(self.data.close, period=self.p.fast_period)
-        self.slow = bt.ind.SMA(self.data.close, period=self.p.slow_period)""",
-        """        if not self.position and self.fast[0] > self.slow[0]:
-            self.buy(size=1)
-        elif self.position and self.fast[0] < self.slow[0]:
-            self.close()""",
-    ),
-    "multi_indicator_system": (
-        """        self.fast = bt.ind.EMA(self.data.close, period=self.p.fast_period)
-        self.slow = bt.ind.SMA(self.data.close, period=self.p.slow_period)
-        self.rsi = bt.ind.RSI(self.data.close, period=max(2, self.p.fast_period))""",
-        """        if not self.position and self.fast[0] > self.slow[0] and self.rsi[0] < 70:
-            self.buy(size=1)
-        elif self.position and (self.fast[0] < self.slow[0] or self.rsi[0] > 75):
-            self.close()""",
-    ),
-    "multi_asset_allocation": (
-        """        self.execution_data = self.datas[0]
-        self.signal_data = self.datas[1] if len(self.datas) > 1 else self.datas[0]
-        self.signal_sma = bt.ind.SMA(self.signal_data.close, period=self.p.fast_period)""",
-        """        if not self.getposition(self.execution_data) and self.signal_data.close[0] > self.signal_sma[0]:
-            self.buy(data=self.execution_data, size=1)
-        elif self.getposition(self.execution_data) and self.signal_data.close[0] < self.signal_sma[0]:
-            self.close(data=self.execution_data)""",
-    ),
-    "multi_timeframe": (
-        """        self.execution_data = self.datas[0]
-        self.higher_timeframe = self.datas[1] if len(self.datas) > 1 else self.datas[0]
-        self.higher_sma = bt.ind.SMA(self.higher_timeframe.close, period=self.p.fast_period)""",
-        """        if not self.position and self.higher_timeframe.close[0] > self.higher_sma[0]:
-            self.buy(data=self.execution_data, size=1)
-        elif self.position and self.higher_timeframe.close[0] < self.higher_sma[0]:
-            self.close(data=self.execution_data)""",
-    ),
-    "pairs_spread": (
-        """        self.leg_a = self.datas[0]
-        self.leg_b = self.datas[1] if len(self.datas) > 1 else self.datas[0]
-        self.spread = self.leg_a.close - self.leg_b.close
-        self.spread_mean = bt.ind.SMA(self.spread, period=self.p.fast_period)""",
-        """        deviation = self.spread[0] - self.spread_mean[0]
-        if not self.getposition(self.leg_a) and deviation < 0:
-            self.buy(data=self.leg_a, size=1)
-            if self.leg_b is not self.leg_a:
-                self.sell(data=self.leg_b, size=1)
-        elif self.getposition(self.leg_a) and deviation >= 0:
-            self.close(data=self.leg_a)
-            if self.leg_b is not self.leg_a:
-                self.close(data=self.leg_b)""",
-    ),
-    "order_risk": (
-        """        self.signal = bt.ind.SMA(self.data.close, period=self.p.fast_period)
-        self.atr = bt.ind.ATR(self.data, period=max(2, self.p.fast_period))
-        self.entry_price = None""",
-        """        if not self.position and self.data.close[0] > self.signal[0]:
-            self.buy(size=1)
-            self.entry_price = float(self.data.close[0])
-        elif self.position:
-            stop = self.entry_price - 2.0 * float(self.atr[0])
-            if self.data.close[0] < self.signal[0] or self.data.close[0] <= stop:
-                self.close()
-                self.entry_price = None""",
-    ),
-    "precomputed_ml": (
-        """        if not hasattr(self.data, "signal"):
-            raise RuntimeError("registered dataset must expose the precomputed signal line")
-        self.model_signal = self.data.signal""",
-        """        if not self.position and self.model_signal[0] > 0:
-            self.buy(size=1)
-        elif self.position and self.model_signal[0] <= 0:
-            self.close()""",
-    ),
-}
 
 
 def _strategy_source(spec: StrategySpec) -> str:
@@ -193,6 +119,15 @@ def _pandas_custom_feed_source(dataset: Dict[str, Any]) -> str:
         + "".join(branches)
         + '    raise RuntimeError("custom Pandas feed was not rendered for this dataset")\n'
     )
+
+
+_CSV_BRANCHES = "\n".join(ADAPTER_SPECS[name].assembly for name in CSV_FORMATS)
+_CSV_FORMAT_SET = (
+    "{\n" + "".join(f'        "{name}",\n' for name in CSV_FORMATS) + "    }"
+)
+_PANDAS_FORMAT_SET = "{" + ", ".join(f'"{name}"' for name in PANDAS_FORMATS) + "}"
+_PANDAS_CUSTOM_ASSEMBLY = ADAPTER_SPECS["pandas_custom_lines"].assembly
+_PANDAS_DEFAULT_ASSEMBLY = ADAPTER_SPECS["pandas"].assembly
 
 
 def _runner_source(spec: StrategySpec, dataset: Dict[str, Any]) -> str:
@@ -261,40 +196,7 @@ def _csv_feed(descriptor):
         "compression": descriptor["compression"],
     }}
     adapter = descriptor["adapter"]
-    if adapter == "generic_csv":
-        return bt.feeds.GenericCSVData(
-            dtformat="%Y-%m-%dT%H:%M:%SZ",
-            datetime=0,
-            open=1,
-            high=2,
-            low=3,
-            close=4,
-            volume=5,
-            openinterest=6,
-            **common,
-        )
-    if adapter == "backtrader_csv":
-        return CanonicalBacktraderCSVData(**common)
-    if adapter == "yahoo_csv":
-        return CanonicalYahooCSVData(
-            reverse=False,
-            adjclose=False,
-            adjvolume=False,
-            round=False,
-            **common,
-        )
-    if adapter == "mt5_csv":
-        return CanonicalMT5CSVData(
-            dtformat="%Y-%m-%dT%H:%M:%SZ",
-            datetime=0,
-            open=1,
-            high=2,
-            low=3,
-            close=4,
-            volume=5,
-            openinterest=6,
-            **common,
-        )
+{_CSV_BRANCHES}
     raise RuntimeError("CSV dataset adapter is not product-allowlisted")
 
 
@@ -304,9 +206,9 @@ def _pandas_feed(descriptor):
         parse_dates=["datetime"],
     )
     feed_class = (
-        _pandas_custom_feed_class(descriptor["name"])
+        {_PANDAS_CUSTOM_ASSEMBLY}
         if descriptor["adapter"] == "pandas_custom_lines"
-        else bt.feeds.PandasData
+        else {_PANDAS_DEFAULT_ASSEMBLY}
     )
     parameters = {{
         "dataname": frame,
@@ -325,14 +227,9 @@ def _pandas_feed(descriptor):
 
 def _load_feed(descriptor):
     adapter = descriptor["adapter"]
-    if adapter in {{
-        "generic_csv",
-        "backtrader_csv",
-        "yahoo_csv",
-        "mt5_csv",
-    }}:
+    if adapter in {_CSV_FORMAT_SET}:
         return _csv_feed(descriptor)
-    if adapter in {{"pandas", "pandas_custom_lines"}}:
+    if adapter in {_PANDAS_FORMAT_SET}:
         return _pandas_feed(descriptor)
     raise RuntimeError("dataset adapter is not product-allowlisted")
 

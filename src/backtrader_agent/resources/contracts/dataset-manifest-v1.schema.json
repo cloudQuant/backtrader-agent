@@ -111,8 +111,7 @@
             "yahoo_csv",
             "mt5_csv",
             "pandas",
-            "pandas_custom_lines",
-            "canonical_csv_v1"
+            "pandas_custom_lines"
           ]
         },
         "columns": {"$ref": "#/$defs/FeedMapping"},

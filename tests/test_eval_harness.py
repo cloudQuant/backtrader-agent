@@ -508,19 +508,157 @@ def test_llm_loop_skips_without_key(tmp_path, monkeypatch):
     assert "skip" in result.stdout.lower()
 
 
-def test_llm_loop_keyed_path_with_stubbed_sdk_runs_offline(tmp_path):
-    # The keyed path must be exercised structurally without reaching the
-    # Anthropic API: a stub SDK that raises on client construction makes the
-    # script load tasks, prepare fixtures, attempt each run, and write its
-    # log, all offline.
+# ---------------------------------------------------------------------------
+# LLM-in-the-loop gate (Task 11): the keyed path is exercised offline through
+# a stub ``anthropic`` SDK whose ``messages.create`` replays canned responses
+# read from BACKTRADER_AGENT_EVAL_STUB_SCRIPT and records the tool_results it
+# receives in BACKTRADER_AGENT_EVAL_STUB_TRANSCRIPT.
+# ---------------------------------------------------------------------------
+
+
+def _write_llm_stub(tmp_path, module_source):
     stub_dir = tmp_path / "stubs"
     stub_pkg = stub_dir / "anthropic"
     stub_pkg.mkdir(parents=True)
-    (stub_pkg / "__init__.py").write_text(
+    (stub_pkg / "__init__.py").write_text(module_source, encoding="utf-8")
+    return stub_dir
+
+
+def _llm_loop_env(stub_dir, script, transcript):
+    env = dict(os.environ)
+    env["BACKTRADER_AGENT_EVAL_API_KEY"] = "test-key"
+    env["BACKTRADER_AGENT_EVAL_STUB_SCRIPT"] = json.dumps(script)
+    env["BACKTRADER_AGENT_EVAL_STUB_TRANSCRIPT"] = str(transcript)
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(stub_dir) if not existing else str(stub_dir) + os.pathsep + existing
+    )
+    return env
+
+
+def _run_llm_loop(env, tmp_path, log_dir_name, *arguments):
+    return subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "eval_llm_loop.py"),
+            "--log-dir",
+            str(tmp_path / log_dir_name),
+            *arguments,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        env=env,
+    )
+
+
+def _read_llm_log(tmp_path, log_dir_name):
+    log_files = list((tmp_path / log_dir_name).glob("*-llm-loop.log"))
+    assert len(log_files) == 1
+    return log_files[0].read_text(encoding="utf-8")
+
+
+# A stub SDK that serves canned response scripts. Each entry is
+# {"stop_reason": ..., "blocks": [{"type": "tool_use", "name": ..., "id": ...,
+# "input": {...}}]}. Every create() call appends the tool_results it received
+# to the transcript file and consumes the next script entry.
+CANNED_STUB_MODULE = """
+import json
+import os
+
+
+class _Block:
+    def __init__(self, type_, name=None, input=None, id_=None):
+        self.type = type_
+        self.name = name
+        self.input = input
+        self.id = id_
+
+
+class _Response:
+    def __init__(self, blocks, stop_reason):
+        self.content = blocks
+        self.stop_reason = stop_reason
+
+
+def _tool_results(messages):
+    found = []
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        content = message.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "tool_result":
+                found.append(block)
+    return found
+
+
+class _Messages:
+    def __init__(self):
+        self._script = json.loads(os.environ["BACKTRADER_AGENT_EVAL_STUB_SCRIPT"])
+        self._index = 0
+
+    def create(self, **kwargs):
+        transcript = os.environ.get("BACKTRADER_AGENT_EVAL_STUB_TRANSCRIPT")
+        if transcript:
+            with open(transcript, "a", encoding="utf-8") as handle:
+                handle.write(
+                    json.dumps({"call": self._index, "tool_results": _tool_results(kwargs.get("messages") or [])})
+                    + "\\n"
+                )
+        if self._index >= len(self._script):
+            raise RuntimeError(
+                "stub script exhausted after {} create() calls".format(self._index)
+            )
+        entry = self._script[self._index]
+        self._index += 1
+        return _Response(
+            [
+                _Block(
+                    block["type"],
+                    block.get("name"),
+                    block.get("input"),
+                    block.get("id"),
+                )
+                for block in entry["blocks"]
+            ],
+            entry["stop_reason"],
+        )
+
+
+class Anthropic:
+    def __init__(self, *args, **kwargs):
+        self.messages = _Messages()
+"""
+
+
+def _finish_script(success):
+    return [
+        {
+            "stop_reason": "tool_use",
+            "blocks": [
+                {
+                    "type": "tool_use",
+                    "name": "finish",
+                    "id": "toolu-1",
+                    "input": {"success": success, "summary": "stubbed attempt"},
+                }
+            ],
+        }
+    ]
+
+
+def test_llm_loop_keyed_path_with_failing_sdk_runs_offline(tmp_path):
+    # A stub SDK that raises on client construction still exercises task
+    # loading, fixture preparation, per-attempt error handling, log writing,
+    # and the fail-closed exit code, all without network.
+    stub_dir = _write_llm_stub(
+        tmp_path,
         "class Anthropic:\n"
         "    def __init__(self, *args, **kwargs):\n"
         "        raise RuntimeError('stubbed anthropic SDK: no network in tests')\n",
-        encoding="utf-8",
     )
     env = dict(os.environ)
     env["BACKTRADER_AGENT_EVAL_API_KEY"] = "test-key"
@@ -528,28 +666,321 @@ def test_llm_loop_keyed_path_with_stubbed_sdk_runs_offline(tmp_path):
     env["PYTHONPATH"] = (
         str(stub_dir) if not existing else str(stub_dir) + os.pathsep + existing
     )
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(ROOT / "scripts" / "eval_llm_loop.py"),
-            "--tasks",
-            "smoke-doctor",
-            "--log-dir",
-            str(tmp_path / "logs"),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=180,
-        env=env,
-    )
+    result = _run_llm_loop(env, tmp_path, "logs", "--tasks", "smoke-doctor")
     assert result.returncode == 1
     assert "stubbed anthropic SDK" in result.stdout + result.stderr
-    log_files = list((tmp_path / "logs").glob("*-llm-loop.log"))
-    assert len(log_files) == 1
-    content = log_files[0].read_text(encoding="utf-8")
+    content = _read_llm_log(tmp_path, "logs")
     assert "smoke-doctor" in content
     assert "FAIL" in content
     assert "pass@3" in content
+
+
+def test_llm_loop_rejected_argv_is_returned_as_tool_error(tmp_path):
+    # Scripted tool_use blocks with argv the validator must reject: the loop
+    # must feed is_error tool_results back to the model and never execute the
+    # rejected calls.
+    stub_dir = _write_llm_stub(tmp_path, CANNED_STUB_MODULE)
+    transcript = tmp_path / "transcript.jsonl"
+    script = [
+        {
+            "stop_reason": "tool_use",
+            "blocks": [
+                {
+                    "type": "tool_use",
+                    "name": "run_backtrader_agent_cli",
+                    "id": "toolu-1",
+                    "input": {"argv": ["doctor", "--state-root", "/tmp/x"]},
+                }
+            ],
+        },
+        {
+            "stop_reason": "tool_use",
+            "blocks": [
+                {
+                    "type": "tool_use",
+                    "name": "run_backtrader_agent_cli",
+                    "id": "toolu-2",
+                    "input": {
+                        "argv": [
+                            "roots",
+                            "register",
+                            "--id",
+                            "bad",
+                            "--path",
+                            "/etc",
+                            "--kind",
+                            "workspace",
+                            "--writable",
+                        ]
+                    },
+                }
+            ],
+        },
+        {
+            "stop_reason": "tool_use",
+            "blocks": [
+                {
+                    "type": "tool_use",
+                    "name": "run_backtrader_agent_cli",
+                    "id": "toolu-3",
+                    "input": {
+                        "argv": [
+                            "roots",
+                            "register",
+                            "--id",
+                            "eng",
+                            "--path",
+                            "/does/not/matter",
+                            "--kind",
+                            "engine",
+                            "--writable",
+                        ]
+                    },
+                }
+            ],
+        },
+        {
+            "stop_reason": "tool_use",
+            "blocks": [
+                {
+                    "type": "tool_use",
+                    "name": "run_backtrader_agent_cli",
+                    "id": "toolu-4",
+                    "input": {"argv": ["backtrader", "ensure"]},
+                }
+            ],
+        },
+        {
+            "stop_reason": "tool_use",
+            "blocks": [
+                {
+                    "type": "tool_use",
+                    "name": "finish",
+                    "id": "toolu-5",
+                    "input": {"success": False, "summary": "blocked"},
+                }
+            ],
+        },
+    ]
+    result = _run_llm_loop(
+        _llm_loop_env(stub_dir, script, transcript),
+        tmp_path,
+        "logs",
+        "--tasks",
+        "smoke-doctor",
+        "--attempts",
+        "1",
+    )
+    assert result.returncode == 1
+    entries = [
+        json.loads(line) for line in transcript.read_text(encoding="utf-8").splitlines()
+    ]
+    # The final create() call (serving the finish block) must have received
+    # exactly the four rejected tool calls as is_error tool_results, so the
+    # model saw them and nothing was executed.
+    final_entry = entries[-1]
+    assert final_entry["call"] == 4
+    tool_errors = [
+        block for block in final_entry["tool_results"] if block.get("is_error")
+    ]
+    contents = " | ".join(block["content"] for block in tool_errors)
+    assert len(tool_errors) == 4
+    assert "--state-root is managed" in contents
+    assert "must resolve inside the attempt state root" in contents
+    assert "--writable is only accepted" in contents
+    assert "not in the allowed action set" in contents
+
+
+def test_llm_loop_finish_triggers_deterministic_verification(tmp_path):
+    # A finish(success=true) declaration alone is not enough: the verifier
+    # replays the task's read-only end-state checks in the attempt root.
+    # smoke-doctor's final step passes on an untouched state root, so the
+    # attempt is a genuine end-to-end PASS; a pipeline task fails it, proving
+    # declared success without real work cannot pass the gate.
+    stub_dir = _write_llm_stub(tmp_path, CANNED_STUB_MODULE)
+    pass_result = _run_llm_loop(
+        _llm_loop_env(stub_dir, _finish_script(True), tmp_path / "pass.jsonl"),
+        tmp_path,
+        "logs-pass",
+        "--tasks",
+        "smoke-doctor",
+        "--attempts",
+        "1",
+    )
+    assert pass_result.returncode == 0, pass_result.stdout + pass_result.stderr
+    pass_log = _read_llm_log(tmp_path, "logs-pass")
+    assert "smoke-doctor: attempts=[PASS" in pass_log
+    assert "pass@3=1" in pass_log
+    fail_result = _run_llm_loop(
+        _llm_loop_env(stub_dir, _finish_script(True), tmp_path / "fail.jsonl"),
+        tmp_path,
+        "logs-fail",
+        "--tasks",
+        "pipeline-single-data-indicator-single-test",
+        "--attempts",
+        "1",
+    )
+    assert fail_result.returncode == 1
+    fail_log = _read_llm_log(tmp_path, "logs-fail")
+    assert "verification failed" in fail_log
+    assert "pipeline-single-data-indicator-single-test: attempts=[FAIL" in fail_log
+
+
+def test_llm_loop_validate_argv_allowlist(tmp_path):
+    from scripts import eval_llm_loop
+
+    state_root = tmp_path / "state"
+    state_root.mkdir()
+    engine_root = str(tmp_path / "engine")
+    validate = eval_llm_loop._validate_argv
+    # Worked-trace shapes are accepted, including confined paths and the
+    # single allowed host path (read-only engine registration).
+    assert validate(
+        [
+            "roots",
+            "register",
+            "--id",
+            "workspace",
+            "--path",
+            str(state_root),
+            "--kind",
+            "workspace",
+            "--writable",
+        ],
+        state_root,
+        engine_root,
+    )
+    assert validate(
+        [
+            "roots",
+            "register",
+            "--id",
+            "engine",
+            "--path",
+            engine_root,
+            "--kind",
+            "engine",
+        ],
+        state_root,
+        engine_root,
+    )
+    assert validate(["data", "inspect", "--spec", "{}"], state_root, engine_root)
+    assert validate(
+        [
+            "spec",
+            "--file",
+            '{"spec_version": "strategy-spec-v1"}',
+            "--session-id",
+            "s",
+            "--approve",
+        ],
+        state_root,
+        engine_root,
+    )
+    assert validate(
+        [
+            "validate",
+            "--artifact-manifest",
+            "@" + str(state_root / "artifact-manifest.json"),
+            "--draft-root",
+            str(state_root),
+            "--session-id",
+            "s",
+            "--dataset-hash",
+            "h",
+            "--engine-root-id",
+            "engine",
+        ],
+        state_root,
+        engine_root,
+    )
+    # Rejections: escaping paths, writable non-workspace roots, a wrong
+    # engine path, disallowed commands/flags, bad JSON, and bad integers.
+    rejected = [
+        (
+            [
+                "roots",
+                "register",
+                "--id",
+                "w",
+                "--path",
+                "/etc",
+                "--kind",
+                "workspace",
+            ],
+            "must resolve inside the attempt state root",
+        ),
+        (
+            [
+                "roots",
+                "register",
+                "--id",
+                "e",
+                "--path",
+                engine_root,
+                "--kind",
+                "engine",
+                "--writable",
+            ],
+            "--writable is only accepted",
+        ),
+        (
+            [
+                "roots",
+                "register",
+                "--id",
+                "e",
+                "--path",
+                str(tmp_path / "other"),
+                "--kind",
+                "engine",
+            ],
+            "must be exactly the engine root",
+        ),
+        (
+            [
+                "roots",
+                "register",
+                "--id",
+                "d",
+                "--path",
+                str(state_root),
+                "--kind",
+                "dataset",
+                "--writable",
+            ],
+            "--writable is only accepted",
+        ),
+        (["backtrader", "ensure"], "not in the allowed action set"),
+        (["doctor", "--bogus"], "is not allowed for doctor"),
+        (["data", "inspect", "--spec", "@/etc/passwd"], "must resolve inside"),
+        (["data", "inspect", "--spec", "not-json"], "must be inline JSON"),
+        (["session", "create", "positional"], "unexpected positional argument"),
+        (
+            [
+                "run",
+                "--timeout",
+                "abc",
+                "--applied-artifact",
+                "{}",
+                "--dataset-manifest",
+                "{}",
+                "--validation-token",
+                "{}",
+                "--run-token",
+                "{}",
+                "--mode",
+                "runonce",
+                "--idempotency-key",
+                "k",
+            ],
+            "must be an integer",
+        ),
+        (["--state-root", "x"], "must not be passed"),
+    ]
+    for argv, message in rejected:
+        with pytest.raises(ValueError, match=message):
+            validate(argv, state_root, engine_root)
 
 
 def test_schema_grader_unwrap_validates_the_result_object(tmp_path):

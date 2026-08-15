@@ -32,8 +32,12 @@ Run it with:
   one typed CLI action per call with `--state-root` fixed by the loop. The
   runtime's own approval flow still gates everything — the LLM must drive
   `approval request` then `approval grant --confirm` itself, exactly like
-  the scripted host. Safety: no arbitrary shell, argv validated and confined
-  to the attempt state root, timeout per LLM call and per CLI call, turn
+  the scripted host. Safety: no arbitrary shell; argv validated against an
+  explicit command/flag allowlist (only the typed actions the payload routes
+  hosts to, with only their documented flags); every path-bearing argument
+  and `@file` reference confined to the attempt state root, with the engine
+  root as the single allowed host path (read-only `--kind engine`,
+  `--writable` workspace-only); timeout per LLM call and per CLI call, turn
   budget per attempt.
 - An attempt passes only when the LLM declares success AND the deterministic
   end-state verification passes: the task's final read-only step is replayed

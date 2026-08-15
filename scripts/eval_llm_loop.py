@@ -22,8 +22,15 @@ Safety model
   typed CLI action as ``[sys.executable, "-m", "backtrader_agent",
   "--state-root", <attempt dir>, *argv]`` — the root-level ``--state-root``
   flag is injected by the loop and the model cannot override it, and argv is
-  validated (strings only, no NUL bytes, item/length caps, no ``--state-root``,
-  ``@file`` references confined to the attempt state root).
+  validated against an explicit allowlist: only the typed actions the agent
+  payload routes hosts to are accepted, with only their documented flags.
+  Path-bearing arguments (``--path``, ``--draft-root``, ``--snapshot-path``,
+  ``--file`` path fallback) and ``@file`` references must resolve inside the
+  attempt state root; the single allowed host path is the Backtrader engine
+  root, registered read-only (``--kind engine`` without ``--writable``);
+  ``--writable`` is accepted only for ``--kind workspace`` (the payload says
+  engine and dataset roots stay read-only). Items are strings only, no NUL
+  bytes, with item/length caps.
 - Every attempt runs in its own fresh temporary state root, deleted when the
   attempt finishes. Fixtures are generated into it exactly like the
   deterministic harness does.
@@ -114,6 +121,120 @@ DETAIL_CHAR_CAP = 600
 
 VERSION_RE = re.compile(r'^version:\s*"([^"]+)"\s*$', re.MULTILINE)
 PLACEHOLDER_RE = re.compile(r"\{steps\.\d+\.result|\{state_root\}|\{engine_root\}")
+
+# Explicit argv allowlist: exactly the typed actions the agent payload routes
+# hosts to (worked trace + BTAG recovery table), with exactly their documented
+# flags. Anything else — ``backtrader ensure``, ``install``, ``audit-*``,
+# ``session cancel/archive``, ``catalog refresh`` — is rejected before
+# execution. Flag kinds:
+#   "flag"         boolean store_true flag (no value)
+#   "value"        plain string value (ids, hashes, ids, modes)
+#   "int"          integer value
+#   "kind"         one of the CLI's root-kind choices
+#   "json"         inline JSON or an @file reference (confined to the state root)
+#   "json_or_path" inline JSON, an @file reference, or a path confined to the
+#                  state root (matches the CLI's ``--file`` parsing order)
+#   "path"         filesystem path that must resolve inside the state root
+#                  (the roots-register --kind engine case is the only
+#                  exception, see _validate_argv)
+ALLOWED_COMMANDS: Dict[Tuple[str, ...], Dict[str, str]] = {
+    ("doctor",): {"--json": "flag"},
+    ("actions",): {"--json": "flag"},
+    ("payload",): {},
+    ("roots", "register"): {
+        "--id": "value",
+        "--path": "path",
+        "--kind": "kind",
+        "--writable": "flag",
+    },
+    ("roots", "list"): {},
+    ("session", "create"): {"--session-id": "value"},
+    ("session", "status"): {"--session-id": "value"},
+    ("session", "recover"): {"--session-id": "value"},
+    ("session", "list"): {},
+    ("data", "list"): {},
+    ("data", "inspect"): {"--spec": "json"},
+    ("data", "register"): {"--spec": "json", "--session-id": "value"},
+    ("data", "preview"): {"--dataset-id": "value", "--rows": "int"},
+    ("catalog", "search"): {
+        "--query": "value",
+        "--archetype": "value",
+        "--profile": "value",
+        "--top-k": "int",
+        "--snapshot-path": "path",
+    },
+    ("catalog", "inspect"): {"--entry-id": "value", "--snapshot-path": "path"},
+    ("spec",): {
+        "--file": "json_or_path",
+        "--session-id": "value",
+        "--approve": "flag",
+    },
+    ("draft",): {
+        "--session-id": "value",
+        "--spec": "json",
+        "--dataset-manifest": "json",
+    },
+    ("validate",): {
+        "--artifact-manifest": "json_or_path",
+        "--draft-root": "path",
+        "--session-id": "value",
+        "--dataset-hash": "value",
+        "--engine-root-id": "value",
+    },
+    ("changes", "prepare"): {
+        "--session-id": "value",
+        "--draft-root": "path",
+        "--files": "json",
+        "--target-root-id": "value",
+        "--validation-token": "json",
+    },
+    ("changes", "apply"): {
+        "--manifest": "json",
+        "--change-token": "json",
+        "--idempotency-key": "value",
+    },
+    ("approval", "request"): {
+        "--kind": "value",
+        "--subject-hash": "value",
+        "--bindings": "json",
+    },
+    ("approval", "grant"): {
+        "--request-id": "value",
+        "--approver": "value",
+        "--confirm": "flag",
+    },
+    ("run-subject",): {
+        "--applied-artifact": "json",
+        "--dataset-manifest": "json",
+        "--validation-token": "json",
+        "--mode": "value",
+    },
+    ("run",): {
+        "--applied-artifact": "json",
+        "--dataset-manifest": "json",
+        "--validation-token": "json",
+        "--run-token": "json",
+        "--mode": "value",
+        "--idempotency-key": "value",
+        "--timeout": "int",
+    },
+    ("runs", "list"): {},
+    ("report",): {"--run-id": "value", "--format": "value"},
+    ("repair",): {
+        "--session-id": "value",
+        "--spec": "json",
+        "--dataset-manifest": "json",
+        "--failure-report": "json",
+    },
+}
+
+ROOT_KINDS = {"workspace", "dataset", "engine", "runtime"}
+INT_RE = re.compile(r"^-?\d+$")
+
+
+def _allowed_commands_text() -> str:
+    return ", ".join(" ".join(command) for command in sorted(ALLOWED_COMMANDS))
+
 
 # Import the deterministic harness as ``evals.harness`` (tests/ on sys.path)
 # rather than ``tests.evals.harness``: a site-packages package named ``tests``
@@ -329,6 +450,15 @@ def _build_system_prompt(
             "fixed to the state root; do not pass --state-root yourself, and "
             "do not attempt to run any other program or edit files outside "
             "the typed CLI.",
+            "- Only these typed actions are accepted: {}.".format(
+                _allowed_commands_text()
+            ),
+            "- Flags not listed for an action are rejected. Path arguments "
+            "(--path, --draft-root, --snapshot-path) and @file references "
+            "must resolve inside the state root; the only host path allowed "
+            "is the engine root above, registered read-only as --kind engine "
+            "without --writable. --writable is accepted only for --kind "
+            "workspace (engine and dataset roots stay read-only).",
             "",
             "Protocol:",
             "- One typed CLI action per tool call; read stdout envelopes and "
@@ -347,8 +477,108 @@ def _build_system_prompt(
     return "\n".join(lines)
 
 
-def _validate_argv(argv: Any, state_root: Path) -> List[str]:
-    """Confine a model-proposed argv to the typed CLI in this attempt's root."""
+def _resolve_arg_path(value: str, flag_name: str) -> Path:
+    """Resolve a flag value as a host path (absolute or relative to cwd)."""
+    path = Path(value)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    try:
+        return path.resolve()
+    except OSError as exc:
+        raise ValueError(
+            "flag {} value {!r} cannot be resolved as a path: {}".format(
+                flag_name, value, exc
+            )
+        )
+
+
+def _confine_path(value: str, flag_name: str, state_root: Path) -> None:
+    """Require a path-flag value (or @file reference) to stay in the root."""
+    resolved = _resolve_arg_path(value, flag_name)
+    if not _within(resolved, state_root):
+        raise ValueError(
+            "flag {} value {!r} must resolve inside the attempt state root".format(
+                flag_name, value
+            )
+        )
+
+
+def _check_json_value(value: str, flag_name: str, state_root: Path) -> None:
+    """A JSON flag accepts inline JSON or an @file reference (confined)."""
+    if value.startswith("@"):
+        _confine_path(value[1:], flag_name, state_root)
+        return
+    try:
+        json.loads(value)
+    except json.JSONDecodeError:
+        raise ValueError(
+            "flag {} must be inline JSON or an @file reference inside the "
+            "attempt state root, got {!r}".format(flag_name, value)
+        )
+
+
+def _parse_flags(
+    argv: List[str], spec: Dict[str, str], prefix: List[str]
+) -> Dict[str, str]:
+    """Parse ``--flag value`` / ``--flag=value`` / boolean flags per spec."""
+    flags: Dict[str, str] = {}
+    items = argv[len(prefix) :]
+    index = 0
+    while index < len(items):
+        item = items[index]
+        if not item.startswith("--"):
+            raise ValueError(
+                "unexpected positional argument {!r} for {}".format(
+                    item, " ".join(prefix)
+                )
+            )
+        if "=" in item:
+            name, value = item.split("=", 1)
+        else:
+            name, value = item, None
+        kind = spec.get(name)
+        if kind is None:
+            raise ValueError(
+                "flag {} is not allowed for {} (allowed: {})".format(
+                    name, " ".join(prefix), ", ".join(sorted(spec)) or "none"
+                )
+            )
+        if kind == "flag":
+            if value is not None:
+                raise ValueError("flag {} takes no value".format(name))
+            flags[name] = "__flag__"
+        else:
+            if value is None:
+                index += 1
+                if index >= len(items):
+                    raise ValueError("flag {} is missing its value".format(name))
+                value = items[index]
+            if kind == "int" and not INT_RE.match(value):
+                raise ValueError(
+                    "flag {} value {!r} must be an integer".format(name, value)
+                )
+            if kind == "kind" and value not in ROOT_KINDS:
+                raise ValueError(
+                    "flag {} value {!r} must be one of {}".format(
+                        name, value, sorted(ROOT_KINDS)
+                    )
+                )
+            flags[name] = value
+        index += 1
+    return flags
+
+
+def _validate_argv(
+    argv: Any, state_root: Path, engine_root: Optional[str]
+) -> List[str]:
+    """Confine a model-proposed argv to the typed CLI in this attempt's root.
+
+    Enforces the explicit command/flag allowlist, keeps every path-bearing
+    argument inside the attempt state root, and allows exactly one host path:
+    the Backtrader engine root, registered read-only via ``roots register
+    --kind engine`` without ``--writable`` (the payload requires engine and
+    dataset roots to stay read-only; ``--writable`` is workspace-only).
+    """
     if (
         not isinstance(argv, list)
         or not argv
@@ -372,15 +602,66 @@ def _validate_argv(argv: Any, state_root: Path) -> List[str]:
             raise ValueError(
                 "--state-root is managed by the eval loop and must not be passed"
             )
-        if item.startswith("@") and len(item) > 1:
-            reference = Path(item[1:])
-            if not reference.is_absolute():
-                reference = Path.cwd() / reference
-            if not _within(reference.resolve(), state_root):
+    spec = ALLOWED_COMMANDS.get(tuple(argv[:2]))
+    if spec is None:
+        spec = ALLOWED_COMMANDS.get(tuple(argv[:1]))
+        prefix = list(argv[:1])
+    else:
+        prefix = list(argv[:2])
+    if spec is None:
+        raise ValueError(
+            "command {!r} is not in the allowed action set ({})".format(
+                " ".join(argv[:2]), _allowed_commands_text()
+            )
+        )
+    flags = _parse_flags(argv, spec, prefix)
+    # @file references are confined no matter which flag carried them.
+    for name, value in flags.items():
+        if value.startswith("@") and len(value) > 1:
+            _confine_path(value[1:], name, state_root)
+    # JSON flags accept inline JSON or confined @file references only.
+    for name, kind in spec.items():
+        if kind == "json" and name in flags and not flags[name].startswith("@"):
+            _check_json_value(flags[name], name, state_root)
+        elif (
+            kind == "json_or_path" and name in flags and not flags[name].startswith("@")
+        ):
+            try:
+                json.loads(flags[name])
+            except json.JSONDecodeError:
+                # Not inline JSON: the CLI treats it as a file path — confine.
+                _confine_path(flags[name], name, state_root)
+    if tuple(argv[:2]) == ("roots", "register"):
+        root_kind = flags.get("--kind")
+        if "--writable" in flags and root_kind != "workspace":
+            raise ValueError(
+                "--writable is only accepted for --kind workspace (the payload "
+                "requires engine and dataset roots to stay read-only)"
+            )
+        if root_kind == "engine":
+            if engine_root is None:
                 raise ValueError(
-                    "@file references must stay inside the attempt state root: "
-                    "{}".format(item[1:])
+                    "the Backtrader engine root could not be resolved, so "
+                    "--kind engine registration is unavailable"
                 )
+            engine_path = _resolve_arg_path(flags.get("--path", ""), "--path")
+            resolved_engine = _resolve_arg_path(engine_root, "--path")
+            if engine_path != resolved_engine:
+                raise ValueError(
+                    "--kind engine --path must be exactly the engine root "
+                    "given in the system prompt ({})".format(engine_root)
+                )
+    # Every remaining path flag must stay inside the attempt state root.
+    for name, kind in spec.items():
+        if kind != "path" or name not in flags:
+            continue
+        if (
+            tuple(argv[:2]) == ("roots", "register")
+            and name == "--path"
+            and flags.get("--kind") == "engine"
+        ):
+            continue  # the single allowed host path, checked above
+        _confine_path(flags[name], name, state_root)
     return argv
 
 
@@ -418,13 +699,19 @@ def _run_cli(argv: List[str], state_root: Path) -> str:
     )
 
 
-def _execute_tool(name: str, tool_input: Any, state_root: Path) -> Tuple[str, bool]:
+def _execute_tool(
+    name: str,
+    tool_input: Any,
+    state_root: Path,
+    engine_root: Optional[str],
+) -> Tuple[str, bool]:
     """Execute one model tool call; returns ``(result_text, is_error)``."""
     if name == "run_backtrader_agent_cli":
         try:
             argv = _validate_argv(
                 tool_input.get("argv") if isinstance(tool_input, dict) else None,
                 state_root,
+                engine_root,
             )
         except ValueError as exc:
             return "tool error (the call was NOT executed): {}".format(exc), True
@@ -512,7 +799,7 @@ def _run_attempt(
                     result_text, is_error = "finish recorded", False
                 else:
                     result_text, is_error = _execute_tool(
-                        block.name, tool_input, state_root
+                        block.name, tool_input, state_root, engine_root
                     )
                 tool_result: Dict[str, Any] = {
                     "type": "tool_result",

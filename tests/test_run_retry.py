@@ -8,7 +8,10 @@ The retry contract:
 - A non-transient failure, a changed effect, and terminal sessions all reject
   the retry transition with ``BTAG-STATE-TRANSITION``.
 - The retry run's RunManifest records ``retry_of`` pointing at the failed
-  run id.
+  attempt's run id, which is attempt-distinct (derived from the run
+  request, i.e. the run token). Every failed attempt persists a
+  ``run-attempt.json`` marker linking its journal event, so the chain is
+  walkable: ``retry_of`` -> attempt marker -> journal event -> ...
 """
 
 import json
@@ -488,8 +491,77 @@ def test_timeout_failure_then_same_effect_retry_passes_with_retry_of(
     assert failed["artifacts"]["run_failure_code"] == "BTAG-RUN-TIMEOUT"
     first_run_id = failed["artifacts"]["run_id"]
 
+    # The failed attempt leaves a walkable marker linking its journal event.
+    first_attempt = read_json(state / "runs" / first_run_id / "run-attempt.json")
+    assert first_attempt["schema_version"] == "run-attempt-v1"
+    assert first_attempt["run_id"] == first_run_id
+    assert first_attempt["status"] == "failed"
+    assert first_attempt["failure_code"] == "BTAG-RUN-TIMEOUT"
+    assert first_attempt["run_subject_hash"] == subject
+    assert first_attempt["retry_of"] is None
+    assert first_attempt["event_hash"] == failed["last_event_hash"]
+    assert first_attempt["sequence"] == failed["last_sequence"]
+
     manifest = _retry_transition(store, "session-probe", subject=subject)
     assert manifest["state"] == "RUN_APPROVED"
+
+    retry_token = {
+        "token_id": "run-probe-retry",
+        "approval_id": "approval-probe-retry",
+    }
+    result = _ProbeRunner(state, "pass").run(
+        applied,
+        dataset,
+        validation_token,
+        retry_token,
+        mode="runonce",
+        idempotency_key="probe-run",
+        timeout_seconds=15,
+    )
+
+    assert result["status"] == "passed"
+    run_manifest = read_json(state / "runs" / result["run_id"] / "run-manifest.json")
+    assert run_manifest["run_id"] == result["run_id"]
+    assert run_manifest["retry_of"] == first_run_id
+    assert run_manifest["retry_of"] != run_manifest["run_id"]
+    assert store.load("session-probe")["state"] == "COMPLETED"
+
+    # The same attempt replays from the recorded action instead of launching
+    # another child: behavior "exit" would fail any real child run.
+    replay = _ProbeRunner(state, "exit").run(
+        applied,
+        dataset,
+        validation_token,
+        retry_token,
+        mode="runonce",
+        idempotency_key="probe-run",
+        timeout_seconds=15,
+    )
+    assert replay == result
+    assert store.load("session-probe")["state"] == "COMPLETED"
+
+
+def test_same_attempt_reexecution_does_not_self_reference(tmp_path: Path) -> None:
+    """Re-running the same token/key/request is the same attempt, not a chain link."""
+    state = tmp_path / "state"
+    _prepare_probe_state(state)
+    applied, dataset, validation_token, run_token = _probe_inputs()
+    subject = _probe_subject()
+
+    with pytest.raises(AgentError, match="BTAG-RUN-TIMEOUT"):
+        _ProbeRunner(state, "hang").run(
+            applied,
+            dataset,
+            validation_token,
+            run_token,
+            mode="runonce",
+            idempotency_key="probe-run",
+            timeout_seconds=1,
+        )
+
+    store = SessionStore(state)
+    first_run_id = store.load("session-probe")["artifacts"]["run_id"]
+    _retry_transition(store, "session-probe", subject=subject)
 
     result = _ProbeRunner(state, "pass").run(
         applied,
@@ -498,12 +570,15 @@ def test_timeout_failure_then_same_effect_retry_passes_with_retry_of(
         run_token,
         mode="runonce",
         idempotency_key="probe-run",
-        timeout_seconds=15,
+        timeout_seconds=1,
     )
 
     assert result["status"] == "passed"
     run_manifest = read_json(state / "runs" / result["run_id"] / "run-manifest.json")
-    assert run_manifest["retry_of"] == first_run_id
+    assert run_manifest["run_id"] == first_run_id
+    assert "retry_of" not in run_manifest
+    # The first-failure marker is preserved next to the eventual success.
+    assert (state / "runs" / first_run_id / "run-attempt.json").is_file()
     assert store.load("session-probe")["state"] == "COMPLETED"
 
 
@@ -530,6 +605,13 @@ def test_non_transient_run_failure_is_not_retry_eligible(tmp_path: Path) -> None
     assert failed["state"] == "FAILED"
     assert failed["retry_eligible"] is False
     assert failed["artifacts"]["run_failure_code"] == "BTAG-RUN-FAILED"
+
+    # Non-transient failures leave the same walkable attempt marker.
+    first_run_id = failed["artifacts"]["run_id"]
+    attempt = read_json(state / "runs" / first_run_id / "run-attempt.json")
+    assert attempt["run_id"] == first_run_id
+    assert attempt["failure_code"] == "BTAG-RUN-FAILED"
+    assert attempt["retry_of"] is None
 
     with pytest.raises(AgentError, match="BTAG-STATE-TRANSITION"):
         _retry_transition(store, "session-probe", subject=subject)

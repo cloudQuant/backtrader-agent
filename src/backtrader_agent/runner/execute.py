@@ -11,7 +11,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from ..canonical import hash_object, read_json, sha256_bytes
+from ..canonical import atomic_write_json, hash_object, read_json, sha256_bytes
 from ..caching import memoized
 from ..data import DatasetService
 from ..errors import AgentError
@@ -545,7 +545,10 @@ class ControlledRunner:
                 "request_hash": request_hash,
             }
         )
-        run_id = f"run-{subject[:20]}"
+        # Attempt-distinct run id: request_hash binds the run token id, so a
+        # retry under a new approval yields a different id than the failed
+        # attempt while an idempotent replay of the same attempt stays stable.
+        run_id = f"run-{request_hash[:20]}"
         run_root = self.state_root / "runs" / run_id
         engine_root, engine_descriptor = self._resolve_engine(validation_token)
         environment = self._verify_execution_environment(validation_token)
@@ -554,6 +557,10 @@ class ControlledRunner:
         retry_of = self._retry_of_reference(
             sessions.load(applied["session_id"]), subject=subject, run_id=run_id
         )
+        if retry_of == run_id:
+            # Re-execution of the same attempt (same run token and request),
+            # not a distinct retry: the chain must not self-reference.
+            retry_of = None
         run_manifest: Dict[str, Any] = {
             "schema_version": "run-manifest-v1",
             "run_id": run_id,
@@ -676,7 +683,7 @@ class ControlledRunner:
         def mark_failed(code: str) -> None:
             current = sessions.load(applied["session_id"])
             if current["state"] == "RUNNING":
-                sessions.transition(
+                failed = sessions.transition(
                     applied["session_id"],
                     "FAILED",
                     "controlled-run-failed",
@@ -689,6 +696,31 @@ class ControlledRunner:
                     },
                     retry_eligible=code in self.TRANSIENT_FAILURE_CODES,
                 )
+                # Persist a per-attempt failure marker so the retry chain is
+                # walkable: <retry manifest>.retry_of -> this run id -> its
+                # journal event via event_hash -> its own retry_of, and so on.
+                # Create-only: the first failure of an attempt wins; replays
+                # and same-attempt re-executions never rewrite it.
+                attempt_record: Dict[str, Any] = {
+                    "schema_version": "run-attempt-v1",
+                    "run_id": run_id,
+                    "status": "failed",
+                    "failure_code": code,
+                    "run_subject_hash": subject,
+                    "retry_of": retry_of,
+                    "event_hash": failed["last_event_hash"],
+                    "sequence": int(failed["last_sequence"]),
+                }
+                run_root.mkdir(parents=True, exist_ok=True)
+                try:
+                    atomic_write_json(
+                        run_root / "run-attempt.json",
+                        attempt_record,
+                        create_only=True,
+                    )
+                except AgentError as exc:
+                    if exc.code != "BTAG-WRITE-EXISTS":
+                        raise
 
         started = time.monotonic()
         try:

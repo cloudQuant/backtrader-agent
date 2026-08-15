@@ -1,142 +1,35 @@
-"""Fixed-profile child-process runner. Candidate modules are never host-imported."""
+"""Controlled fixed-profile execution of hash-approved candidate artifacts."""
 
 import hmac
-import importlib.util
 import json
 import os
 import re
 import subprocess
 import sys
-import tempfile
 import time
 import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from .canonical import (
-    atomic_write_bytes,
-    atomic_write_json,
-    hash_object,
-    read_json,
-    sha256_bytes,
-)
-from .backtrader_runtime import ensure_cloudquant_backtrader
-from .caching import memoized
-from .data import DatasetService
-from .errors import AgentError
-from .engines import inspect_engine, inspect_execution_environment
-from .locking import exclusive_file_lock
-from .report import ReportRenderer, normalize_metrics
-from .roots import RootRegistry
-from .sessions import SessionStore
-from .tokens import TokenAuthority
+from ..canonical import hash_object, read_json, sha256_bytes
+from ..caching import memoized
+from ..data import DatasetService
+from ..engines import inspect_execution_environment
+from ..errors import AgentError
+from ..locking import exclusive_file_lock
+from ..report import normalize_metrics
+from ..roots import RootRegistry
+from ..sessions import SessionStore
+from ..tokens import TokenAuthority
+from . import profiles as profiles_module
+from . import reports as reports_module
+from . import resume as resume_module
+from .profiles import PROFILE_DEPENDENCIES, _probe_engine
 
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$")
 RESULT_PREFIX = "BACKTRADER_AGENT_RESULT="
 RUN_ACTION_LOCK_GRACE_SECONDS = 60
-PROFILE_DEPENDENCIES = {
-    "python_bundle": ("backtrader", "pandas"),
-    "single_test": ("backtrader", "pandas", "pytest"),
-}
-
-
-def missing_profile_dependencies(profile: str) -> List[str]:
-    modules = PROFILE_DEPENDENCIES.get(profile)
-    if modules is None:
-        raise AgentError(
-            "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
-        )
-    return [module for module in modules if importlib.util.find_spec(module) is None]
-
-
-def list_runs(state_root: Path) -> List[Dict[str, Any]]:
-    """Return compact summaries of every persisted run result on disk.
-
-    Corrupt result records are skipped so one bad run cannot hide the rest.
-    """
-
-    runs_root = Path(state_root) / "runs"
-    if not runs_root.is_dir():
-        return []
-    summaries: List[Dict[str, Any]] = []
-    for path in sorted(runs_root.glob("*/run-result.json")):
-        try:
-            result = read_json(path)
-        except (OSError, ValueError):
-            continue
-        if result.get("schema_version") != "run-result-v1":
-            continue
-        metrics = result.get("metrics", {})
-        summaries.append(
-            {
-                "run_id": result.get("run_id"),
-                "status": result.get("status"),
-                "final_value": metrics.get("final_value"),
-                "trade_num": metrics.get("trade_num"),
-                "result_hash": result.get("result_hash"),
-            }
-        )
-    return summaries
-
-
-ENGINE_PROBE = (
-    "import json,pathlib,backtrader;"
-    "print(json.dumps({'path':str(pathlib.Path(backtrader.__file__).resolve()),"
-    "'version':getattr(backtrader,'__version__','unknown')},sort_keys=True))"
-)
-
-
-@memoized
-def _probe_engine(
-    root: Path, cwd: Path, expected_version: Optional[str]
-) -> Tuple[str, str]:
-    """Run the child-process engine import probe once per (root, cwd, version).
-
-    The attestation is a security binding, so the memo is strictly
-    process-local. Failures are raised and never cached, so a later retry
-    probes again instead of replaying a stale failure.
-
-    The key deliberately carries no stat freshness signal: any stat-visible
-    change to the engine root is already rejected by the fresh
-    ``inspect_engine`` binding check in ``_resolve_engine`` before this probe
-    is consulted, and a version change alters ``expected_version`` and
-    therefore the key itself.
-    """
-
-    probe = subprocess.run(
-        [sys.executable, "-c", ENGINE_PROBE],
-        cwd=cwd,
-        env=ControlledRunner._child_environment([], "runonce", root),
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=15,
-        check=False,
-        shell=False,
-    )
-    try:
-        attestation = json.loads(probe.stdout.decode("utf-8"))
-        imported = Path(attestation["path"]).resolve(strict=True)
-        relative_import = imported.relative_to(root).as_posix()
-    except (KeyError, OSError, ValueError, json.JSONDecodeError) as exc:
-        raise AgentError(
-            "BTAG-ENGINE-IMPORT",
-            "registered Backtrader engine could not be imported from its bound root",
-        ) from exc
-    if (
-        probe.returncode != 0
-        or not relative_import.startswith("backtrader/")
-        or (
-            expected_version != "unknown"
-            and attestation.get("version") != expected_version
-        )
-    ):
-        raise AgentError(
-            "BTAG-ENGINE-IMPORT",
-            "child-process Backtrader import does not match the registered engine",
-        )
-    return relative_import, attestation["version"]
 
 
 @memoized
@@ -150,33 +43,11 @@ def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int, ctime_ns: int) ->
     writer).
     """
 
+    # Resolved through the package namespace at call time so monkeypatched
+    # package attributes are honored instead of a stale module binding.
+    from . import sha256_bytes
+
     return sha256_bytes(path.read_bytes())
-
-
-def _resource_limits(timeout_seconds: int):
-    def set_limits() -> None:
-        try:
-            import resource
-
-            # CPU time and file-size limits are reliable POSIX guards. The
-            # address-space limit (RLIMIT_AS) is intentionally NOT applied:
-            # scientific-Python BLAS libraries (numpy/OpenBLAS) reserve large
-            # virtual regions on Linux that exceed any fixed AS budget while
-            # resident memory stays small, producing false BTAG-RUN-FAILED
-            # kills. The wall-clock timeout and RLIMIT_CPU remain the real
-            # runaway guards; this is defense in depth, not an OS sandbox.
-            resource.setrlimit(
-                resource.RLIMIT_CPU, (timeout_seconds + 2, timeout_seconds + 2)
-            )
-            resource.setrlimit(
-                resource.RLIMIT_FSIZE, (16 * 1024 * 1024, 16 * 1024 * 1024)
-            )
-        except (ImportError, OSError, ValueError):
-            # The command remains allowlisted and timeout-bound where a specific
-            # POSIX resource limit is unavailable.
-            return
-
-    return set_limits
 
 
 class ControlledRunner:
@@ -315,56 +186,18 @@ class ControlledRunner:
 
     @staticmethod
     def _persist_exact_bytes(path: Path, content: bytes) -> None:
-        if path.exists():
-            if path.is_symlink() or not path.is_file() or path.read_bytes() != content:
-                raise AgentError(
-                    "BTAG-RUN-CONFLICT",
-                    "persisted run artifact conflicts with the approved effect",
-                )
-            return
-        try:
-            atomic_write_bytes(path, content, create_only=True)
-        except AgentError as exc:
-            if exc.code != "BTAG-WRITE-EXISTS":
-                raise
-            if path.is_symlink() or not path.is_file() or path.read_bytes() != content:
-                raise AgentError(
-                    "BTAG-RUN-CONFLICT",
-                    "persisted run artifact conflicts with the approved effect",
-                ) from exc
+        return reports_module._persist_exact_bytes(path, content)
 
     @classmethod
     def _persist_exact_json(cls, path: Path, value: Dict[str, Any]) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(
-            prefix=".json-stage-", dir=str(path.parent)
-        ) as name:
-            staged = Path(name) / "value.json"
-            atomic_write_json(staged, value, create_only=True)
-            cls._persist_exact_bytes(path, staged.read_bytes())
+        return reports_module._persist_exact_json(path, value)
 
     def _render_reports_resumable(
         self,
         run_root: Path,
         result: Dict[str, Any],
     ) -> Dict[str, str]:
-        run_root.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(
-            prefix=f".{result['run_id']}.report-stage-",
-            dir=str(run_root.parent),
-        ) as name:
-            staged_root = Path(name)
-            report_files = ReportRenderer().render(staged_root, result)
-            for filename in (
-                report_files["result"],
-                report_files["markdown"],
-                report_files["html"],
-            ):
-                self._persist_exact_bytes(
-                    run_root / filename,
-                    (staged_root / filename).read_bytes(),
-                )
-        return report_files
+        return reports_module._render_reports_resumable(self, run_root, result)
 
     @staticmethod
     def _verify_persisted_result(
@@ -377,23 +210,15 @@ class ControlledRunner:
         validation_token: Dict[str, Any],
         run_token: Dict[str, Any],
     ) -> None:
-        payload = {key: value for key, value in result.items() if key != "result_hash"}
-        extension = result.get("extensions", {}).get("backtrader_agent", {})
-        if (
-            result.get("run_id") != run_id
-            or result.get("status") != "passed"
-            or hash_object(payload) != result.get("result_hash")
-            or extension.get("mode") != mode
-            or extension.get("dataset_manifest_hash") != dataset["manifest_hash"]
-            or extension.get("applied_artifact_hash")
-            != applied["applied_artifact_hash"]
-            or extension.get("validation_token_id") != validation_token["token_id"]
-            or extension.get("run_token_id") != run_token["token_id"]
-        ):
-            raise AgentError(
-                "BTAG-RUN-CONFLICT",
-                "persisted run result conflicts with the approved effect",
-            )
+        return reports_module._verify_persisted_result(
+            result,
+            run_id=run_id,
+            mode=mode,
+            applied=applied,
+            dataset=dataset,
+            validation_token=validation_token,
+            run_token=run_token,
+        )
 
     @staticmethod
     def _verify_persisted_manifest(
@@ -401,24 +226,7 @@ class ControlledRunner:
         result: Dict[str, Any],
         expected: Dict[str, Any],
     ) -> None:
-        manifest_path = run_root / "run-manifest.json"
-        if not manifest_path.is_file() or manifest_path.is_symlink():
-            raise AgentError(
-                "BTAG-RUN-CONFLICT", "persisted run manifest is absent or unsafe"
-            )
-        manifest = read_json(manifest_path)
-        payload = {
-            key: value for key, value in manifest.items() if key != "manifest_hash"
-        }
-        if (
-            manifest != expected
-            or hash_object(payload) != manifest.get("manifest_hash")
-            or manifest.get("manifest_hash")
-            != result.get("extensions", {})
-            .get("backtrader_agent", {})
-            .get("manifest_hash")
-        ):
-            raise AgentError("BTAG-RUN-CONFLICT", "persisted run manifest is invalid")
+        return reports_module._verify_persisted_manifest(run_root, result, expected)
 
     @staticmethod
     def _redact_stderr(
@@ -428,34 +236,16 @@ class ControlledRunner:
         entrypoint: Path,
         descriptors: List[Dict[str, Any]],
     ) -> str:
-        redacted = stderr[-2000:]
-        replacements = {
-            str(state_root.resolve()): "<state>",
-            str(entrypoint.parent.resolve()): "<artifact>",
-            str(Path(sys.executable).resolve().parent): "<runtime>",
-        }
-        replacements.update(
-            {str(Path(item["path"]).resolve()): "<dataset>" for item in descriptors}
+        return reports_module._redact_stderr(
+            stderr,
+            state_root=state_root,
+            entrypoint=entrypoint,
+            descriptors=descriptors,
         )
-        for value, label in sorted(
-            replacements.items(), key=lambda item: -len(item[0])
-        ):
-            redacted = redacted.replace(value, label)
-        redacted = re.sub(
-            r"(?<![A-Za-z0-9_])/(?:[A-Za-z0-9._~+@%=-]+/)*[A-Za-z0-9._~+@%=-]+",
-            "<path>",
-            redacted,
-        )
-        redacted = re.sub(
-            r"\b[A-Za-z]:\\(?:[^\\\s:'\"]+\\)*[^\\\s:'\"]+",
-            "<path>",
-            redacted,
-        )
-        return redacted
 
     @staticmethod
     def _begin_or_resume_session(
-        sessions: SessionStore,
+        sessions,
         *,
         session_id: str,
         subject: str,
@@ -463,45 +253,19 @@ class ControlledRunner:
         idempotency_key: str,
         run_token: Dict[str, Any],
     ) -> None:
-        session = sessions.load(session_id)
-        state = session["state"]
-        if state in {"RUNNING", "PAUSED"}:
-            if (
-                session.get("artifacts", {}).get("run_subject_hash") != subject
-                or session.get("artifacts", {}).get("run_effect_id") != effect_id
-                or session.get("approvals", {}).get("execute") != run_token["token_id"]
-            ):
-                raise AgentError(
-                    "BTAG-RUN-SESSION",
-                    "interrupted session belongs to another approved effect",
-                )
-            if state == "RUNNING":
-                return
-            action_type = "controlled-run-resume"
-        elif state == "RUN_APPROVED":
-            action_type = "controlled-run-start"
-        else:
-            raise AgentError(
-                "BTAG-RUN-SESSION",
-                "session is not ready to start or resume this approved run",
-            )
-        sessions.transition(
-            session_id,
-            "RUNNING",
-            action_type,
-            {"run_subject": subject},
+        return resume_module._begin_or_resume_session(
+            sessions,
+            session_id=session_id,
+            subject=subject,
+            effect_id=effect_id,
             idempotency_key=idempotency_key,
-            approval_token_id=run_token["token_id"],
-            effect_references={
-                "run_subject_hash": subject,
-                "run_effect_id": effect_id,
-            },
+            run_token=run_token,
         )
 
     @classmethod
     def _finish_successful_session(
         cls,
-        sessions: SessionStore,
+        sessions,
         *,
         session_id: str,
         subject: str,
@@ -511,52 +275,17 @@ class ControlledRunner:
         result: Dict[str, Any],
         report_hash: str,
     ) -> None:
-        session = sessions.load(session_id)
-        if session["state"] in {"RUN_APPROVED", "PAUSED"}:
-            cls._begin_or_resume_session(
-                sessions,
-                session_id=session_id,
-                subject=subject,
-                effect_id=effect_id,
-                idempotency_key=idempotency_key,
-                run_token=run_token,
-            )
-            session = sessions.load(session_id)
-        if session["state"] == "RUNNING":
-            sessions.transition(
-                session_id,
-                "PASSED",
-                "controlled-run-passed",
-                {"run_result": result["result_hash"]},
-                idempotency_key=idempotency_key,
-                approval_token_id=run_token["token_id"],
-                effect_references={"run_result_hash": result["result_hash"]},
-            )
-            session = sessions.load(session_id)
-        if session["state"] == "PASSED":
-            sessions.transition(
-                session_id,
-                "REPORTED",
-                "report-render",
-                {"report": report_hash},
-                idempotency_key=idempotency_key,
-                effect_references={"report_hash": report_hash},
-            )
-            session = sessions.load(session_id)
-        if session["state"] == "REPORTED":
-            sessions.transition(
-                session_id,
-                "COMPLETED",
-                "session-complete",
-                {"run_result": result["result_hash"]},
-                idempotency_key=idempotency_key,
-            )
-            session = sessions.load(session_id)
-        if session["state"] != "COMPLETED":
-            raise AgentError(
-                "BTAG-RUN-SESSION",
-                "successful run could not complete its legal session transitions",
-            )
+        return resume_module._finish_successful_session(
+            cls,
+            sessions,
+            session_id=session_id,
+            subject=subject,
+            effect_id=effect_id,
+            idempotency_key=idempotency_key,
+            run_token=run_token,
+            result=result,
+            report_hash=report_hash,
+        )
 
     def _dataset_descriptors(self, dataset: Dict[str, Any]) -> List[Dict[str, Any]]:
         descriptors: List[Dict[str, Any]] = []
@@ -633,25 +362,16 @@ class ControlledRunner:
         mode: str,
         engine_root: Optional[Path] = None,
     ) -> Dict[str, str]:
-        environment = {
-            "PATH": "/usr/bin:/bin",
-            "TMPDIR": "/tmp",
-            "PYTHONDONTWRITEBYTECODE": "1",
-            "PYTHONNOUSERSITE": "1",
-            "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
-            "BACKTRADER_AGENT_DATASETS_JSON": json.dumps(
-                descriptors, sort_keys=True, separators=(",", ":")
-            ),
-            "BACKTRADER_AGENT_MODE": mode,
-        }
-        if engine_root is not None:
-            environment["PYTHONPATH"] = str(engine_root)
-        return environment
+        return profiles_module._child_environment(descriptors, mode, engine_root)
 
     def _resolve_engine(
         self,
         validation_token: Dict[str, Any],
     ) -> Tuple[Path, Dict[str, Any]]:
+        # Resolved through the package namespace at call time so monkeypatched
+        # package attributes are honored instead of a stale module binding.
+        from . import inspect_engine
+
         bindings = validation_token.get("bindings", {})
         root_id = bindings.get("engine_root_id")
         if not isinstance(root_id, str) or not root_id:
@@ -700,6 +420,11 @@ class ControlledRunner:
 
     @staticmethod
     def _require_profile_dependencies(profile: str) -> None:
+        # Resolve through the ``backtrader_agent.runner`` package namespace at
+        # call time so monkeypatched package attributes (tests, host wiring)
+        # are honored instead of a stale module-level binding.
+        from . import ensure_cloudquant_backtrader, missing_profile_dependencies
+
         if profile not in PROFILE_DEPENDENCIES:
             raise AgentError(
                 "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
@@ -967,7 +692,9 @@ class ControlledRunner:
                 check=False,
                 shell=False,
                 preexec_fn=(
-                    _resource_limits(timeout_seconds) if os.name == "posix" else None
+                    profiles_module._resource_limits(timeout_seconds)
+                    if os.name == "posix"
+                    else None
                 ),
             )
         except subprocess.TimeoutExpired as exc:

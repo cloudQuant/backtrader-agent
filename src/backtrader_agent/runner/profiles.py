@@ -1,13 +1,16 @@
 """Allowlisted run profiles, engine probes, and child-process environment."""
 
+import hmac
 import importlib.util
 import json
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..caching import memoized
+from ..engines import inspect_execution_environment
 from ..errors import AgentError
 
 PROFILE_DEPENDENCIES = {
@@ -23,6 +26,44 @@ def missing_profile_dependencies(profile: str) -> List[str]:
             "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
         )
     return [module for module in modules if importlib.util.find_spec(module) is None]
+
+
+def _verify_execution_environment(
+    validation_token: Dict[str, Any],
+) -> Dict[str, Any]:
+    expected = validation_token.get("bindings", {}).get("environment_hash")
+    descriptor = inspect_execution_environment()
+    if not isinstance(expected, str) or not hmac.compare_digest(
+        descriptor["environment_hash"], expected
+    ):
+        raise AgentError(
+            "BTAG-ENVIRONMENT-HASH",
+            "Python execution environment changed after validation",
+        )
+    return descriptor
+
+
+def _require_profile_dependencies(profile: str) -> None:
+    # Resolve through the ``backtrader_agent.runner`` package namespace at
+    # call time so monkeypatched package attributes (tests, host wiring)
+    # are honored instead of a stale module-level binding.
+    from . import ensure_cloudquant_backtrader, missing_profile_dependencies
+
+    if profile not in PROFILE_DEPENDENCIES:
+        raise AgentError(
+            "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
+        )
+    backtrader_runtime = ensure_cloudquant_backtrader()
+    warning = backtrader_runtime.get("warning")
+    if isinstance(warning, str) and warning:
+        warnings.warn(warning, RuntimeWarning, stacklevel=2)
+    missing = missing_profile_dependencies(profile)
+    if missing:
+        raise AgentError(
+            "BTAG-RUN-DEPENDENCY",
+            "controlled run profile dependencies are unavailable",
+            details={"profile": profile, "missing": missing},
+        )
 
 
 ENGINE_PROBE = (

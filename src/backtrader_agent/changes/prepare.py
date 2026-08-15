@@ -13,6 +13,7 @@ from ..canonical import (
 from ..errors import AgentError
 from ..scaffold import load_product_artifact_record
 from ..sessions import SessionStore
+from ..tokens import expected_bindings
 
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$")
 
@@ -52,7 +53,7 @@ def prepare(
         validation_token,
         kind="validation",
         subject_hash=validation_token.get("subject_hash", ""),
-        required_bindings={"session_id": session_id},
+        required_bindings=expected_bindings("validation", session_id=session_id),
     )
     draft = Path(draft_root).resolve(strict=True)
     artifact_path = draft / "artifact-manifest.json"

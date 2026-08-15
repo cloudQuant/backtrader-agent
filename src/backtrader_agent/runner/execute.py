@@ -1,6 +1,5 @@
 """Controlled fixed-profile execution of hash-approved candidate artifacts."""
 
-import hmac
 import json
 import os
 import re
@@ -15,17 +14,16 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 from ..canonical import hash_object, read_json, sha256_bytes
 from ..caching import memoized
 from ..data import DatasetService
-from ..engines import inspect_execution_environment
 from ..errors import AgentError
 from ..locking import exclusive_file_lock
 from ..report import normalize_metrics
 from ..roots import RootRegistry
 from ..sessions import SessionStore
-from ..tokens import TokenAuthority
+from ..tokens import TokenAuthority, expected_bindings
 from . import profiles as profiles_module
 from . import reports as reports_module
 from . import resume as resume_module
-from .profiles import PROFILE_DEPENDENCIES, _probe_engine
+from .profiles import _probe_engine
 
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$")
 RESULT_PREFIX = "BACKTRADER_AGENT_RESULT="
@@ -407,39 +405,11 @@ class ControlledRunner:
     def _verify_execution_environment(
         validation_token: Dict[str, Any],
     ) -> Dict[str, Any]:
-        expected = validation_token.get("bindings", {}).get("environment_hash")
-        descriptor = inspect_execution_environment()
-        if not isinstance(expected, str) or not hmac.compare_digest(
-            descriptor["environment_hash"], expected
-        ):
-            raise AgentError(
-                "BTAG-ENVIRONMENT-HASH",
-                "Python execution environment changed after validation",
-            )
-        return descriptor
+        return profiles_module._verify_execution_environment(validation_token)
 
     @staticmethod
     def _require_profile_dependencies(profile: str) -> None:
-        # Resolve through the ``backtrader_agent.runner`` package namespace at
-        # call time so monkeypatched package attributes (tests, host wiring)
-        # are honored instead of a stale module-level binding.
-        from . import ensure_cloudquant_backtrader, missing_profile_dependencies
-
-        if profile not in PROFILE_DEPENDENCIES:
-            raise AgentError(
-                "BTAG-RUN-PROFILE", "controlled run profile is not allowlisted"
-            )
-        backtrader_runtime = ensure_cloudquant_backtrader()
-        warning = backtrader_runtime.get("warning")
-        if isinstance(warning, str) and warning:
-            warnings.warn(warning, RuntimeWarning, stacklevel=2)
-        missing = missing_profile_dependencies(profile)
-        if missing:
-            raise AgentError(
-                "BTAG-RUN-DEPENDENCY",
-                "controlled run profile dependencies are unavailable",
-                details={"profile": profile, "missing": missing},
-            )
+        return profiles_module._require_profile_dependencies(profile)
 
     def run(
         self,
@@ -488,13 +458,14 @@ class ControlledRunner:
             validation_token,
             kind="validation",
             subject_hash=applied["artifact_hash"],
-            required_bindings={
-                "artifact_record_hash": applied["artifact_record_hash"],
-                "dataset_hash": dataset["manifest_hash"],
-                "dataset_id": dataset["dataset_id"],
-                "session_id": applied["session_id"],
-                "spec_hash": applied["spec_hash"],
-            },
+            required_bindings=expected_bindings(
+                "validation",
+                artifact_record_hash=applied["artifact_record_hash"],
+                dataset_hash=dataset["manifest_hash"],
+                dataset_id=dataset["dataset_id"],
+                session_id=applied["session_id"],
+                spec_hash=applied["spec_hash"],
+            ),
         )
         if (
             applied["dataset_id"] != dataset["dataset_id"]
@@ -513,20 +484,21 @@ class ControlledRunner:
             run_token,
             kind="run",
             subject_hash=subject,
-            required_bindings={
-                "applied_artifact_hash": applied["applied_artifact_hash"],
-                "applied_record_hash": applied["applied_record_hash"],
-                "artifact_hash": applied["artifact_hash"],
-                "artifact_record_hash": applied["artifact_record_hash"],
-                "change_manifest_hash": applied["change_manifest_hash"],
-                "validation_token_id": validation_token["token_id"],
-                "validation_token_hash": hash_object(validation_token),
-                "dataset_hash": dataset["manifest_hash"],
-                "dataset_id": dataset["dataset_id"],
-                "mode": mode,
-                "session_id": applied["session_id"],
-                "spec_hash": applied["spec_hash"],
-            },
+            required_bindings=expected_bindings(
+                "run",
+                applied_artifact_hash=applied["applied_artifact_hash"],
+                applied_record_hash=applied["applied_record_hash"],
+                artifact_hash=applied["artifact_hash"],
+                artifact_record_hash=applied["artifact_record_hash"],
+                change_manifest_hash=applied["change_manifest_hash"],
+                validation_token_id=validation_token["token_id"],
+                validation_token_hash=hash_object(validation_token),
+                dataset_hash=dataset["manifest_hash"],
+                dataset_id=dataset["dataset_id"],
+                mode=mode,
+                session_id=applied["session_id"],
+                spec_hash=applied["spec_hash"],
+            ),
         )
         action_path = self._action_path(idempotency_key)
         request_hash = hash_object(

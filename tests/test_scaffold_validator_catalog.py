@@ -31,8 +31,14 @@ def test_all_fourteen_scaffolds_render_and_validate_without_requiring_direct_str
             )
             artifact = renderer.render("session-1", spec, dataset)
             report = validator.validate_artifact(artifact)
-            assert report["status"] == "passed", (archetype, profile, report["diagnostics"])
-            strategy_file = next(item for item in artifact["files"] if item["role"] == "strategy")
+            assert report["status"] == "passed", (
+                archetype,
+                profile,
+                report["diagnostics"],
+            )
+            strategy_file = next(
+                item for item in artifact["files"] if item["role"] == "strategy"
+            )
             source = (Path(artifact["_draft_path"]) / strategy_file["path"]).read_text(
                 encoding="utf-8"
             )
@@ -40,7 +46,9 @@ def test_all_fourteen_scaffolds_render_and_validate_without_requiring_direct_str
             assert "super().__init__()" not in source
 
 
-def test_validator_rejects_dynamic_execution_but_accepts_legacy_style_strategy() -> None:
+def test_validator_rejects_dynamic_execution_but_accepts_legacy_style_strategy() -> (
+    None
+):
     validator = StrategyValidator()
     legacy = """
 import backtrader as bt
@@ -78,7 +86,9 @@ class LegacyStrategy(bt.Strategy):
         ),
     ],
 )
-def test_validator_denies_real_capability_escape_vectors(payload: str, expected_code: str) -> None:
+def test_validator_denies_real_capability_escape_vectors(
+    payload: str, expected_code: str
+) -> None:
     source = (
         "import backtrader as bt\n"
         "class EscapeStrategy(bt.Strategy):\n"
@@ -99,3 +109,30 @@ def test_snapshot_search_is_deterministic_and_has_provenance() -> None:
     assert all(item["source_hash"] for item in first)
     inspected = catalog.inspect(first[0]["entry_id"])
     assert inspected["source_available"] is False
+
+
+def test_single_test_source_template_golden():
+    from backtrader_agent import scaffold
+
+    src = scaffold._render_single_test_source("class Demo(bt.Strategy):\n    pass\n")
+    assert "class Demo(bt.Strategy)" in src
+    assert "BACKTRADER_AGENT_RESULT" in src
+    assert "strategy_source" not in src  # 不残留占位符
+
+
+def test_catalog_search_uses_explicit_snapshot_path(tmp_path):
+    from backtrader_agent import cli
+
+    code = cli.main(
+        [
+            "--state-root",
+            str(tmp_path / "s"),
+            "catalog",
+            "search",
+            "--query",
+            "sma",
+            "--snapshot-path",
+            str(tmp_path / "snap.jsonl"),
+        ]
+    )
+    assert code in (0, 3)  # 参数被接受;空快照允许 BTAG 领域错误,不允许用法错误(2)

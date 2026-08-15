@@ -58,6 +58,30 @@ REQUIRED_BINDINGS = {
         "validation_token_id",
     },
 }
+
+
+def expected_bindings(kind: str, **context: str) -> Dict[str, str]:
+    """Build the expected binding dict for one token ``verify`` call site.
+
+    Every key must belong to the kind's ``REQUIRED_BINDINGS`` allowlist; a
+    call site may bind a subset when the remaining bindings are attested by
+    sibling checks (the runner re-verifies engine and environment hashes
+    itself, for example). Values are normalized to ``str`` so the dict always
+    compares equal to the sorted bindings stored in issued tokens.
+    """
+
+    if kind not in TOKEN_KINDS:
+        raise AgentError("BTAG-TOKEN-KIND", "token kind is not allowlisted")
+    unexpected = set(context) - REQUIRED_BINDINGS[kind]
+    if unexpected:
+        raise AgentError(
+            "BTAG-TOKEN-BINDING",
+            "token bindings are not allowlisted for this kind",
+            details={"unexpected": sorted(unexpected)},
+        )
+    return {str(key): str(value) for key, value in sorted(context.items())}
+
+
 APPROVAL_REQUEST_RE = re.compile(r"^aprq-[0-9a-f]{24}$")
 EFFECT_ID_RE = re.compile(r"^[0-9a-f]{64}$")
 HASH_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -97,16 +121,22 @@ class TokenAuthority:
                     pass
             secret = self.secret_path.read_bytes()
             if len(secret) != 32:
-                raise AgentError("BTAG-TOKEN-SECRET", "local token secret has invalid length")
+                raise AgentError(
+                    "BTAG-TOKEN-SECRET", "local token secret has invalid length"
+                )
             return secret
 
     def _signature(self, payload: Dict[str, Any]) -> str:
-        return hmac.new(self._secret(), canonical_json_bytes(payload), "sha256").hexdigest()
+        return hmac.new(
+            self._secret(), canonical_json_bytes(payload), "sha256"
+        ).hexdigest()
 
     def sign_product_record(self, record: Dict[str, Any]) -> str:
         """Seal an internal product record with a domain-separated local signature."""
 
-        return self._signature({"domain": "backtrader-agent-product-record-v1", "record": record})
+        return self._signature(
+            {"domain": "backtrader-agent-product-record-v1", "record": record}
+        )
 
     def verify_product_record(self, record: Dict[str, Any]) -> Dict[str, Any]:
         signature = record.get("signature")
@@ -122,10 +152,21 @@ class TokenAuthority:
 
     def _bound_record_path(self, kind: str, session_id: str, subject_hash: str) -> Path:
         if kind not in BOUND_RECORD_KINDS:
-            raise AgentError("BTAG-RECORD-KIND", "bound product record kind is not allowlisted")
+            raise AgentError(
+                "BTAG-RECORD-KIND", "bound product record kind is not allowlisted"
+            )
         if not SESSION_RE.fullmatch(session_id) or not HASH_RE.fullmatch(subject_hash):
-            raise AgentError("BTAG-RECORD-ID", "bound product record identifiers are malformed")
-        return self.state_root / "sessions" / session_id / "records" / kind / f"{subject_hash}.json"
+            raise AgentError(
+                "BTAG-RECORD-ID", "bound product record identifiers are malformed"
+            )
+        return (
+            self.state_root
+            / "sessions"
+            / session_id
+            / "records"
+            / kind
+            / f"{subject_hash}.json"
+        )
 
     def store_bound_record(
         self,
@@ -150,7 +191,9 @@ class TokenAuthority:
             "subject_hash": subject_hash,
         }
         if portable["schema_version"] is None:
-            raise AgentError("BTAG-RECORD-KIND", "bound product record kind is not allowlisted")
+            raise AgentError(
+                "BTAG-RECORD-KIND", "bound product record kind is not allowlisted"
+            )
         portable["record_hash"] = hash_object(portable)
         record = {
             **portable,
@@ -217,7 +260,10 @@ class TokenAuthority:
             raise AgentError(
                 "BTAG-APPROVAL-SESSION",
                 "session is not ready for this approval",
-                details={"expected_state": expected_state, "state": session.get("state")},
+                details={
+                    "expected_state": expected_state,
+                    "state": session.get("state"),
+                },
             )
         artifacts = session.get("artifacts", {})
         if kind == "change":
@@ -251,9 +297,16 @@ class TokenAuthority:
             }
             if (
                 manifest.get("manifest_hash") != subject_hash
-                or record.get("validation_token_hash") != manifest.get("validation_token_hash")
-                or any(bindings.get(key) != value for key, value in expected_bindings.items())
-                or any(artifacts.get(key) != value for key, value in expected_session.items())
+                or record.get("validation_token_hash")
+                != manifest.get("validation_token_hash")
+                or any(
+                    bindings.get(key) != value
+                    for key, value in expected_bindings.items()
+                )
+                or any(
+                    artifacts.get(key) != value
+                    for key, value in expected_session.items()
+                )
             ):
                 raise AgentError(
                     "BTAG-APPROVAL-BINDING",
@@ -306,8 +359,12 @@ class TokenAuthority:
         )
         if (
             expected_subject != subject_hash
-            or any(bindings.get(key) != value for key, value in expected_bindings.items())
-            or any(artifacts.get(key) != value for key, value in expected_session.items())
+            or any(
+                bindings.get(key) != value for key, value in expected_bindings.items()
+            )
+            or any(
+                artifacts.get(key) != value for key, value in expected_session.items()
+            )
         ):
             raise AgentError(
                 "BTAG-APPROVAL-BINDING",
@@ -351,7 +408,9 @@ class TokenAuthority:
         ttl_seconds: int = 900,
     ) -> Dict[str, Any]:
         if ttl_seconds < 1 or ttl_seconds > 3600:
-            raise AgentError("BTAG-TOKEN-TTL", "token TTL must be between 1 and 3600 seconds")
+            raise AgentError(
+                "BTAG-TOKEN-TTL", "token TTL must be between 1 and 3600 seconds"
+            )
         self._validate_bindings("validation", bindings)
         now = int(time.time())
         payload: Dict[str, Any] = {
@@ -402,7 +461,9 @@ class TokenAuthority:
                 "BTAG-APPROVAL-KIND", "only change or run actions may request approval"
             )
         if ttl_seconds < 1 or ttl_seconds > 3600:
-            raise AgentError("BTAG-TOKEN-TTL", "token TTL must be between 1 and 3600 seconds")
+            raise AgentError(
+                "BTAG-TOKEN-TTL", "token TTL must be between 1 and 3600 seconds"
+            )
         normalized_bindings = {str(key): str(value) for key, value in bindings.items()}
         self._validate_bindings(kind, normalized_bindings)
         self._validate_approval_context(kind, subject_hash, normalized_bindings)
@@ -441,17 +502,29 @@ class TokenAuthority:
         path = self._approval_path(request_id)
         with self._approval_lock(request_id):
             if not path.is_file():
-                raise AgentError("BTAG-APPROVAL-NOT-FOUND", "approval request does not exist")
+                raise AgentError(
+                    "BTAG-APPROVAL-NOT-FOUND", "approval request does not exist"
+                )
             request = read_json(path)
-            portable = {key: value for key, value in request.items() if key != "request_hash"}
+            portable = {
+                key: value for key, value in request.items() if key != "request_hash"
+            }
             if hash_object(portable) != request.get("request_hash"):
-                raise AgentError("BTAG-APPROVAL-HASH", "approval request hash is invalid")
+                raise AgentError(
+                    "BTAG-APPROVAL-HASH", "approval request hash is invalid"
+                )
             if request.get("state") != "PENDING":
-                raise AgentError("BTAG-APPROVAL-STATE", "approval request is no longer pending")
+                raise AgentError(
+                    "BTAG-APPROVAL-STATE", "approval request is no longer pending"
+                )
             bindings = request.get("bindings")
             if not isinstance(bindings, dict):
-                raise AgentError("BTAG-APPROVAL-BINDING", "approval bindings are malformed")
-            normalized_bindings = {str(key): str(value) for key, value in bindings.items()}
+                raise AgentError(
+                    "BTAG-APPROVAL-BINDING", "approval bindings are malformed"
+                )
+            normalized_bindings = {
+                str(key): str(value) for key, value in bindings.items()
+            }
             self._validate_bindings(str(request.get("kind")), normalized_bindings)
             self._validate_approval_context(
                 str(request.get("kind")),
@@ -463,10 +536,16 @@ class TokenAuthority:
                 request["state"] = "EXPIRED"
                 request["expired_at"] = now
                 request["request_hash"] = hash_object(
-                    {key: value for key, value in request.items() if key != "request_hash"}
+                    {
+                        key: value
+                        for key, value in request.items()
+                        if key != "request_hash"
+                    }
                 )
                 atomic_write_json(path, request)
-                raise AgentError("BTAG-APPROVAL-EXPIRED", "approval request has expired")
+                raise AgentError(
+                    "BTAG-APPROVAL-EXPIRED", "approval request has expired"
+                )
             approval_id = f"approval-{secrets.token_hex(12)}"
             token: Dict[str, Any] = {
                 "schema_version": "action-token-v1",
@@ -515,7 +594,11 @@ class TokenAuthority:
                     request["state"] = "REVOKED"
                     request["revoked_at"] = int(time.time())
                     request["request_hash"] = hash_object(
-                        {key: value for key, value in request.items() if key != "request_hash"}
+                        {
+                            key: value
+                            for key, value in request.items()
+                            if key != "request_hash"
+                        }
                     )
                     atomic_write_json(path, request)
                     raise
@@ -530,19 +613,28 @@ class TokenAuthority:
         request_id = token.get("approval_request_id")
         if not isinstance(request_id, str):
             raise AgentError(
-                "BTAG-APPROVAL-REQUIRED", "action token has no persisted approval request"
+                "BTAG-APPROVAL-REQUIRED",
+                "action token has no persisted approval request",
             )
         path = self._approval_path(request_id)
         if not path.is_file():
-            raise AgentError("BTAG-APPROVAL-NOT-FOUND", "persisted approval record does not exist")
+            raise AgentError(
+                "BTAG-APPROVAL-NOT-FOUND", "persisted approval record does not exist"
+            )
         record = read_json(path)
-        portable = {key: value for key, value in record.items() if key != "request_hash"}
+        portable = {
+            key: value for key, value in record.items() if key != "request_hash"
+        }
         if hash_object(portable) != record.get("request_hash"):
             raise AgentError("BTAG-APPROVAL-HASH", "approval record hash is invalid")
         if record.get("token_hash") != hash_object(token):
-            raise AgentError("BTAG-APPROVAL-TOKEN", "token does not match its approval record")
+            raise AgentError(
+                "BTAG-APPROVAL-TOKEN", "token does not match its approval record"
+            )
         if record.get("token") != token:
-            raise AgentError("BTAG-APPROVAL-TOKEN", "persisted token bytes do not match")
+            raise AgentError(
+                "BTAG-APPROVAL-TOKEN", "persisted token bytes do not match"
+            )
         return record
 
     def verify(
@@ -562,20 +654,27 @@ class TokenAuthority:
         ):
             raise AgentError("BTAG-TOKEN-SIGNATURE", "token signature is invalid")
         if token.get("kind") != kind:
-            raise AgentError("BTAG-TOKEN-KIND", "token cannot be reused for another action")
+            raise AgentError(
+                "BTAG-TOKEN-KIND", "token cannot be reused for another action"
+            )
         if token.get("subject_hash") != subject_hash:
-            raise AgentError("BTAG-TOKEN-BINDING", "token subject hash no longer matches")
+            raise AgentError(
+                "BTAG-TOKEN-BINDING", "token subject hash no longer matches"
+            )
         if int(token.get("expires_at", 0)) < int(time.time()):
             raise AgentError("BTAG-TOKEN-EXPIRED", "token has expired")
         bindings = token.get("bindings", {})
         for key, expected in (required_bindings or {}).items():
             if bindings.get(key) != expected:
-                raise AgentError("BTAG-TOKEN-BINDING", "token context no longer matches")
+                raise AgentError(
+                    "BTAG-TOKEN-BINDING", "token context no longer matches"
+                )
         if kind in ACTION_TOKEN_KINDS:
             record = self._action_record(token)
             if record.get("kind") != kind or record.get("subject_hash") != subject_hash:
                 raise AgentError(
-                    "BTAG-APPROVAL-BINDING", "approval record no longer matches the action"
+                    "BTAG-APPROVAL-BINDING",
+                    "approval record no longer matches the action",
                 )
             if record.get("state") not in {"ISSUED", "CONSUMED"}:
                 raise AgentError("BTAG-APPROVAL-STATE", "approval is not usable")
@@ -584,7 +683,9 @@ class TokenAuthority:
     def require_issued(self, token: Dict[str, Any]) -> None:
         record = self._action_record(token)
         if record.get("state") != "ISSUED":
-            raise AgentError("BTAG-TOKEN-CONSUMED", "action token was already consumed or revoked")
+            raise AgentError(
+                "BTAG-TOKEN-CONSUMED", "action token was already consumed or revoked"
+            )
 
     def consume(self, token: Dict[str, Any], *, effect_id: str) -> Dict[str, Any]:
         if not EFFECT_ID_RE.fullmatch(effect_id):
@@ -592,7 +693,8 @@ class TokenAuthority:
         request_id = token.get("approval_request_id")
         if not isinstance(request_id, str):
             raise AgentError(
-                "BTAG-APPROVAL-REQUIRED", "action token has no persisted approval request"
+                "BTAG-APPROVAL-REQUIRED",
+                "action token has no persisted approval request",
             )
         path = self._approval_path(request_id)
         with self._approval_lock(request_id):
@@ -606,14 +708,19 @@ class TokenAuthority:
                 )
             if record.get("state") != "ISSUED":
                 raise AgentError(
-                    "BTAG-TOKEN-CONSUMED", "action token was already consumed or revoked"
+                    "BTAG-TOKEN-CONSUMED",
+                    "action token was already consumed or revoked",
                 )
             now = int(time.time())
             if int(record.get("expires_at", 0)) < now:
                 record["state"] = "EXPIRED"
                 record["expired_at"] = now
                 record["request_hash"] = hash_object(
-                    {key: value for key, value in record.items() if key != "request_hash"}
+                    {
+                        key: value
+                        for key, value in record.items()
+                        if key != "request_hash"
+                    }
                 )
                 atomic_write_json(path, record)
                 raise AgentError("BTAG-TOKEN-EXPIRED", "action token has expired")

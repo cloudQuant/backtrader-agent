@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from ..canonical import atomic_write_json, hash_object, read_json, sha256_bytes
 from ..errors import AgentError
 from ..sessions import SessionStore
+from ..tokens import expected_bindings
 from .prepare import _safe_relative
 
 
@@ -343,17 +344,18 @@ def apply(
             "BTAG-CHANGE-SESSION",
             "change manifest no longer matches its prepared session",
         )
-    change_bindings = {
-        "artifact_hash": canonical_manifest["artifact_hash"],
-        "artifact_record_hash": canonical_manifest["artifact_record_hash"],
-        "change_manifest_hash": canonical_manifest["manifest_hash"],
-        "dataset_hash": canonical_manifest["dataset_manifest_hash"],
-        "dataset_id": canonical_manifest["dataset_id"],
-        "session_id": canonical_manifest["session_id"],
-        "spec_hash": canonical_manifest["spec_hash"],
-        "validation_token_hash": canonical_manifest["validation_token_hash"],
-        "validation_token_id": canonical_manifest["validation_token_id"],
-    }
+    change_bindings = expected_bindings(
+        "change",
+        artifact_hash=canonical_manifest["artifact_hash"],
+        artifact_record_hash=canonical_manifest["artifact_record_hash"],
+        change_manifest_hash=canonical_manifest["manifest_hash"],
+        dataset_hash=canonical_manifest["dataset_manifest_hash"],
+        dataset_id=canonical_manifest["dataset_id"],
+        session_id=canonical_manifest["session_id"],
+        spec_hash=canonical_manifest["spec_hash"],
+        validation_token_hash=canonical_manifest["validation_token_hash"],
+        validation_token_id=canonical_manifest["validation_token_id"],
+    )
     manager.authority.verify(
         change_token,
         kind="change",

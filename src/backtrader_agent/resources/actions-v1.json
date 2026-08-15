@@ -144,6 +144,17 @@
           ],
           "required": true,
           "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "optional corpus snapshot override",
+          "name": "snapshot_path",
+          "option_strings": [
+            "--snapshot-path"
+          ],
+          "required": false,
+          "type": null
         }
       ]
     },
@@ -234,6 +245,17 @@
           ],
           "required": false,
           "type": "int"
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "optional corpus snapshot override",
+          "name": "snapshot_path",
+          "option_strings": [
+            "--snapshot-path"
+          ],
+          "required": false,
+          "type": null
         }
       ]
     },

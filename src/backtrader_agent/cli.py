@@ -201,6 +201,8 @@ def build_parser() -> argparse.ArgumentParser:
     doctor = sub.add_parser(
         "doctor", help="diagnose environment and packaged capabilities"
     )
+    # ``--json`` is retained for CLI compatibility (the README documents it):
+    # doctor output is always machine-readable JSON, with or without the flag.
     doctor.add_argument(
         "--json", action="store_true", help="emit machine-readable JSON"
     )
@@ -259,8 +261,10 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("--archetype")
     search.add_argument("--profile", choices=["single_test", "python_bundle"])
     search.add_argument("--top-k", type=int, default=5)
+    search.add_argument("--snapshot-path", help="optional corpus snapshot override")
     inspect = catalog_sub.add_parser("inspect")
     inspect.add_argument("--entry-id", required=True)
+    inspect.add_argument("--snapshot-path", help="optional corpus snapshot override")
     refresh = catalog_sub.add_parser("refresh")
     refresh.add_argument("--functional-root-id", required=True)
     refresh.add_argument("--package-root-id", required=True)
@@ -454,7 +458,10 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
         )
         return specification.to_dict()
     if args.command == "catalog":
-        catalog = SnapshotCatalog()
+        snapshot_path = getattr(args, "snapshot_path", None)
+        catalog = SnapshotCatalog(
+            snapshot_path=Path(snapshot_path) if snapshot_path else None
+        )
         if args.catalog_command == "search":
             return {
                 "results": catalog.search(

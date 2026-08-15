@@ -202,10 +202,12 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(
         "backtest",
         "single-test",
         "test",
+        "eval",
     }
     requirements_by_extra = {
         "backtest": {"backtrader", "pandas"},
         "single-test": {"pytest"},
+        "eval": {"anthropic"},
         "test": {
             "backtrader",
             "pandas",

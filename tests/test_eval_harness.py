@@ -1,5 +1,8 @@
 import json
+import os
 import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -9,6 +12,8 @@ import pytest
 # tests/ directory for the dotted form.
 from evals import harness
 from evals.graders import GRADERS, GradeContext
+
+ROOT = Path(__file__).resolve().parents[1]
 
 TASK = {
     "task_id": "smoke-doctor",
@@ -484,6 +489,67 @@ def test_fixture_generator_spec_writes_csv_into_state_root(tmp_path):
     result = harness.run_task(task, tmp_path / "state", {})
     assert result.passed is True
     assert (tmp_path / "state" / "prices.csv").is_file()
+
+
+def test_llm_loop_skips_without_key(tmp_path, monkeypatch):
+    monkeypatch.delenv("BACKTRADER_AGENT_EVAL_API_KEY", raising=False)
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "eval_llm_loop.py"),
+            "--tasks",
+            "smoke-doctor",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0
+    assert "skip" in result.stdout.lower()
+
+
+def test_llm_loop_keyed_path_with_stubbed_sdk_runs_offline(tmp_path):
+    # The keyed path must be exercised structurally without reaching the
+    # Anthropic API: a stub SDK that raises on client construction makes the
+    # script load tasks, prepare fixtures, attempt each run, and write its
+    # log, all offline.
+    stub_dir = tmp_path / "stubs"
+    stub_pkg = stub_dir / "anthropic"
+    stub_pkg.mkdir(parents=True)
+    (stub_pkg / "__init__.py").write_text(
+        "class Anthropic:\n"
+        "    def __init__(self, *args, **kwargs):\n"
+        "        raise RuntimeError('stubbed anthropic SDK: no network in tests')\n",
+        encoding="utf-8",
+    )
+    env = dict(os.environ)
+    env["BACKTRADER_AGENT_EVAL_API_KEY"] = "test-key"
+    existing = env.get("PYTHONPATH")
+    env["PYTHONPATH"] = (
+        str(stub_dir) if not existing else str(stub_dir) + os.pathsep + existing
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "eval_llm_loop.py"),
+            "--tasks",
+            "smoke-doctor",
+            "--log-dir",
+            str(tmp_path / "logs"),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=180,
+        env=env,
+    )
+    assert result.returncode == 1
+    assert "stubbed anthropic SDK" in result.stdout + result.stderr
+    log_files = list((tmp_path / "logs").glob("*-llm-loop.log"))
+    assert len(log_files) == 1
+    content = log_files[0].read_text(encoding="utf-8")
+    assert "smoke-doctor" in content
+    assert "FAIL" in content
+    assert "pass@3" in content
 
 
 def test_schema_grader_unwrap_validates_the_result_object(tmp_path):

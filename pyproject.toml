@@ -18,6 +18,9 @@ backtest = [
   "pandas>=1.0",
 ]
 single-test = ["pytest>=7"]
+# Opt-in LLM-in-the-loop eval gate (scripts/eval_llm_loop.py, R11) only.
+# Never a runtime dependency: the runtime has no model SDK.
+eval = ["anthropic>=0.40"]
 test = [
   "backtrader @ git+https://github.com/cloudQuant/backtrader.git",
   "pandas>=1.0",

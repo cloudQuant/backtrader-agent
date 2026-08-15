@@ -8,6 +8,49 @@ Every content change to `src/backtrader_agent/resources/agent-payload.md`
 3. add an entry here recording the motivation and the corresponding eval
    baseline.
 
+## LLM-in-the-loop gate (R11, opt-in)
+
+`scripts/eval_llm_loop.py` is the opt-in LLM gate. It is NOT run by CI (the
+deterministic `scripts/run_evals.py` is the CI gate), is never imported by
+the runtime, and ships no model SDK into runtime dependencies.
+
+Run it with:
+
+    BACKTRADER_AGENT_EVAL_API_KEY=... python scripts/eval_llm_loop.py \
+        --tasks smoke-doctor,pipeline-single-data-indicator-single-test
+
+- Env: `BACKTRADER_AGENT_EVAL_API_KEY` (required; absent → the script prints
+  a skip notice and exits 0) and `BACKTRADER_AGENT_EVAL_MODEL` (default
+  `claude-fable-5`). The `anthropic` SDK comes from the `eval` extra
+  (`pip install '.[eval]'`); the deterministic graders used by the
+  verification pass need the `test` extra's `jsonschema`, so a full run
+  expects `pip install '.[test,eval]'` (the `test` extra also provides the
+  Backtrader engine the pipeline tasks run against).
+- Each selected task is attempted 3 times, each in a fresh temporary state
+  root. The LLM is a real host: system prompt = the agent payload (fetched
+  via `backtrader-agent payload`) + the task intent; its only tool executes
+  one typed CLI action per call with `--state-root` fixed by the loop. The
+  runtime's own approval flow still gates everything — the LLM must drive
+  `approval request` then `approval grant --confirm` itself, exactly like
+  the scripted host. Safety: no arbitrary shell, argv validated and confined
+  to the attempt state root, timeout per LLM call and per CLI call, turn
+  budget per attempt.
+- An attempt passes only when the LLM declares success AND the deterministic
+  end-state verification passes: the task's final read-only step is replayed
+  in the attempt's state root against the task's own placeholder-free
+  expectations, constant `file_exists` assertions hold, and run-bearing
+  tasks record at least one passed run. Per-task pass@1 (first attempt) and
+  pass@3 (any attempt); the overall score is the mean across tasks. Goal:
+  pass@3 > 90%.
+- Default subset: every task except `inject-*` (those need host-side file
+  mutations mid-pipeline this loop deliberately does not expose; R10's
+  scripted host keeps covering them). `--tasks` selects ids explicitly.
+- Results append to `docs/evals/<payload-version>-llm-loop.log`; each run
+  records the model, payload version + sha256, per-attempt outcomes and
+  details, and the pass@1/pass@3 summary.
+
+Baseline: not yet recorded — no API key has been configured for a run.
+
 ## 13.0.2 — 2026-08-16
 
 **Motivation.** Empirical correction driven by the deterministic eval harness

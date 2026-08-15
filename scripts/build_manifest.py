@@ -38,6 +38,7 @@ ROOT_EXCLUDED_PARTS: Set[str] = {
     "dist",
     "build",
     ".git",
+    ".superpowers",
 }
 PKG_EXCLUDED_PARTS: Set[str] = {"__pycache__"}
 VERSION_RE = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)

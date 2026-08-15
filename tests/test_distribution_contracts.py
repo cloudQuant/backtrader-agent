@@ -33,6 +33,7 @@ def test_source_distribution_manifest_covers_every_file() -> None:
         "dist",
         "build",
         ".git",
+        ".superpowers",
     }
     actual = {
         path.relative_to(PRODUCT_ROOT).as_posix()

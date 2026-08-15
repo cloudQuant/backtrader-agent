@@ -171,7 +171,9 @@ def test_cli_backtrader_check_emits_a_mismatch_warning(monkeypatch, capsys) -> N
 
     captured = capsys.readouterr()
     assert warning in captured.err
-    assert '"status": "warning"' in captured.out
+    payload = json.loads(captured.out)
+    assert payload["status"] == "ok"
+    assert payload["result"]["status"] == "warning"
 
 
 def test_controlled_runner_warns_for_an_unverified_existing_backtrader(monkeypatch) -> None:

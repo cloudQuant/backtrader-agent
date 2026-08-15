@@ -544,5 +544,5 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         warnings.append(runtime_warning)
     for warning in dict.fromkeys(item for item in warnings if isinstance(item, str) and item):
         print("WARNING: {}".format(warning), file=sys.stderr)
-    _emit(result)
+    _emit({"status": "ok", "result": result})
     return 0

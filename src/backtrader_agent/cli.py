@@ -96,6 +96,11 @@ def _list_engines(roots: RootRegistry) -> List[Dict[str, Any]]:
 
 RUN_ID_RE = re.compile(r"^run-[0-9a-f]{20}$")
 
+# Product-owned activation/persona payload. Mirrored byte-identically at the
+# repository root as SKILL.md (enforced by tests/test_runner_installer_audit.py)
+# and pinned by a golden SHA-256 in tests/test_payload_contract.py.
+PAYLOAD_PATH = Path(__file__).resolve().parent / "resources" / "agent-payload.md"
+
 
 def _state_run_result(state: Path, run_id: str) -> Dict[str, Any]:
     if not RUN_ID_RE.fullmatch(run_id):
@@ -397,10 +402,7 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             return ensure_cloudquant_backtrader()
         return inspect_backtrader_runtime()
     if args.command == "payload":
-        payload_path = (
-            Path(__file__).resolve().parent / "resources" / "agent-payload.md"
-        )
-        content = payload_path.read_text(encoding="utf-8")
+        content = PAYLOAD_PATH.read_text(encoding="utf-8")
         return {
             "schema_version": "agent-payload-v1",
             "payload": content,

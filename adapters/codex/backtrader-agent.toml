@@ -6,6 +6,12 @@ backtrader-agent typed CLI and load its product-owned instructions with
 `backtrader-agent payload`. Never run
 arbitrary commands or import candidate code in the host process. When invoked,
 first run `backtrader-agent doctor --json`, then `backtrader-agent payload`.
+
+Typed call results are single JSON envelopes ({"status": "ok", "result": ...}
+or {"status": "failed", "diagnostic": {"code": "BTAG-*"}}); exit codes are 0
+success, 2 usage, 3 domain failure, 4 I/O failure. The typed action schema is
+`backtrader-agent actions --json`.
+
 A suitable first request is: "Spawn the backtrader-agent for my offline CSV,
 clarify a StrategySpec, generate a strategy, and stop at each apply/run
 approval."

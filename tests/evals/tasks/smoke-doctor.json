@@ -1,0 +1,23 @@
+{
+  "task_id": "smoke-doctor",
+  "intent": "diagnose the environment and packaged capabilities",
+  "fixture": null,
+  "steps": [
+    {
+      "argv": [
+        "doctor",
+        "--json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.schema_version": "doctor-report-v1",
+          "result.product": "backtrader-agent",
+          "result.capabilities.offline_dataset_cas": true,
+          "result.capabilities.live_trading": false
+        }
+      }
+    }
+  ]
+}

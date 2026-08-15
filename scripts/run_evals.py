@@ -40,8 +40,15 @@ def _load_tasks(tasks_dir: Path) -> List[Tuple[Path, Dict[str, Any]]]:
 
 
 def _run_task(task: Dict[str, Any], task_id: str) -> bool:
-    with tempfile.TemporaryDirectory(prefix="backtrader-agent-eval-") as name:
-        result = run_task(task, Path(name) / "state", {})
+    try:
+        with tempfile.TemporaryDirectory(prefix="backtrader-agent-eval-") as name:
+            result = run_task(task, Path(name) / "state", {})
+    except Exception as exc:
+        # A malformed task or an unresolvable environment (e.g. missing
+        # Backtrader engine root) must fail the task, not take down the run.
+        print("FAIL {}".format(task_id))
+        print("  error: {}".format(exc))
+        return False
     if result.passed:
         print("PASS {}".format(task_id))
         return True

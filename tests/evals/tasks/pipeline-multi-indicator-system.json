@@ -1,0 +1,403 @@
+{
+  "task_id": "pipeline-multi-indicator-system",
+  "intent": "full single_test pipeline for the multi_indicator_system archetype",
+  "fixture": [
+    {
+      "generator": "write_price_csv",
+      "path": "prices.csv",
+      "kwargs": {
+        "rows": 40
+      }
+    }
+  ],
+  "steps": [
+    {
+      "argv": [
+        "roots",
+        "register",
+        "--id",
+        "workspace",
+        "--path",
+        "{state_root}",
+        "--kind",
+        "workspace",
+        "--writable"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.root_id": "workspace",
+          "result.kind": "workspace",
+          "result.writable": true
+        }
+      }
+    },
+    {
+      "argv": [
+        "roots",
+        "register",
+        "--id",
+        "engine",
+        "--path",
+        "{engine_root}",
+        "--kind",
+        "engine"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.root_id": "engine",
+          "result.kind": "engine",
+          "result.writable": false
+        }
+      }
+    },
+    {
+      "argv": [
+        "roots",
+        "register",
+        "--id",
+        "input",
+        "--path",
+        "{state_root}",
+        "--kind",
+        "dataset"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.root_id": "input",
+          "result.kind": "dataset"
+        }
+      }
+    },
+    {
+      "argv": [
+        "session",
+        "create",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.state": "NEW",
+          "result.session_id": "sess-001"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "inspect",
+        "--spec",
+        "{\"schema_version\":\"dataset-manifest-v1\",\"name\":\"demo-prices\",\"feeds\":[{\"feed_id\":\"primary\",\"name\":\"primary\",\"role\":\"execution\",\"root_id\":\"input\",\"relative_path\":\"prices.csv\",\"format\":\"generic_csv\",\"datetime_format\":\"%Y-%m-%d\",\"timeframe\":\"Days\",\"compression\":1,\"timezone\":\"UTC\",\"bar_semantics\":\"close\",\"columns\":{\"datetime\":\"date\",\"open\":\"open\",\"high\":\"high\",\"low\":\"low\",\"close\":\"close\",\"volume\":\"volume\",\"openinterest\":\"openinterest\"}}],\"alignment\":{\"mode\":\"intersection\",\"minimum_overlap\":1}}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "valid",
+          "result.master_feed": "primary"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "register",
+        "--spec",
+        "{\"schema_version\":\"dataset-manifest-v1\",\"name\":\"demo-prices\",\"feeds\":[{\"feed_id\":\"primary\",\"name\":\"primary\",\"role\":\"execution\",\"root_id\":\"input\",\"relative_path\":\"prices.csv\",\"format\":\"generic_csv\",\"datetime_format\":\"%Y-%m-%d\",\"timeframe\":\"Days\",\"compression\":1,\"timezone\":\"UTC\",\"bar_semantics\":\"close\",\"columns\":{\"datetime\":\"date\",\"open\":\"open\",\"high\":\"high\",\"low\":\"low\",\"close\":\"close\",\"volume\":\"volume\",\"openinterest\":\"openinterest\"}}],\"alignment\":{\"mode\":\"intersection\",\"minimum_overlap\":1}}",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "valid",
+          "result.master_feed": "primary"
+        }
+      }
+    },
+    {
+      "argv": [
+        "spec",
+        "--file",
+        "{\"spec_version\":\"strategy-spec-v1\",\"name\":\"Demo Momentum\",\"slug\":\"demo-momentum\",\"category\":\"trend_following\",\"archetype\":\"multi_indicator_system\",\"output_profile\":\"single_test\",\"dataset_id\":\"{steps.5.result.dataset_id}\",\"feeds\":[{\"name\":\"primary\",\"role\":\"execution\"}],\"parameters\":{\"fast_period\":{\"type\":\"integer\",\"default\":5,\"minimum\":2},\"slow_period\":{\"type\":\"integer\",\"default\":12,\"minimum\":3}},\"entry\":\"long when the fast signal is above the slow signal\",\"exit\":\"close when the fast signal is below the slow signal\",\"sizing\":{\"kind\":\"fixed\",\"stake\":1},\"risk\":{\"max_position\":1},\"cash\":100000.0,\"commission\":0.001,\"analyzers\":[\"TradeAnalyzer\",\"DrawDown\",\"SharpeRatio\",\"SQN\"],\"run_modes\":[\"runonce\",\"runnext\"],\"allowed_imports\":[\"backtrader\",\"json\",\"os\",\"math\"],\"non_goals\":[\"live trading\"],\"open_questions\":[]}",
+        "--session-id",
+        "sess-001",
+        "--approve"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.archetype": "multi_indicator_system",
+          "result.output_profile": "single_test"
+        }
+      }
+    },
+    {
+      "argv": [
+        "draft",
+        "--session-id",
+        "sess-001",
+        "--spec",
+        "{steps.6.result}",
+        "--dataset-manifest",
+        "{steps.5.result}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.output_profile": "single_test",
+          "result.slug": "demo-momentum"
+        }
+      }
+    },
+    {
+      "argv": [
+        "validate",
+        "--artifact-manifest",
+        "{steps.7.result}",
+        "--draft-root",
+        "{steps.7.result._draft_path}",
+        "--session-id",
+        "sess-001",
+        "--dataset-hash",
+        "{steps.5.result.manifest_hash}",
+        "--engine-root-id",
+        "engine"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "passed"
+        }
+      }
+    },
+    {
+      "argv": [
+        "changes",
+        "prepare",
+        "--session-id",
+        "sess-001",
+        "--draft-root",
+        "{steps.7.result._draft_path}",
+        "--files",
+        "[{\"source\":\"test_demo-momentum.py\",\"target\":\"strategies/demo_momentum/test_demo-momentum.py\"}]",
+        "--target-root-id",
+        "workspace",
+        "--validation-token",
+        "{steps.8.result.validation_token}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.profile": "single_test",
+          "result.session_id": "sess-001"
+        }
+      }
+    },
+    {
+      "argv": [
+        "approval",
+        "request",
+        "--kind",
+        "change",
+        "--subject-hash",
+        "{steps.9.result.manifest_hash}",
+        "--bindings",
+        "{\"artifact_hash\":\"{steps.9.result.artifact_hash}\",\"artifact_record_hash\":\"{steps.9.result.artifact_record_hash}\",\"change_manifest_hash\":\"{steps.9.result.manifest_hash}\",\"dataset_hash\":\"{steps.9.result.dataset_manifest_hash}\",\"dataset_id\":\"{steps.9.result.dataset_id}\",\"session_id\":\"sess-001\",\"spec_hash\":\"{steps.9.result.spec_hash}\",\"validation_token_hash\":\"{steps.9.result.validation_token_hash}\",\"validation_token_id\":\"{steps.9.result.validation_token_id}\"}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.kind": "change",
+          "result.state": "PENDING"
+        }
+      }
+    },
+    {
+      "argv": [
+        "approval",
+        "grant",
+        "--request-id",
+        "{steps.10.result.request_id}",
+        "--approver",
+        "human",
+        "--confirm"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.token.kind": "change",
+          "result.request_id": "{steps.10.result.request_id}"
+        }
+      }
+    },
+    {
+      "argv": [
+        "changes",
+        "apply",
+        "--manifest",
+        "{steps.9.result}",
+        "--change-token",
+        "{steps.11.result.token}",
+        "--idempotency-key",
+        "eval-apply-1"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "applied",
+          "result.entrypoint": "strategies/demo_momentum/test_demo-momentum.py"
+        },
+        "file_exists": "strategies/demo_momentum/test_demo-momentum.py"
+      }
+    },
+    {
+      "argv": [
+        "run-subject",
+        "--applied-artifact",
+        "{steps.12.result}",
+        "--dataset-manifest",
+        "{steps.5.result}",
+        "--validation-token",
+        "{steps.8.result.validation_token}",
+        "--mode",
+        "runonce"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.schema_version": "run-subject-v1"
+        }
+      }
+    },
+    {
+      "argv": [
+        "approval",
+        "request",
+        "--kind",
+        "run",
+        "--subject-hash",
+        "{steps.13.result.subject_hash}",
+        "--bindings",
+        "{\"applied_artifact_hash\":\"{steps.12.result.applied_artifact_hash}\",\"applied_record_hash\":\"{steps.12.result.applied_record_hash}\",\"artifact_hash\":\"{steps.12.result.artifact_hash}\",\"artifact_record_hash\":\"{steps.12.result.artifact_record_hash}\",\"change_manifest_hash\":\"{steps.12.result.change_manifest_hash}\",\"dataset_hash\":\"{steps.12.result.dataset_manifest_hash}\",\"dataset_id\":\"{steps.12.result.dataset_id}\",\"mode\":\"runonce\",\"session_id\":\"sess-001\",\"spec_hash\":\"{steps.12.result.spec_hash}\",\"validation_token_hash\":\"{steps.12.result.validation_token_hash}\",\"validation_token_id\":\"{steps.12.result.validation_token_id}\"}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.kind": "run",
+          "result.state": "PENDING"
+        }
+      }
+    },
+    {
+      "argv": [
+        "approval",
+        "grant",
+        "--request-id",
+        "{steps.14.result.request_id}",
+        "--approver",
+        "human",
+        "--confirm"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.token.kind": "run"
+        }
+      }
+    },
+    {
+      "argv": [
+        "run",
+        "--applied-artifact",
+        "{steps.12.result}",
+        "--dataset-manifest",
+        "{steps.5.result}",
+        "--validation-token",
+        "{steps.8.result.validation_token}",
+        "--run-token",
+        "{steps.15.result.token}",
+        "--mode",
+        "runonce",
+        "--idempotency-key",
+        "eval-run-1",
+        "--timeout",
+        "120"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "passed",
+          "result.schema_version": "run-result-v1"
+        }
+      }
+    },
+    {
+      "argv": [
+        "runs",
+        "list"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.runs.0.run_id": "{steps.16.result.run_id}",
+          "result.runs.0.status": "passed"
+        }
+      }
+    },
+    {
+      "argv": [
+        "report",
+        "--run-id",
+        "{steps.16.result.run_id}",
+        "--format",
+        "json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.run_id": "{steps.16.result.run_id}",
+          "result.status": "passed"
+        }
+      }
+    },
+    {
+      "argv": [
+        "session",
+        "status",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.state": "COMPLETED",
+          "result.session_id": "sess-001"
+        }
+      }
+    }
+  ]
+}

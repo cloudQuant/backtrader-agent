@@ -133,13 +133,30 @@ def envelope(ctx: GradeContext, expected: Any) -> GradeResult:
 def schema(ctx: GradeContext, expected: Any) -> GradeResult:
     """stdout JSON validates against a JSON Schema (Draft 2020-12).
 
-    ``expected`` is either an inline schema object or a path to a ``.json``
-    schema file. Relative file paths resolve against the project root, then
-    against the packaged resource root.
+    ``expected`` is either an inline schema object, a path to a ``.json``
+    schema file, or ``{"path": str, "unwrap": dot-path}`` which loads the
+    schema file and validates the envelope's ``result`` object (or the value
+    at ``unwrap``) instead of the full stdout envelope. Relative file paths
+    resolve against the project root, then against the packaged resource
+    root.
     """
     problem = _require_json(ctx)
     if problem:
         return problem
+    unwrap: Optional[str] = None
+    if (
+        isinstance(expected, dict)
+        and "path" in expected
+        and set(expected)
+        <= {
+            "path",
+            "unwrap",
+        }
+    ):
+        unwrap = expected.get("unwrap")
+        if unwrap is not None and not isinstance(unwrap, str):
+            return _fail("schema unwrap must be a dot path string")
+        expected = expected["path"]
     if isinstance(expected, str):
         schema_path = Path(expected)
         if not schema_path.is_absolute():
@@ -159,13 +176,20 @@ def schema(ctx: GradeContext, expected: Any) -> GradeResult:
         expected = schema_value
     if not isinstance(expected, dict):
         return _fail("schema expectation must be an inline object or a file path")
+    target = ctx.parsed
+    if unwrap is not None:
+        found, target = _lookup(ctx.parsed, unwrap.split("."))
+        if not found:
+            return _fail("schema unwrap path {!r} not found".format(unwrap))
+        if not isinstance(target, dict):
+            return _fail("schema unwrap path {!r} is not a JSON object".format(unwrap))
     try:
         from jsonschema import Draft202012Validator
         from jsonschema.exceptions import SchemaError, ValidationError
 
         validator = Draft202012Validator(expected)
         validator.check_schema(expected)
-        validator.validate(ctx.parsed)
+        validator.validate(target)
     except ImportError:
         return _fail("jsonschema is not installed (>=4.18 required)")
     except SchemaError as exc:

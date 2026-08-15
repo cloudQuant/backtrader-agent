@@ -1,0 +1,24 @@
+{
+  "task_id": "smoke-actions",
+  "intent": "emit the machine-readable action schema and validate it",
+  "fixture": null,
+  "steps": [
+    {
+      "argv": [
+        "actions",
+        "--json"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "schema": {
+          "path": "src/backtrader_agent/resources/contracts/actions-v1.schema.json",
+          "unwrap": "result"
+        },
+        "json_path_eq": {
+          "result.schema_version": "actions-v1"
+        }
+      }
+    }
+  ]
+}

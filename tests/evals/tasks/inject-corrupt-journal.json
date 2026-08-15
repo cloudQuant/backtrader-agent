@@ -1,0 +1,150 @@
+{
+  "task_id": "inject-corrupt-journal",
+  "intent": "append a malformed suffix to the session journal, run session recover, and assert the verified prefix is rebuilt and the corrupt suffix isolated",
+  "fixture": [
+    {
+      "generator": "write_price_csv",
+      "path": "prices.csv",
+      "kwargs": {
+        "rows": 40
+      }
+    }
+  ],
+  "steps": [
+    {
+      "argv": [
+        "roots",
+        "register",
+        "--id",
+        "input",
+        "--path",
+        "{state_root}",
+        "--kind",
+        "dataset"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.root_id": "input",
+          "result.kind": "dataset"
+        }
+      }
+    },
+    {
+      "argv": [
+        "session",
+        "create",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.state": "NEW",
+          "result.session_id": "sess-001"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "inspect",
+        "--spec",
+        "{\"schema_version\":\"dataset-manifest-v1\",\"name\":\"demo-prices\",\"feeds\":[{\"feed_id\":\"primary\",\"name\":\"primary\",\"role\":\"execution\",\"root_id\":\"input\",\"relative_path\":\"prices.csv\",\"format\":\"generic_csv\",\"datetime_format\":\"%Y-%m-%d\",\"timeframe\":\"Days\",\"compression\":1,\"timezone\":\"UTC\",\"bar_semantics\":\"close\",\"columns\":{\"datetime\":\"date\",\"open\":\"open\",\"high\":\"high\",\"low\":\"low\",\"close\":\"close\",\"volume\":\"volume\",\"openinterest\":\"openinterest\"}}],\"alignment\":{\"mode\":\"intersection\",\"minimum_overlap\":1}}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "valid",
+          "result.master_feed": "primary"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "register",
+        "--spec",
+        "{\"schema_version\":\"dataset-manifest-v1\",\"name\":\"demo-prices\",\"feeds\":[{\"feed_id\":\"primary\",\"name\":\"primary\",\"role\":\"execution\",\"root_id\":\"input\",\"relative_path\":\"prices.csv\",\"format\":\"generic_csv\",\"datetime_format\":\"%Y-%m-%d\",\"timeframe\":\"Days\",\"compression\":1,\"timezone\":\"UTC\",\"bar_semantics\":\"close\",\"columns\":{\"datetime\":\"date\",\"open\":\"open\",\"high\":\"high\",\"low\":\"low\",\"close\":\"close\",\"volume\":\"volume\",\"openinterest\":\"openinterest\"}}],\"alignment\":{\"mode\":\"intersection\",\"minimum_overlap\":1}}",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "valid",
+          "result.master_feed": "primary"
+        }
+      }
+    },
+    {
+      "argv": [
+        "spec",
+        "--file",
+        "{\"spec_version\":\"strategy-spec-v1\",\"name\":\"Demo Momentum\",\"slug\":\"demo-momentum\",\"category\":\"trend_following\",\"archetype\":\"single_data_indicator\",\"output_profile\":\"python_bundle\",\"dataset_id\":\"{steps.3.result.dataset_id}\",\"feeds\":[{\"name\":\"primary\",\"role\":\"execution\"}],\"parameters\":{\"fast_period\":{\"type\":\"integer\",\"default\":5,\"minimum\":2},\"slow_period\":{\"type\":\"integer\",\"default\":12,\"minimum\":3}},\"entry\":\"long when the fast signal is above the slow signal\",\"exit\":\"close when the fast signal is below the slow signal\",\"sizing\":{\"kind\":\"fixed\",\"stake\":1},\"risk\":{\"max_position\":1},\"cash\":100000.0,\"commission\":0.001,\"analyzers\":[\"TradeAnalyzer\",\"DrawDown\",\"SharpeRatio\",\"SQN\"],\"run_modes\":[\"runonce\",\"runnext\"],\"allowed_imports\":[\"backtrader\",\"json\",\"os\",\"math\"],\"non_goals\":[\"live trading\"],\"open_questions\":[]}",
+        "--session-id",
+        "sess-001",
+        "--approve"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.archetype": "single_data_indicator",
+          "result.output_profile": "python_bundle"
+        }
+      }
+    },
+    {
+      "mutate": {
+        "append": {
+          "path": "sessions/sess-001/journal.jsonl",
+          "content": "malformed-suffix-not-json\n"
+        }
+      },
+      "expect": {
+        "file_exists": "sessions/sess-001/journal.jsonl"
+      }
+    },
+    {
+      "argv": [
+        "session",
+        "recover",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.state": "SPEC_APPROVED",
+          "result.last_sequence": 3,
+          "result.allowed_next_actions": [
+            "CANCELLED",
+            "SOURCES_SELECTED"
+          ]
+        }
+      }
+    },
+    {
+      "argv": [
+        "session",
+        "status",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.state": "SPEC_APPROVED",
+          "result.last_sequence": 3
+        }
+      }
+    }
+  ]
+}

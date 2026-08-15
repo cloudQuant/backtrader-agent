@@ -1,0 +1,101 @@
+{
+  "task_id": "register-mt5-csv",
+  "intent": "inspect, register, and list an offline mt5_csv dataset",
+  "fixture": [
+    {
+      "generator": "write_adapter_price_csv",
+      "path": "prices.csv",
+      "kwargs": {
+        "adapter": "mt5_csv",
+        "rows": 40
+      }
+    }
+  ],
+  "steps": [
+    {
+      "argv": [
+        "roots",
+        "register",
+        "--id",
+        "input",
+        "--path",
+        "{state_root}",
+        "--kind",
+        "dataset"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.root_id": "input",
+          "result.kind": "dataset"
+        }
+      }
+    },
+    {
+      "argv": [
+        "session",
+        "create",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.state": "NEW",
+          "result.session_id": "sess-001"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "inspect",
+        "--spec",
+        "{\"schema_version\":\"dataset-manifest-v1\",\"name\":\"adapter-prices\",\"feeds\":[{\"feed_id\":\"primary\",\"name\":\"primary\",\"role\":\"execution\",\"root_id\":\"input\",\"relative_path\":\"prices.csv\",\"format\":\"mt5_csv\",\"datetime_format\":\"%Y.%m.%d %H:%M:%S\",\"timeframe\":\"Days\",\"compression\":1,\"timezone\":\"UTC\",\"bar_semantics\":\"close\",\"columns\":{\"datetime\":\"<DATE>\"}}],\"alignment\":{\"mode\":\"intersection\",\"minimum_overlap\":1}}"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "valid",
+          "result.master_feed": "primary"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "register",
+        "--spec",
+        "{\"schema_version\":\"dataset-manifest-v1\",\"name\":\"adapter-prices\",\"feeds\":[{\"feed_id\":\"primary\",\"name\":\"primary\",\"role\":\"execution\",\"root_id\":\"input\",\"relative_path\":\"prices.csv\",\"format\":\"mt5_csv\",\"datetime_format\":\"%Y.%m.%d %H:%M:%S\",\"timeframe\":\"Days\",\"compression\":1,\"timezone\":\"UTC\",\"bar_semantics\":\"close\",\"columns\":{\"datetime\":\"<DATE>\"}}],\"alignment\":{\"mode\":\"intersection\",\"minimum_overlap\":1}}",
+        "--session-id",
+        "sess-001"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.status": "valid",
+          "result.master_feed": "primary"
+        }
+      }
+    },
+    {
+      "argv": [
+        "data",
+        "list"
+      ],
+      "expect": {
+        "exit_code": 0,
+        "envelope": "ok",
+        "json_path_eq": {
+          "result.datasets.0.dataset_id": "{steps.3.result.dataset_id}",
+          "result.datasets.0.status": "valid",
+          "result.datasets.0.feed_count": 1
+        }
+      }
+    }
+  ]
+}

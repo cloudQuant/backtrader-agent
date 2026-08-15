@@ -64,7 +64,8 @@
         {
           "choices": [
             "change",
-            "run"
+            "run",
+            "sweep"
           ],
           "default": null,
           "help": null,

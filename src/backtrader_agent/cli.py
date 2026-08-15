@@ -293,7 +293,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     approval_sub = approval.add_subparsers(dest="approval_command", required=True)
     approval_request = approval_sub.add_parser("request")
-    approval_request.add_argument("--kind", choices=["change", "run"], required=True)
+    approval_request.add_argument(
+        "--kind", choices=["change", "run", "sweep"], required=True
+    )
     approval_request.add_argument("--subject-hash", required=True)
     approval_request.add_argument("--bindings", required=True, help="JSON object")
     approval_grant = approval_sub.add_parser("grant")

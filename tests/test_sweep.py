@@ -29,6 +29,7 @@ from backtrader_agent.engines import inspect_engine, inspect_execution_environme
 from backtrader_agent.errors import AgentError
 from backtrader_agent.roots import RootRegistry
 from backtrader_agent.sessions import SessionStore
+from backtrader_agent.tokens import TokenAuthority, expected_bindings
 
 from helpers import (
     data_spec,
@@ -590,3 +591,226 @@ def test_cli_sweep_prepare_workflow(tmp_path: Path) -> None:
     assert len(sweep_events) == 1
     assert sweep_events[0]["to_state"] == "SWEEP_PREPARED"
     assert sweep_events[0]["effect_references"]["sweep_id"] == plan["sweep_id"]
+
+
+# --- R16: one-time sweep approval tokens -------------------------------------
+
+
+def _sweep_bindings(plan: Dict[str, Any]) -> Dict[str, str]:
+    return {
+        "session_id": plan["session_id"],
+        "sweep_plan_hash": plan["plan_hash"],
+        "dataset_manifest_hash": plan["dataset_manifest_hash"],
+        "environment_hash": plan["environment_hash"],
+        "engine_hash": plan["engine_hash"],
+        "engine_root_id": plan["engine_root_id"],
+        "spec_hash": plan["spec_hash"],
+    }
+
+
+def test_sweep_approval_roundtrip(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    authority = TokenAuthority(state)
+
+    request = authority.prepare_approval(
+        "sweep", plan["plan_hash"], _sweep_bindings(plan)
+    )
+    assert request["kind"] == "sweep"
+    assert request["state"] == "PENDING"
+    assert request["subject_hash"] == plan["plan_hash"]
+    grant = authority.grant_approval(
+        request["request_id"], approver="me", confirmed=True
+    )
+    token = grant["token"]
+    assert token["kind"] == "sweep"
+    assert token["bindings"] == _sweep_bindings(plan)
+
+    authority.verify(
+        token,
+        kind="sweep",
+        subject_hash=plan["plan_hash"],
+        required_bindings=expected_bindings("sweep", **_sweep_bindings(plan)),
+    )
+    # First consumption succeeds; a replay under a different effect rejects.
+    authority.consume(token, effect_id="a" * 64)
+    with pytest.raises(AgentError) as replayed:
+        authority.consume(token, effect_id="b" * 64)
+    assert replayed.value.code == "BTAG-TOKEN-CONSUMED"
+
+
+def test_sweep_token_replay_rejected(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    authority = TokenAuthority(state)
+    request = authority.prepare_approval(
+        "sweep", plan["plan_hash"], _sweep_bindings(plan)
+    )
+    token = authority.grant_approval(
+        request["request_id"], approver="me", confirmed=True
+    )["token"]
+
+    # The sweep token cannot be verified as another action kind.
+    with pytest.raises(AgentError) as reused:
+        authority.verify(token, kind="run", subject_hash=plan["plan_hash"])
+    assert reused.value.code == "BTAG-TOKEN-KIND"
+
+    # The same token cannot act on another sweep plan.
+    with pytest.raises(AgentError) as foreign:
+        authority.verify(token, kind="sweep", subject_hash="0" * 64)
+    assert foreign.value.code == "BTAG-TOKEN-BINDING"
+
+    # Consumption is one-time: same effect replays, a new effect rejects.
+    authority.consume(token, effect_id="c" * 64)
+    record = authority.consume(token, effect_id="c" * 64)
+    assert record["state"] == "CONSUMED"
+    with pytest.raises(AgentError) as replayed:
+        authority.consume(token, effect_id="d" * 64)
+    assert replayed.value.code == "BTAG-TOKEN-CONSUMED"
+
+
+def test_sweep_token_cross_session_rejected(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state, session_id="session-001")
+    authority = TokenAuthority(state)
+
+    # An unknown session cannot approve any sweep plan.
+    with pytest.raises(AgentError) as unknown:
+        authority.prepare_approval(
+            "sweep",
+            plan["plan_hash"],
+            {**_sweep_bindings(plan), "session_id": "session-404"},
+        )
+    assert unknown.value.code == "BTAG-SESSION-UNKNOWN"
+
+    # A different session holding its own sweep plan must not approve this one.
+    _prepared_plan(state, session_id="session-002")
+    with pytest.raises(AgentError) as cross:
+        authority.prepare_approval(
+            "sweep",
+            plan["plan_hash"],
+            {**_sweep_bindings(plan), "session_id": "session-002"},
+        )
+    assert cross.value.code == "BTAG-APPROVAL-BINDING"
+
+
+def test_sweep_kind_missing_bindings_rejected(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    authority = TokenAuthority(state)
+
+    with pytest.raises(AgentError) as missing:
+        authority.prepare_approval(
+            "sweep", plan["plan_hash"], {"session_id": "session-001"}
+        )
+    assert missing.value.code == "BTAG-TOKEN-BINDING"
+
+    # A binding value that contradicts the signed plan must reject.
+    tampered = {**_sweep_bindings(plan), "spec_hash": "0" * 64}
+    with pytest.raises(AgentError) as tamper:
+        authority.prepare_approval("sweep", plan["plan_hash"], tampered)
+    assert tamper.value.code == "BTAG-APPROVAL-BINDING"
+
+
+def test_sweep_approval_binds_legacy_plan_fields_only(tmp_path: Path) -> None:
+    """Legacy v1 plans (predating engine/environment fields) stay approvable.
+
+    The approval validator derives what is bindable from the CURRENT plan
+    record only: fields the plan does not carry are not assumed present.
+    """
+
+    state = tmp_path / "state"
+    spec = StrategySpec.from_dict(_sweep_strategy_spec(DATASET_ID))
+    dataset = _dataset_manifest()
+    _register_engine(state)
+    _drive_approved_session(state, "legacy-1", spec, dataset)
+
+    # Build a plan the way an old prepare_sweep would have: no engine or
+    # environment bindings, session and dataset fields intact.
+    cell_hash = hash_object(
+        {"spec_hash": spec.spec_hash, "params": {"fast_period": 10}}
+    )
+    payload = {
+        "schema_version": "sweep-plan-v1",
+        "session_id": "legacy-1",
+        "spec_hash": spec.spec_hash,
+        "dataset_manifest_hash": dataset["manifest_hash"],
+        "cells": [
+            {
+                "cell_id": "cell_" + cell_hash[:16],
+                "params": {"fast_period": 10},
+                "cell_hash": cell_hash,
+            }
+        ],
+    }
+    legacy = dict(payload)
+    legacy["sweep_id"] = "sweep_" + hash_object(payload)
+    legacy["plan_hash"] = hash_object(legacy)
+    legacy_dir = state / "sweeps" / legacy["sweep_id"]
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "sweep-plan.json").write_text(json.dumps(legacy), encoding="utf-8")
+    SessionStore(state).transition(
+        "legacy-1",
+        "SWEEP_PREPARED",
+        "sweep",
+        {"spec": spec.spec_hash, "dataset": dataset["manifest_hash"]},
+        effect_references={
+            "sweep_id": legacy["sweep_id"],
+            "sweep_plan_hash": legacy["plan_hash"],
+        },
+    )
+
+    authority = TokenAuthority(state)
+    bindings = {
+        "session_id": "legacy-1",
+        "sweep_plan_hash": legacy["plan_hash"],
+        "dataset_manifest_hash": legacy["dataset_manifest_hash"],
+        "environment_hash": "e" * 64,
+        "engine_hash": "f" * 64,
+        "engine_root_id": "engine",
+        "spec_hash": legacy["spec_hash"],
+    }
+    request = authority.prepare_approval("sweep", legacy["plan_hash"], bindings)
+    token = authority.grant_approval(
+        request["request_id"], approver="me", confirmed=True
+    )["token"]
+    assert token["kind"] == "sweep"
+    assert token["bindings"]["sweep_plan_hash"] == legacy["plan_hash"]
+    authority.verify(
+        token,
+        kind="sweep",
+        subject_hash=legacy["plan_hash"],
+    )
+
+
+def test_cli_sweep_approval_request_and_grant(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    plan = _prepared_plan(state)
+    common = ("--state-root", str(state))
+
+    request = _call(
+        *common,
+        "approval",
+        "request",
+        "--kind",
+        "sweep",
+        "--subject-hash",
+        plan["plan_hash"],
+        "--bindings",
+        json.dumps(_sweep_bindings(plan)),
+    )
+    assert request["kind"] == "sweep"
+    assert request["state"] == "PENDING"
+
+    grant = _call(
+        *common,
+        "approval",
+        "grant",
+        "--request-id",
+        request["request_id"],
+        "--approver",
+        "local-user",
+        "--confirm",
+    )
+    assert grant["token"]["kind"] == "sweep"
+    assert grant["token"]["bindings"]["sweep_plan_hash"] == plan["plan_hash"]

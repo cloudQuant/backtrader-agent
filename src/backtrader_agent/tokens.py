@@ -19,8 +19,8 @@ from .canonical import (
 from .errors import AgentError
 from .locking import exclusive_file_lock
 
-TOKEN_KINDS = {"validation", "change", "run"}
-ACTION_TOKEN_KINDS = {"change", "run"}
+TOKEN_KINDS = {"validation", "change", "run", "sweep"}
+ACTION_TOKEN_KINDS = {"change", "run", "sweep"}
 REQUIRED_BINDINGS = {
     "validation": {
         "artifact_record_hash",
@@ -56,6 +56,15 @@ REQUIRED_BINDINGS = {
         "spec_hash",
         "validation_token_hash",
         "validation_token_id",
+    },
+    "sweep": {
+        "dataset_manifest_hash",
+        "engine_hash",
+        "engine_root_id",
+        "environment_hash",
+        "session_id",
+        "spec_hash",
+        "sweep_plan_hash",
     },
 }
 
@@ -93,6 +102,7 @@ BOUND_RECORD_KINDS = {
 APPROVAL_SESSION_STATES = {
     "change": "APPLY_PREPARED",
     "run": "APPLIED",
+    "sweep": "SWEEP_PREPARED",
 }
 
 
@@ -320,6 +330,48 @@ class TokenAuthority:
                 )
             return
 
+        if kind == "sweep":
+            from .sweep import load_plan
+
+            sweep_id = artifacts.get("sweep_id")
+            if not isinstance(sweep_id, str):
+                raise AgentError(
+                    "BTAG-APPROVAL-BINDING",
+                    "session checkpoint does not reference a sweep plan",
+                )
+            plan = load_plan(self.state_root, sweep_id)
+            # Derive what is bindable from the CURRENT plan record only:
+            # legacy v1 plans predating the engine/environment fields do not
+            # carry those keys, so only fields the record itself attests are
+            # cross-checked against the supplied bindings.
+            expected_bindings = {
+                key: plan[key]
+                for key in (
+                    "dataset_manifest_hash",
+                    "engine_hash",
+                    "engine_root_id",
+                    "environment_hash",
+                    "session_id",
+                    "spec_hash",
+                )
+                if key in plan
+            }
+            expected_bindings["sweep_plan_hash"] = plan["plan_hash"]
+            if (
+                plan.get("plan_hash") != subject_hash
+                or plan.get("session_id") != session_id
+                or artifacts.get("sweep_plan_hash") != subject_hash
+                or any(
+                    bindings.get(key) != value
+                    for key, value in expected_bindings.items()
+                )
+            ):
+                raise AgentError(
+                    "BTAG-APPROVAL-BINDING",
+                    "sweep approval does not match the signed sweep plan and session",
+                )
+            return
+
         applied_hash = bindings["applied_artifact_hash"]
         record = self.load_bound_record("applied-artifact", session_id, applied_hash)
         applied = record.get("applied_artifact")
@@ -464,7 +516,8 @@ class TokenAuthority:
     ) -> Dict[str, Any]:
         if kind not in ACTION_TOKEN_KINDS:
             raise AgentError(
-                "BTAG-APPROVAL-KIND", "only change or run actions may request approval"
+                "BTAG-APPROVAL-KIND",
+                "only change, run, or sweep actions may request approval",
             )
         if ttl_seconds < 1 or ttl_seconds > 3600:
             raise AgentError(

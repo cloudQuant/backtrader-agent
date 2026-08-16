@@ -150,7 +150,10 @@ def test_packaged_catalog_verifies_whole_file_once_not_each_entry(
     )
     loaded = catalog.SnapshotCatalog()
     assert loaded.manifest["entry_count"] > 1000
-    assert len(hashes) == 1  # one whole-file SHA-256 against the distribution pin
+    assert loaded.registry_manifest["counts"]["indicators"] > 400
+    # one whole-file SHA-256 per packaged catalog asset (corpus + indicator
+    # registry) against the distribution pin, never per entry
+    assert len(hashes) == 2
 
 
 def test_source_attached_catalog_retains_per_entry_verification(tmp_path: Path) -> None:

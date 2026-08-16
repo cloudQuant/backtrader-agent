@@ -129,6 +129,33 @@ def verify_snapshot_once(snapshot_path: Path) -> None:
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 PACKAGED_SNAPSHOT_PATH = PACKAGE_ROOT / "resources" / "catalog" / "corpus-v1.jsonl"
+PACKAGED_INDICATOR_REGISTRY_PATH = (
+    PACKAGE_ROOT / "resources" / "catalog" / "indicator-registry-v1.json"
+)
+
+
+def _verify_packaged_asset_bytes(raw: bytes, relative_path: str, subject: str) -> None:
+    """Pin one packaged catalog asset to its distribution-manifest SHA-256.
+
+    A single SHA-256 of the raw asset bytes is the complete integrity check
+    for a shipped file: every byte is covered. Non-packaged assets have no
+    distribution pin and keep per-entry verification instead.
+    """
+
+    try:
+        pinned = read_json(PACKAGE_ROOT / "resources" / "distribution-manifest.json")[
+            "files"
+        ][relative_path]
+    except (AgentError, KeyError, TypeError) as exc:
+        raise AgentError(
+            "BTAG-CATALOG-INTEGRITY",
+            f"distribution pin for the packaged {subject} is unavailable",
+        ) from exc
+    if sha256_bytes(raw) != pinned:
+        raise AgentError(
+            "BTAG-CATALOG-INTEGRITY",
+            f"{subject} bytes do not match the distribution pin",
+        )
 
 
 def _verify_packaged_snapshot_bytes(raw: bytes) -> None:
@@ -141,20 +168,9 @@ def _verify_packaged_snapshot_bytes(raw: bytes) -> None:
     per-entry verification instead.
     """
 
-    try:
-        pinned = read_json(PACKAGE_ROOT / "resources" / "distribution-manifest.json")[
-            "files"
-        ]["resources/catalog/corpus-v1.jsonl"]
-    except (AgentError, KeyError, TypeError) as exc:
-        raise AgentError(
-            "BTAG-CATALOG-INTEGRITY",
-            "distribution pin for the packaged corpus is unavailable",
-        ) from exc
-    if sha256_bytes(raw) != pinned:
-        raise AgentError(
-            "BTAG-CATALOG-INTEGRITY",
-            "corpus snapshot bytes do not match the distribution pin",
-        )
+    _verify_packaged_asset_bytes(
+        raw, "resources/catalog/corpus-v1.jsonl", "corpus snapshot"
+    )
 
 
 class SnapshotCatalog:
@@ -162,12 +178,17 @@ class SnapshotCatalog:
         self,
         snapshot_path: Optional[Path] = None,
         template_path: Optional[Path] = None,
+        registry_path: Optional[Path] = None,
     ) -> None:
         resource_root = PACKAGE_ROOT / "resources" / "catalog"
         self.snapshot_path = snapshot_path or (resource_root / "corpus-v1.jsonl")
         self.template_path = template_path or (resource_root / "snapshot.jsonl")
+        self.registry_path = registry_path or (
+            resource_root / "indicator-registry-v1.json"
+        )
         self.manifest, self._entries = self._load_corpus()
         self._templates = self._load_templates()
+        self.registry_manifest, self._registry_entries = self._load_indicator_registry()
 
     def _load_corpus(self) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
         try:
@@ -253,6 +274,112 @@ class SnapshotCatalog:
                 "the fourteen archetype/profile template entries are incomplete",
             )
         return entries
+
+    def _load_indicator_registry(
+        self,
+    ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        try:
+            raw = self.registry_path.read_bytes()
+        except OSError as exc:
+            raise AgentError(
+                "BTAG-CATALOG-READ", "packaged indicator registry is invalid"
+            ) from exc
+        packaged = (
+            self.registry_path.resolve() == PACKAGED_INDICATOR_REGISTRY_PATH.resolve()
+        )
+        if packaged:
+            _verify_packaged_asset_bytes(
+                raw,
+                "resources/catalog/indicator-registry-v1.json",
+                "indicator registry",
+            )
+        try:
+            manifest = json.loads(raw.decode("utf-8"))
+        except (ValueError, json.JSONDecodeError) as exc:
+            raise AgentError(
+                "BTAG-CATALOG-READ", "packaged indicator registry is invalid"
+            ) from exc
+        if (
+            not isinstance(manifest, dict)
+            or manifest.get("schema_version") != "indicator-registry-v1"
+        ):
+            raise AgentError(
+                "BTAG-CATALOG-INTEGRITY", "indicator registry manifest is missing"
+            )
+        entries = manifest.get("indicators")
+        if not isinstance(entries, list) or not entries:
+            raise AgentError(
+                "BTAG-CATALOG-INTEGRITY", "indicator registry entries are missing"
+            )
+        if manifest.get("counts", {}).get("indicators") != len(entries):
+            raise AgentError(
+                "BTAG-CATALOG-INTEGRITY", "indicator registry entry count is invalid"
+            )
+        for entry in entries:
+            if (
+                not isinstance(entry, dict)
+                or not isinstance(entry.get("module"), str)
+                or not isinstance(entry.get("class_name"), str)
+                or not isinstance(entry.get("param_names"), list)
+                or not all(isinstance(name, str) for name in entry["param_names"])
+            ):
+                raise AgentError(
+                    "BTAG-CATALOG-INTEGRITY", "indicator registry entry is malformed"
+                )
+            if entry.get("source_available") is not False:
+                raise AgentError(
+                    "BTAG-CATALOG-INTEGRITY",
+                    "metadata-only registry must not claim source availability",
+                )
+        ids = [entry["entry_id"] for entry in entries]
+        if len(ids) != len(set(ids)):
+            raise AgentError(
+                "BTAG-CATALOG-INTEGRITY",
+                "indicator registry IDs are missing or duplicated",
+            )
+        return manifest, entries
+
+    def search_indicators(
+        self,
+        query: str,
+        *,
+        top_k: int = 5,
+    ) -> List[Dict[str, Any]]:
+        """Lexically search the packaged indicator registry (R25).
+
+        Searches module names, class names, and parameter names with the same
+        tokenization as the corpus search. Class-name matches rank first, so a
+        query like ``bollinger`` returns indicator classes before any indirect
+        module or parameter matches.
+        """
+
+        if top_k < 1 or top_k > 20:
+            raise AgentError("BTAG-CATALOG-LIMIT", "top_k must be between 1 and 20")
+        query_tokens = self._tokens(query)
+        ranked: List[Tuple[int, str, str, Dict[str, Any]]] = []
+        for entry in self._registry_entries:
+            searchable = " ".join(
+                [entry["module"], entry["class_name"], " ".join(entry["param_names"])]
+            )
+            tokens = self._tokens(searchable)
+            lexical_score = len(query_tokens & tokens) * 10
+            if query.lower() in searchable.lower():
+                lexical_score += 5
+            if query_tokens and lexical_score == 0:
+                continue
+            score = lexical_score
+            if query.lower() in entry["class_name"].lower():
+                score += 25
+            if not query_tokens:
+                score = 1
+            ranked.append((-score, entry["class_name"], entry["module"], entry))
+        ranked.sort(key=lambda value: (value[0], value[1], value[2]))
+        results = []
+        for negative_score, _, _, entry in ranked[:top_k]:
+            public = dict(entry)
+            public["score"] = -negative_score
+            results.append(public)
+        return results
 
     @staticmethod
     def _tokens(text: str) -> Set[str]:

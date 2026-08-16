@@ -278,6 +278,12 @@ def build_parser() -> argparse.ArgumentParser:
     catalog_sub = catalog.add_subparsers(dest="catalog_command", required=True)
     search = catalog_sub.add_parser("search")
     search.add_argument("--query", required=True)
+    search.add_argument(
+        "--kind",
+        choices=["corpus", "indicator"],
+        default="corpus",
+        help="search the packaged corpus or the packaged indicator registry",
+    )
     search.add_argument("--archetype")
     search.add_argument("--profile", choices=["single_test", "python_bundle"])
     search.add_argument("--top-k", type=int, default=5)
@@ -537,6 +543,18 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             snapshot_path=Path(snapshot_path) if snapshot_path else None
         )
         if args.catalog_command == "search":
+            if args.kind == "indicator":
+                if args.archetype or args.profile:
+                    raise AgentError(
+                        "BTAG-CATALOG-KIND",
+                        "archetype and profile filters only apply to corpus search",
+                    )
+                return {
+                    "results": catalog.search_indicators(
+                        args.query,
+                        top_k=args.top_k,
+                    )
+                }
             return {
                 "results": catalog.search(
                     args.query,

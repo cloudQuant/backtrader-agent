@@ -229,6 +229,7 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(
     assert "backtrader_agent/resources/catalog/corpus-v1.jsonl" in names
     assert "backtrader_agent/resources/catalog/snapshot.jsonl" in names
     assert "backtrader_agent/resources/catalog/corpus-manifest.json" in names
+    assert "backtrader_agent/resources/catalog/indicator-registry-v1.json" in names
     assert "backtrader_agent/resources/agent-payload.md" in names
     assert "backtrader_agent/resources/actions-v1.json" in names
     for relative in (

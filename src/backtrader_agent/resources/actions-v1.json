@@ -212,6 +212,20 @@
           "type": null
         },
         {
+          "choices": [
+            "corpus",
+            "indicator"
+          ],
+          "default": "corpus",
+          "help": "search the packaged corpus or the packaged indicator registry",
+          "name": "kind",
+          "option_strings": [
+            "--kind"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
           "choices": null,
           "default": null,
           "help": null,

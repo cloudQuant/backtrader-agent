@@ -1,0 +1,4834 @@
+{
+  "counts": {
+    "contrib_modules": 207,
+    "core_modules": 56,
+    "indicators": 417
+  },
+  "indicators": [
+    {
+      "class_name": "AccelerationDecelerationOscillator",
+      "entry_id": "backtrader.indicators.accdecoscillator:AccelerationDecelerationOscillator",
+      "module": "backtrader.indicators.accdecoscillator",
+      "param_names": [
+        "period",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_AroonBase",
+      "entry_id": "backtrader.indicators.aroon:_AroonBase",
+      "module": "backtrader.indicators.aroon",
+      "param_names": [
+        "period",
+        "upperband",
+        "lowerband"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonUp",
+      "entry_id": "backtrader.indicators.aroon:AroonUp",
+      "module": "backtrader.indicators.aroon",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonDown",
+      "entry_id": "backtrader.indicators.aroon:AroonDown",
+      "module": "backtrader.indicators.aroon",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonUpDown",
+      "entry_id": "backtrader.indicators.aroon:AroonUpDown",
+      "module": "backtrader.indicators.aroon",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonOscillator",
+      "entry_id": "backtrader.indicators.aroon:AroonOscillator",
+      "module": "backtrader.indicators.aroon",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonUpDownOscillator",
+      "entry_id": "backtrader.indicators.aroon:AroonUpDownOscillator",
+      "module": "backtrader.indicators.aroon",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrueHigh",
+      "entry_id": "backtrader.indicators.atr:TrueHigh",
+      "module": "backtrader.indicators.atr",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrueLow",
+      "entry_id": "backtrader.indicators.atr:TrueLow",
+      "module": "backtrader.indicators.atr",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrueRange",
+      "entry_id": "backtrader.indicators.atr:TrueRange",
+      "module": "backtrader.indicators.atr",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AverageTrueRange",
+      "entry_id": "backtrader.indicators.atr:AverageTrueRange",
+      "module": "backtrader.indicators.atr",
+      "param_names": [
+        "period",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AwesomeOscillator",
+      "entry_id": "backtrader.indicators.awesomeoscillator:AwesomeOscillator",
+      "module": "backtrader.indicators.awesomeoscillator",
+      "param_names": [
+        "fast",
+        "slow",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PeriodN",
+      "entry_id": "backtrader.indicators.basicops:PeriodN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "OperationN",
+      "entry_id": "backtrader.indicators.basicops:OperationN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BaseApplyN",
+      "entry_id": "backtrader.indicators.basicops:BaseApplyN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "func"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ApplyN",
+      "entry_id": "backtrader.indicators.basicops:ApplyN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Highest",
+      "entry_id": "backtrader.indicators.basicops:Highest",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Lowest",
+      "entry_id": "backtrader.indicators.basicops:Lowest",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ReduceN",
+      "entry_id": "backtrader.indicators.basicops:ReduceN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SumN",
+      "entry_id": "backtrader.indicators.basicops:SumN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AnyN",
+      "entry_id": "backtrader.indicators.basicops:AnyN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AllN",
+      "entry_id": "backtrader.indicators.basicops:AllN",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FindFirstIndex",
+      "entry_id": "backtrader.indicators.basicops:FindFirstIndex",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "_evalfunc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FindFirstIndexHighest",
+      "entry_id": "backtrader.indicators.basicops:FindFirstIndexHighest",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "_evalfunc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FindFirstIndexLowest",
+      "entry_id": "backtrader.indicators.basicops:FindFirstIndexLowest",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "_evalfunc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FindLastIndex",
+      "entry_id": "backtrader.indicators.basicops:FindLastIndex",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "_evalfunc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FindLastIndexHighest",
+      "entry_id": "backtrader.indicators.basicops:FindLastIndexHighest",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "_evalfunc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FindLastIndexLowest",
+      "entry_id": "backtrader.indicators.basicops:FindLastIndexLowest",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "_evalfunc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Accum",
+      "entry_id": "backtrader.indicators.basicops:Accum",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "seed"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Average",
+      "entry_id": "backtrader.indicators.basicops:Average",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ExponentialSmoothing",
+      "entry_id": "backtrader.indicators.basicops:ExponentialSmoothing",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "alpha"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_Alpha1Line",
+      "entry_id": "backtrader.indicators.basicops:_Alpha1Line",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [
+        "alpha_source"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ExponentialSmoothingDynamic",
+      "entry_id": "backtrader.indicators.basicops:ExponentialSmoothingDynamic",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WeightedAverage",
+      "entry_id": "backtrader.indicators.basicops:WeightedAverage",
+      "module": "backtrader.indicators.basicops",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BollingerBands",
+      "entry_id": "backtrader.indicators.bollinger:BollingerBands",
+      "module": "backtrader.indicators.bollinger",
+      "param_names": [
+        "period",
+        "devfactor",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BollingerBandsPct",
+      "entry_id": "backtrader.indicators.bollinger:BollingerBandsPct",
+      "module": "backtrader.indicators.bollinger",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CommodityChannelIndex",
+      "entry_id": "backtrader.indicators.cci:CommodityChannelIndex",
+      "module": "backtrader.indicators.cci",
+      "param_names": [
+        "period",
+        "factor",
+        "movav",
+        "upperband",
+        "lowerband"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DonchianChannel",
+      "entry_id": "backtrader.indicators.channels_ext:DonchianChannel",
+      "module": "backtrader.indicators.channels_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DonchianChannelIndicator",
+      "entry_id": "backtrader.indicators.channels_ext:DonchianChannelIndicator",
+      "module": "backtrader.indicators.channels_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DonchianChannelWarmup",
+      "entry_id": "backtrader.indicators.channels_ext:DonchianChannelWarmup",
+      "module": "backtrader.indicators.channels_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KeltnerChannelIndicator",
+      "entry_id": "backtrader.indicators.channels_ext:KeltnerChannelIndicator",
+      "module": "backtrader.indicators.channels_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ChandelierExitIndicator",
+      "entry_id": "backtrader.indicators.channels_ext:ChandelierExitIndicator",
+      "module": "backtrader.indicators.channels_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "NonZeroDifference",
+      "entry_id": "backtrader.indicators.crossover:NonZeroDifference",
+      "module": "backtrader.indicators.crossover",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_CrossBase",
+      "entry_id": "backtrader.indicators.crossover:_CrossBase",
+      "module": "backtrader.indicators.crossover",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CrossUp",
+      "entry_id": "backtrader.indicators.crossover:CrossUp",
+      "module": "backtrader.indicators.crossover",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CrossDown",
+      "entry_id": "backtrader.indicators.crossover:CrossDown",
+      "module": "backtrader.indicators.crossover",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CrossOver",
+      "entry_id": "backtrader.indicators.crossover:CrossOver",
+      "module": "backtrader.indicators.crossover",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DoubleExponentialMovingAverage",
+      "entry_id": "backtrader.indicators.dema:DoubleExponentialMovingAverage",
+      "module": "backtrader.indicators.dema",
+      "param_names": [
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TripleExponentialMovingAverage",
+      "entry_id": "backtrader.indicators.dema:TripleExponentialMovingAverage",
+      "module": "backtrader.indicators.dema",
+      "param_names": [
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DeMarker",
+      "entry_id": "backtrader.indicators.demarker:DeMarker",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [
+        "period",
+        "zero_value"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DeMarkerIndicator",
+      "entry_id": "backtrader.indicators.demarker:DeMarkerIndicator",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [
+        "period",
+        "zero_value"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DeMarkerRollingIndicator",
+      "entry_id": "backtrader.indicators.demarker:DeMarkerRollingIndicator",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WilliamsPercentR",
+      "entry_id": "backtrader.indicators.demarker:WilliamsPercentR",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DeltaRSI",
+      "entry_id": "backtrader.indicators.demarker:DeltaRSI",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DeltaWPR",
+      "entry_id": "backtrader.indicators.demarker:DeltaWPR",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WPRSlowdown",
+      "entry_id": "backtrader.indicators.demarker:WPRSlowdown",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WPRHistogramIndicator",
+      "entry_id": "backtrader.indicators.demarker:WPRHistogramIndicator",
+      "module": "backtrader.indicators.demarker",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StandardDeviation",
+      "entry_id": "backtrader.indicators.deviation:StandardDeviation",
+      "module": "backtrader.indicators.deviation",
+      "param_names": [
+        "period",
+        "movav",
+        "safepow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MeanDeviation",
+      "entry_id": "backtrader.indicators.deviation:MeanDeviation",
+      "module": "backtrader.indicators.deviation",
+      "param_names": [
+        "period",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UpMove",
+      "entry_id": "backtrader.indicators.directionalmove:UpMove",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DownMove",
+      "entry_id": "backtrader.indicators.directionalmove:DownMove",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_DirectionalIndicator",
+      "entry_id": "backtrader.indicators.directionalmove:_DirectionalIndicator",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [
+        "period",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DirectionalIndicator",
+      "entry_id": "backtrader.indicators.directionalmove:DirectionalIndicator",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PlusDirectionalIndicator",
+      "entry_id": "backtrader.indicators.directionalmove:PlusDirectionalIndicator",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MinusDirectionalIndicator",
+      "entry_id": "backtrader.indicators.directionalmove:MinusDirectionalIndicator",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AverageDirectionalMovementIndex",
+      "entry_id": "backtrader.indicators.directionalmove:AverageDirectionalMovementIndex",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [
+        "period",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AverageDirectionalMovementIndexRating",
+      "entry_id": "backtrader.indicators.directionalmove:AverageDirectionalMovementIndexRating",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DirectionalMovementIndex",
+      "entry_id": "backtrader.indicators.directionalmove:DirectionalMovementIndex",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DirectionalMovement",
+      "entry_id": "backtrader.indicators.directionalmove:DirectionalMovement",
+      "module": "backtrader.indicators.directionalmove",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DicksonMovingAverage",
+      "entry_id": "backtrader.indicators.dma:DicksonMovingAverage",
+      "module": "backtrader.indicators.dma",
+      "param_names": [
+        "gainlimit",
+        "hperiod",
+        "_movav",
+        "_hma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DetrendedPriceOscillator",
+      "entry_id": "backtrader.indicators.dpo:DetrendedPriceOscillator",
+      "module": "backtrader.indicators.dpo",
+      "param_names": [
+        "period",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DV2",
+      "entry_id": "backtrader.indicators.dv2:DV2",
+      "module": "backtrader.indicators.dv2",
+      "param_names": [
+        "period",
+        "maperiod",
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ExponentialMovingAverage",
+      "entry_id": "backtrader.indicators.ema:ExponentialMovingAverage",
+      "module": "backtrader.indicators.ema",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_EnvelopeBase",
+      "entry_id": "backtrader.indicators.envelope:_EnvelopeBase",
+      "module": "backtrader.indicators.envelope",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Envelope",
+      "entry_id": "backtrader.indicators.envelope:Envelope",
+      "module": "backtrader.indicators.envelope",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HaDelta",
+      "entry_id": "backtrader.indicators.hadelta:HaDelta",
+      "module": "backtrader.indicators.hadelta",
+      "param_names": [
+        "period",
+        "movav",
+        "autoheikin"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HeikinAshi",
+      "entry_id": "backtrader.indicators.heikinashi:HeikinAshi",
+      "module": "backtrader.indicators.heikinashi",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HullMovingAverage",
+      "entry_id": "backtrader.indicators.hma:HullMovingAverage",
+      "module": "backtrader.indicators.hma",
+      "param_names": [
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HurstExponent",
+      "entry_id": "backtrader.indicators.hurst:HurstExponent",
+      "module": "backtrader.indicators.hurst",
+      "param_names": [
+        "period",
+        "lag_start",
+        "lag_end"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Ichimoku",
+      "entry_id": "backtrader.indicators.ichimoku:Ichimoku",
+      "module": "backtrader.indicators.ichimoku",
+      "param_names": [
+        "tenkan",
+        "kijun",
+        "senkou",
+        "senkou_lead",
+        "chikou"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AdaptiveMovingAverage",
+      "entry_id": "backtrader.indicators.kama:AdaptiveMovingAverage",
+      "module": "backtrader.indicators.kama",
+      "param_names": [
+        "fast",
+        "slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KnowSureThing",
+      "entry_id": "backtrader.indicators.kst:KnowSureThing",
+      "module": "backtrader.indicators.kst",
+      "param_names": [
+        "rp1",
+        "rp2",
+        "rp3",
+        "rp4",
+        "rma1",
+        "rma2",
+        "rma3",
+        "rma4",
+        "rsignal",
+        "rfactors",
+        "_rmovav",
+        "_smovav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreRSI",
+      "entry_id": "backtrader.indicators.lrsi:LaguerreRSI",
+      "module": "backtrader.indicators.lrsi",
+      "param_names": [
+        "gamma",
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreFilter",
+      "entry_id": "backtrader.indicators.lrsi:LaguerreFilter",
+      "module": "backtrader.indicators.lrsi",
+      "param_names": [
+        "gamma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MovAv",
+      "entry_id": "backtrader.indicators.mabase:MovAv",
+      "module": "backtrader.indicators.mabase",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MovingAverageBase",
+      "entry_id": "backtrader.indicators.mabase:MovingAverageBase",
+      "module": "backtrader.indicators.mabase",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MACD",
+      "entry_id": "backtrader.indicators.macd:MACD",
+      "module": "backtrader.indicators.macd",
+      "param_names": [
+        "period_me1",
+        "period_me2",
+        "period_signal",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MACDHisto",
+      "entry_id": "backtrader.indicators.macd:MACDHisto",
+      "module": "backtrader.indicators.macd",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Momentum",
+      "entry_id": "backtrader.indicators.momentum:Momentum",
+      "module": "backtrader.indicators.momentum",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MomentumOscillator",
+      "entry_id": "backtrader.indicators.momentum:MomentumOscillator",
+      "module": "backtrader.indicators.momentum",
+      "param_names": [
+        "period",
+        "band"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RateOfChange",
+      "entry_id": "backtrader.indicators.momentum:RateOfChange",
+      "module": "backtrader.indicators.momentum",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RateOfChange100",
+      "entry_id": "backtrader.indicators.momentum:RateOfChange100",
+      "module": "backtrader.indicators.momentum",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MoneyFlowIndex",
+      "entry_id": "backtrader.indicators.moneyflow:MoneyFlowIndex",
+      "module": "backtrader.indicators.moneyflow",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MFI",
+      "entry_id": "backtrader.indicators.moneyflow:MFI",
+      "module": "backtrader.indicators.moneyflow",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DeltaMFI",
+      "entry_id": "backtrader.indicators.moneyflow:DeltaMFI",
+      "module": "backtrader.indicators.moneyflow",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MFISlowdown",
+      "entry_id": "backtrader.indicators.moneyflow:MFISlowdown",
+      "module": "backtrader.indicators.moneyflow",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MFIHistogramIndicator",
+      "entry_id": "backtrader.indicators.moneyflow:MFIHistogramIndicator",
+      "module": "backtrader.indicators.moneyflow",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MT5AverageTrueRange",
+      "entry_id": "backtrader.indicators.mt5atr:MT5AverageTrueRange",
+      "module": "backtrader.indicators.mt5atr",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MaBetweenHighAndLow",
+      "entry_id": "backtrader.indicators.myind:MaBetweenHighAndLow",
+      "module": "backtrader.indicators.myind",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BarsLast",
+      "entry_id": "backtrader.indicators.myind:BarsLast",
+      "module": "backtrader.indicators.myind",
+      "param_names": [
+        "period",
+        "func"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "NewDiff",
+      "entry_id": "backtrader.indicators.myind:NewDiff",
+      "module": "backtrader.indicators.myind",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "OLS_Slope_InterceptN",
+      "entry_id": "backtrader.indicators.ols:OLS_Slope_InterceptN",
+      "module": "backtrader.indicators.ols",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "OLS_TransformationN",
+      "entry_id": "backtrader.indicators.ols:OLS_TransformationN",
+      "module": "backtrader.indicators.ols",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "OLS_BetaN",
+      "entry_id": "backtrader.indicators.ols:OLS_BetaN",
+      "module": "backtrader.indicators.ols",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CointN",
+      "entry_id": "backtrader.indicators.ols:CointN",
+      "module": "backtrader.indicators.ols",
+      "param_names": [
+        "period",
+        "trend"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "OscillatorMixIn",
+      "entry_id": "backtrader.indicators.oscillator:OscillatorMixIn",
+      "module": "backtrader.indicators.oscillator",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Oscillator",
+      "entry_id": "backtrader.indicators.oscillator:Oscillator",
+      "module": "backtrader.indicators.oscillator",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentChange",
+      "entry_id": "backtrader.indicators.percentchange:PercentChange",
+      "module": "backtrader.indicators.percentchange",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentRank",
+      "entry_id": "backtrader.indicators.percentrank:PercentRank",
+      "module": "backtrader.indicators.percentrank",
+      "param_names": [
+        "period",
+        "func"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PivotPoint",
+      "entry_id": "backtrader.indicators.pivotpoint:PivotPoint",
+      "module": "backtrader.indicators.pivotpoint",
+      "param_names": [
+        "open",
+        "close",
+        "_autoplot"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FibonacciPivotPoint",
+      "entry_id": "backtrader.indicators.pivotpoint:FibonacciPivotPoint",
+      "module": "backtrader.indicators.pivotpoint",
+      "param_names": [
+        "open",
+        "close",
+        "_autoplot",
+        "level1",
+        "level2",
+        "level3"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DemarkPivotPoint",
+      "entry_id": "backtrader.indicators.pivotpoint:DemarkPivotPoint",
+      "module": "backtrader.indicators.pivotpoint",
+      "param_names": [
+        "open",
+        "close",
+        "_autoplot",
+        "level1",
+        "level2",
+        "level3"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PrettyGoodOscillator",
+      "entry_id": "backtrader.indicators.prettygoodoscillator:PrettyGoodOscillator",
+      "module": "backtrader.indicators.prettygoodoscillator",
+      "param_names": [
+        "period",
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WeightedPrice",
+      "entry_id": "backtrader.indicators.priceops_ext:WeightedPrice",
+      "module": "backtrader.indicators.priceops_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MedianPrice",
+      "entry_id": "backtrader.indicators.priceops_ext:MedianPrice",
+      "module": "backtrader.indicators.priceops_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TypicalPrice",
+      "entry_id": "backtrader.indicators.priceops_ext:TypicalPrice",
+      "module": "backtrader.indicators.priceops_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HighLowAverage",
+      "entry_id": "backtrader.indicators.priceops_ext:HighLowAverage",
+      "module": "backtrader.indicators.priceops_ext",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentReturnsPeriod",
+      "entry_id": "backtrader.indicators.priceops_ext:PercentReturnsPeriod",
+      "module": "backtrader.indicators.priceops_ext",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SMACloseSignal",
+      "entry_id": "backtrader.indicators.priceops_ext:SMACloseSignal",
+      "module": "backtrader.indicators.priceops_ext",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_PriceOscBase",
+      "entry_id": "backtrader.indicators.priceoscillator:_PriceOscBase",
+      "module": "backtrader.indicators.priceoscillator",
+      "param_names": [
+        "period1",
+        "period2",
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PriceOscillator",
+      "entry_id": "backtrader.indicators.priceoscillator:PriceOscillator",
+      "module": "backtrader.indicators.priceoscillator",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentagePriceOscillator",
+      "entry_id": "backtrader.indicators.priceoscillator:PercentagePriceOscillator",
+      "module": "backtrader.indicators.priceoscillator",
+      "param_names": [
+        "period_signal"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentagePriceOscillatorShort",
+      "entry_id": "backtrader.indicators.priceoscillator:PercentagePriceOscillatorShort",
+      "module": "backtrader.indicators.priceoscillator",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ParabolicSAR",
+      "entry_id": "backtrader.indicators.psar:ParabolicSAR",
+      "module": "backtrader.indicators.psar",
+      "param_names": [
+        "period",
+        "af",
+        "afmax"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RelativeMomentumIndex",
+      "entry_id": "backtrader.indicators.rmi:RelativeMomentumIndex",
+      "module": "backtrader.indicators.rmi",
+      "param_names": [
+        "period",
+        "lookback"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UpDay",
+      "entry_id": "backtrader.indicators.rsi:UpDay",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DownDay",
+      "entry_id": "backtrader.indicators.rsi:DownDay",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UpDayBool",
+      "entry_id": "backtrader.indicators.rsi:UpDayBool",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DownDayBool",
+      "entry_id": "backtrader.indicators.rsi:DownDayBool",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RelativeStrengthIndex",
+      "entry_id": "backtrader.indicators.rsi:RelativeStrengthIndex",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "period",
+        "movav",
+        "upperband",
+        "lowerband",
+        "safediv",
+        "safehigh",
+        "safelow",
+        "lookback"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RSI_Safe",
+      "entry_id": "backtrader.indicators.rsi:RSI_Safe",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "safediv"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RSI_SMA",
+      "entry_id": "backtrader.indicators.rsi:RSI_SMA",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RSI_EMA",
+      "entry_id": "backtrader.indicators.rsi:RSI_EMA",
+      "module": "backtrader.indicators.rsi",
+      "param_names": [
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MovingAverageSimple",
+      "entry_id": "backtrader.indicators.sma:MovingAverageSimple",
+      "module": "backtrader.indicators.sma",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SmoothedMovingAverage",
+      "entry_id": "backtrader.indicators.smma:SmoothedMovingAverage",
+      "module": "backtrader.indicators.smma",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "_StochasticBase",
+      "entry_id": "backtrader.indicators.stochastic:_StochasticBase",
+      "module": "backtrader.indicators.stochastic",
+      "param_names": [
+        "period",
+        "period_dfast",
+        "movav",
+        "upperband",
+        "lowerband",
+        "safediv",
+        "safezero"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StochasticFast",
+      "entry_id": "backtrader.indicators.stochastic:StochasticFast",
+      "module": "backtrader.indicators.stochastic",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Stochastic",
+      "entry_id": "backtrader.indicators.stochastic:Stochastic",
+      "module": "backtrader.indicators.stochastic",
+      "param_names": [
+        "period_dslow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StochasticFull",
+      "entry_id": "backtrader.indicators.stochastic:StochasticFull",
+      "module": "backtrader.indicators.stochastic",
+      "param_names": [
+        "period_dslow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SuperTrendIndicator",
+      "entry_id": "backtrader.indicators.supertrend:SuperTrendIndicator",
+      "module": "backtrader.indicators.supertrend",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SuperTrendBandIndicator",
+      "entry_id": "backtrader.indicators.supertrend:SuperTrendBandIndicator",
+      "module": "backtrader.indicators.supertrend",
+      "param_names": [
+        "atr_period",
+        "multiplier"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SuperTrendBandsIndicator",
+      "entry_id": "backtrader.indicators.supertrend:SuperTrendBandsIndicator",
+      "module": "backtrader.indicators.supertrend",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SupertrendIndicator",
+      "entry_id": "backtrader.indicators.supertrend:SupertrendIndicator",
+      "module": "backtrader.indicators.supertrend",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SuperTrendCCIIndicator",
+      "entry_id": "backtrader.indicators.supertrend:SuperTrendCCIIndicator",
+      "module": "backtrader.indicators.supertrend",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AdaptiveSuperTrendIndicator",
+      "entry_id": "backtrader.indicators.supertrend:AdaptiveSuperTrendIndicator",
+      "module": "backtrader.indicators.supertrend",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AlligatorIndicator",
+      "entry_id": "backtrader.indicators.trend_ext:AlligatorIndicator",
+      "module": "backtrader.indicators.trend_ext",
+      "param_names": [
+        "jaw_period",
+        "teeth_period",
+        "lips_period",
+        "jaw_shift",
+        "teeth_shift",
+        "lips_shift",
+        "ma_method",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VortexIndicator",
+      "entry_id": "backtrader.indicators.trend_ext:VortexIndicator",
+      "module": "backtrader.indicators.trend_ext",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VortexSystemIndicator",
+      "entry_id": "backtrader.indicators.trend_ext:VortexSystemIndicator",
+      "module": "backtrader.indicators.trend_ext",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Trix",
+      "entry_id": "backtrader.indicators.trix:Trix",
+      "module": "backtrader.indicators.trix",
+      "param_names": [
+        "period",
+        "_rocperiod",
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrixSignal",
+      "entry_id": "backtrader.indicators.trix:TrixSignal",
+      "module": "backtrader.indicators.trix",
+      "param_names": [
+        "sigperiod"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrueStrengthIndicator",
+      "entry_id": "backtrader.indicators.tsi:TrueStrengthIndicator",
+      "module": "backtrader.indicators.tsi",
+      "param_names": [
+        "period1",
+        "period2",
+        "pchange",
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UltimateOscillator",
+      "entry_id": "backtrader.indicators.ultimateoscillator:UltimateOscillator",
+      "module": "backtrader.indicators.ultimateoscillator",
+      "param_names": [
+        "p1",
+        "p2",
+        "p3",
+        "upperband",
+        "lowerband"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Vortex",
+      "entry_id": "backtrader.indicators.vortex:Vortex",
+      "module": "backtrader.indicators.vortex",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WilliamsR",
+      "entry_id": "backtrader.indicators.williams:WilliamsR",
+      "module": "backtrader.indicators.williams",
+      "param_names": [
+        "period",
+        "upperband",
+        "lowerband"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WilliamsAD",
+      "entry_id": "backtrader.indicators.williams:WilliamsAD",
+      "module": "backtrader.indicators.williams",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WeightedMovingAverage",
+      "entry_id": "backtrader.indicators.wma:WeightedMovingAverage",
+      "module": "backtrader.indicators.wma",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ZeroLagExponentialMovingAverage",
+      "entry_id": "backtrader.indicators.zlema:ZeroLagExponentialMovingAverage",
+      "module": "backtrader.indicators.zlema",
+      "param_names": [
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ZeroLagIndicator",
+      "entry_id": "backtrader.indicators.zlind:ZeroLagIndicator",
+      "module": "backtrader.indicators.zlind",
+      "param_names": [
+        "gainlimit",
+        "_movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AbsolutelyNoLagLwma",
+      "entry_id": "backtrader.indicators.contrib.absolutely_no_lag_lwma:AbsolutelyNoLagLwma",
+      "module": "backtrader.indicators.contrib.absolutely_no_lag_lwma",
+      "param_names": [
+        "length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AbsolutelyNoLagLwmaColor",
+      "entry_id": "backtrader.indicators.contrib.absolutely_no_lag_lwma_color:AbsolutelyNoLagLwmaColor",
+      "module": "backtrader.indicators.contrib.absolutely_no_lag_lwma_color",
+      "param_names": [
+        "length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AccumulationDistributionLine",
+      "entry_id": "backtrader.indicators.contrib.accumulation_distribution_line:AccumulationDistributionLine",
+      "module": "backtrader.indicators.contrib.accumulation_distribution_line",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ChaikinOscillator",
+      "entry_id": "backtrader.indicators.contrib.accumulation_distribution_line:ChaikinOscillator",
+      "module": "backtrader.indicators.contrib.accumulation_distribution_line",
+      "param_names": [
+        "fast_period",
+        "slow_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LineCCI",
+      "entry_id": "backtrader.indicators.contrib.accumulation_distribution_line:LineCCI",
+      "module": "backtrader.indicators.contrib.accumulation_distribution_line",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CCIDualOnMA",
+      "entry_id": "backtrader.indicators.contrib.accumulation_distribution_line:CCIDualOnMA",
+      "module": "backtrader.indicators.contrib.accumulation_distribution_line",
+      "param_names": [
+        "ma_period",
+        "fast_period",
+        "slow_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ADXCrossHullStyleIndicator",
+      "entry_id": "backtrader.indicators.contrib.adx_cross_hull_style_indicator:ADXCrossHullStyleIndicator",
+      "module": "backtrader.indicators.contrib.adx_cross_hull_style_indicator",
+      "param_names": [
+        "adx_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UltraXMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.adx_cross_hull_style_indicator:UltraXMAIndicator",
+      "module": "backtrader.indicators.contrib.adx_cross_hull_style_indicator",
+      "param_names": [
+        "w_method",
+        "start_length",
+        "wphase",
+        "step",
+        "steps_total",
+        "smooth_method",
+        "smooth_length",
+        "smooth_phase",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ADXDMI",
+      "entry_id": "backtrader.indicators.contrib.adxdmi:ADXDMI",
+      "module": "backtrader.indicators.contrib.adxdmi",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AIAccelerationDecelerationOscillator",
+      "entry_id": "backtrader.indicators.contrib.ai_acceleration_deceleration_oscillator:AIAccelerationDecelerationOscillator",
+      "module": "backtrader.indicators.contrib.ai_acceleration_deceleration_oscillator",
+      "param_names": [
+        "fast",
+        "slow",
+        "signal"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AltrTrendSignalV22",
+      "entry_id": "backtrader.indicators.contrib.altr_trend_signal_v22:AltrTrendSignalV22",
+      "module": "backtrader.indicators.contrib.altr_trend_signal_v22",
+      "param_names": [
+        "k",
+        "kstop",
+        "kperiod",
+        "per_adx"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AnchoredMomentumLine",
+      "entry_id": "backtrader.indicators.contrib.anchored_momentum_line:AnchoredMomentumLine",
+      "module": "backtrader.indicators.contrib.anchored_momentum_line",
+      "param_names": [
+        "mom_period",
+        "smooth_period",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AnchoredMomentumCandleIndicator",
+      "entry_id": "backtrader.indicators.contrib.anchored_momentum_line:AnchoredMomentumCandleIndicator",
+      "module": "backtrader.indicators.contrib.anchored_momentum_line",
+      "param_names": [
+        "mom_period",
+        "smooth_period",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AnyRangeCldTailIndicator",
+      "entry_id": "backtrader.indicators.contrib.any_range_cld_tail_indicator:AnyRangeCldTailIndicator",
+      "module": "backtrader.indicators.contrib.any_range_cld_tail_indicator",
+      "param_names": [
+        "time1",
+        "time2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonHornSignIndicator",
+      "entry_id": "backtrader.indicators.contrib.aroon_horn_sign_indicator:AroonHornSignIndicator",
+      "module": "backtrader.indicators.contrib.aroon_horn_sign_indicator",
+      "param_names": [
+        "aroon_period",
+        "atr_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AroonOscillatorSignAlert",
+      "entry_id": "backtrader.indicators.contrib.aroon_oscillator_sign_alert:AroonOscillatorSignAlert",
+      "module": "backtrader.indicators.contrib.aroon_oscillator_sign_alert",
+      "param_names": [
+        "atr_period",
+        "aroon_period",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ArrowsCurvesIndicator",
+      "entry_id": "backtrader.indicators.contrib.arrows_curves_indicator:ArrowsCurvesIndicator",
+      "module": "backtrader.indicators.contrib.arrows_curves_indicator",
+      "param_names": [
+        "ssp",
+        "channel",
+        "ch_stop",
+        "relay"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ASCtrendIndicator",
+      "entry_id": "backtrader.indicators.contrib.as_ctrend_indicator:ASCtrendIndicator",
+      "module": "backtrader.indicators.contrib.as_ctrend_indicator",
+      "param_names": [
+        "risk"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AsimmetricStochNRIndicator",
+      "entry_id": "backtrader.indicators.contrib.asimmetric_stoch_nr_indicator:AsimmetricStochNRIndicator",
+      "module": "backtrader.indicators.contrib.asimmetric_stoch_nr_indicator",
+      "param_names": [
+        "kperiod_short",
+        "kperiod_long",
+        "dmethod",
+        "dperiod",
+        "dphase",
+        "slowing",
+        "price_field",
+        "sens",
+        "overbought",
+        "oversold"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AtrNormalizeHistogram",
+      "entry_id": "backtrader.indicators.contrib.atr_normalize_histogram:AtrNormalizeHistogram",
+      "module": "backtrader.indicators.contrib.atr_normalize_histogram",
+      "param_names": [
+        "ma_method1",
+        "length1",
+        "phase1",
+        "ma_method2",
+        "length2",
+        "phase2",
+        "high_level",
+        "middle_level",
+        "low_level",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AverageChangeCandle",
+      "entry_id": "backtrader.indicators.contrib.average_change_candle:AverageChangeCandle",
+      "module": "backtrader.indicators.contrib.average_change_candle",
+      "param_names": [
+        "ma_method1",
+        "length1",
+        "phase1",
+        "ipc1",
+        "ma_method2",
+        "length2",
+        "phase2",
+        "pow_value"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BBSqueezeIndicator",
+      "entry_id": "backtrader.indicators.contrib.bb_squeeze_indicator:BBSqueezeIndicator",
+      "module": "backtrader.indicators.contrib.bb_squeeze_indicator",
+      "param_names": [
+        "bb_period",
+        "bb_dev",
+        "kc_period",
+        "kc_mult",
+        "mom_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BezierStDevIndicator",
+      "entry_id": "backtrader.indicators.contrib.bezier_st_dev_indicator:BezierStDevIndicator",
+      "module": "backtrader.indicators.contrib.bezier_st_dev_indicator",
+      "param_names": [
+        "bperiod",
+        "t_param",
+        "ipc",
+        "dk",
+        "std_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BinaryWaveIndicator",
+      "entry_id": "backtrader.indicators.contrib.binary_wave_indicator:BinaryWaveIndicator",
+      "module": "backtrader.indicators.contrib.binary_wave_indicator",
+      "param_names": [
+        "weight_ma",
+        "weight_macd",
+        "weight_osma",
+        "weight_cci",
+        "weight_mom",
+        "weight_rsi",
+        "weight_adx",
+        "ma_period",
+        "ma_type",
+        "fast_macd",
+        "slow_macd",
+        "signal_macd",
+        "cci_period",
+        "mom_period",
+        "rsi_period",
+        "adx_period",
+        "smooth_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauCMomentumIndicator",
+      "entry_id": "backtrader.indicators.contrib.blau_c_momentum_indicator:BlauCMomentumIndicator",
+      "module": "backtrader.indicators.contrib.blau_c_momentum_indicator",
+      "param_names": [
+        "xma_method",
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "xphase",
+        "ipc1",
+        "ipc2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauCMIIndicator",
+      "entry_id": "backtrader.indicators.contrib.blau_cmi_indicator:BlauCMIIndicator",
+      "module": "backtrader.indicators.contrib.blau_cmi_indicator",
+      "param_names": [
+        "xma_method",
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "xphase",
+        "ipc1",
+        "ipc2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauCSI",
+      "entry_id": "backtrader.indicators.contrib.blau_csi:BlauCSI",
+      "module": "backtrader.indicators.contrib.blau_csi",
+      "param_names": [
+        "xma_method",
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "ipc1",
+        "ipc2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauErgodic",
+      "entry_id": "backtrader.indicators.contrib.blau_ergodic:BlauErgodic",
+      "module": "backtrader.indicators.contrib.blau_ergodic",
+      "param_names": [
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "xlength4"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauTStochI",
+      "entry_id": "backtrader.indicators.contrib.blau_t_stoch_i:BlauTStochI",
+      "module": "backtrader.indicators.contrib.blau_t_stoch_i",
+      "param_names": [
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauTSStochastic",
+      "entry_id": "backtrader.indicators.contrib.blau_ts_stochastic:BlauTSStochastic",
+      "module": "backtrader.indicators.contrib.blau_ts_stochastic",
+      "param_names": [
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "xlength4",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauTVI",
+      "entry_id": "backtrader.indicators.contrib.blau_tvi:BlauTVI",
+      "module": "backtrader.indicators.contrib.blau_tvi",
+      "param_names": [
+        "xlength1",
+        "xlength2",
+        "xlength3"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BrainTrend2Indicator",
+      "entry_id": "backtrader.indicators.contrib.brain_trend2_indicator:BrainTrend2Indicator",
+      "module": "backtrader.indicators.contrib.brain_trend2_indicator",
+      "param_names": [
+        "atr_period",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AbsolutelyNoLagLwmaIndicator",
+      "entry_id": "backtrader.indicators.contrib.brain_trend2_indicator:AbsolutelyNoLagLwmaIndicator",
+      "module": "backtrader.indicators.contrib.brain_trend2_indicator",
+      "param_names": [
+        "length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BrainTrendSignalProxy",
+      "entry_id": "backtrader.indicators.contrib.brain_trend_signal_proxy:BrainTrendSignalProxy",
+      "module": "backtrader.indicators.contrib.brain_trend_signal_proxy",
+      "param_names": [
+        "atr_period",
+        "sto_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BrakeParbIndicator",
+      "entry_id": "backtrader.indicators.contrib.brake_parb_indicator:BrakeParbIndicator",
+      "module": "backtrader.indicators.contrib.brake_parb_indicator",
+      "param_names": [
+        "a",
+        "b",
+        "bigin_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BreakoutBarsTrendV2",
+      "entry_id": "backtrader.indicators.contrib.breakout_bars_trend_v2:BreakoutBarsTrendV2",
+      "module": "backtrader.indicators.contrib.breakout_bars_trend_v2",
+      "param_names": [
+        "reversal_mode",
+        "delta",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BSIIndicator",
+      "entry_id": "backtrader.indicators.contrib.bsi_indicator:BSIIndicator",
+      "module": "backtrader.indicators.contrib.bsi_indicator",
+      "param_names": [
+        "range_period",
+        "slowing",
+        "avg_period",
+        "volume_mode"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BullsBearsEyes",
+      "entry_id": "backtrader.indicators.contrib.bulls_bears_eyes:BullsBearsEyes",
+      "module": "backtrader.indicators.contrib.bulls_bears_eyes",
+      "param_names": [
+        "period",
+        "gamma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BullsPower",
+      "entry_id": "backtrader.indicators.contrib.bulls_power:BullsPower",
+      "module": "backtrader.indicators.contrib.bulls_power",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BearsPower",
+      "entry_id": "backtrader.indicators.contrib.bulls_power:BearsPower",
+      "module": "backtrader.indicators.contrib.bulls_power",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BWWiseMan1Signal",
+      "entry_id": "backtrader.indicators.contrib.bw_wise_man1_signal:BWWiseMan1Signal",
+      "module": "backtrader.indicators.contrib.bw_wise_man1_signal",
+      "param_names": [
+        "retrogradely",
+        "back",
+        "jaw_period",
+        "jaw_shift",
+        "teeth_period",
+        "teeth_shift",
+        "lips_period",
+        "lips_shift",
+        "atr_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BykovTrendIndicator",
+      "entry_id": "backtrader.indicators.contrib.bykov_trend_indicator:BykovTrendIndicator",
+      "module": "backtrader.indicators.contrib.bykov_trend_indicator",
+      "param_names": [
+        "risk",
+        "ssp"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CandleStopColor",
+      "entry_id": "backtrader.indicators.contrib.candle_stop_color:CandleStopColor",
+      "module": "backtrader.indicators.contrib.candle_stop_color",
+      "param_names": [
+        "up_trail_periods",
+        "up_trail_shift",
+        "dn_trail_periods",
+        "dn_trail_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CandlesXSmoothedIndicator",
+      "entry_id": "backtrader.indicators.contrib.candles_x_smoothed_indicator:CandlesXSmoothedIndicator",
+      "module": "backtrader.indicators.contrib.candles_x_smoothed_indicator",
+      "param_names": [
+        "ma_method",
+        "ma_length",
+        "ma_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CandlesticksBW",
+      "entry_id": "backtrader.indicators.contrib.candlesticks_bw:CandlesticksBW",
+      "module": "backtrader.indicators.contrib.candlesticks_bw",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CaudateXPeriodCandleColor",
+      "entry_id": "backtrader.indicators.contrib.caudate_x_period_candle_color:CaudateXPeriodCandleColor",
+      "module": "backtrader.indicators.contrib.caudate_x_period_candle_color",
+      "param_names": [
+        "cperiod",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CCIHistogramIndicator",
+      "entry_id": "backtrader.indicators.contrib.cci_histogram_indicator:CCIHistogramIndicator",
+      "module": "backtrader.indicators.contrib.cci_histogram_indicator",
+      "param_names": [
+        "cci_period",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CCIWoodiesIndicator",
+      "entry_id": "backtrader.indicators.contrib.cci_woodies_indicator:CCIWoodiesIndicator",
+      "module": "backtrader.indicators.contrib.cci_woodies_indicator",
+      "param_names": [
+        "fast_period",
+        "fast_price",
+        "slow_period",
+        "slow_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CenterOfGravityCandleIndicator",
+      "entry_id": "backtrader.indicators.contrib.center_of_gravity_candle_indicator:CenterOfGravityCandleIndicator",
+      "module": "backtrader.indicators.contrib.center_of_gravity_candle_indicator",
+      "param_names": [
+        "period",
+        "smooth_period",
+        "ma_method",
+        "applied_price",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CenterOfGravityIndicator",
+      "entry_id": "backtrader.indicators.contrib.center_of_gravity_indicator:CenterOfGravityIndicator",
+      "module": "backtrader.indicators.contrib.center_of_gravity_indicator",
+      "param_names": [
+        "period",
+        "smooth_period",
+        "ma_method",
+        "applied_price",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CGOscillator",
+      "entry_id": "backtrader.indicators.contrib.cg_oscillator:CGOscillator",
+      "module": "backtrader.indicators.contrib.cg_oscillator",
+      "param_names": [
+        "length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CloseLineCCI",
+      "entry_id": "backtrader.indicators.contrib.close_line_cci:CloseLineCCI",
+      "module": "backtrader.indicators.contrib.close_line_cci",
+      "param_names": [
+        "period",
+        "factor",
+        "movav"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ClosePriceFractals",
+      "entry_id": "backtrader.indicators.contrib.close_price_fractals:ClosePriceFractals",
+      "module": "backtrader.indicators.contrib.close_price_fractals",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Color3rdGenXMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.color3rd_gen_xma_indicator:Color3rdGenXMAIndicator",
+      "module": "backtrader.indicators.contrib.color3rd_gen_xma_indicator",
+      "param_names": [
+        "xma_method",
+        "xlength",
+        "xphase",
+        "ipc",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorBBCandlesIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_bb_candles_indicator:ColorBBCandlesIndicator",
+      "module": "backtrader.indicators.contrib.color_bb_candles_indicator",
+      "param_names": [
+        "period",
+        "deviation1",
+        "deviation2",
+        "deviation3",
+        "deviation4",
+        "deviation5",
+        "ma_method",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorCoppockIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_coppock_indicator:ColorCoppockIndicator",
+      "module": "backtrader.indicators.contrib.color_coppock_indicator",
+      "param_names": [
+        "roc1_period",
+        "roc2_period",
+        "xma_method",
+        "xma_period",
+        "xma_phase",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorHMA",
+      "entry_id": "backtrader.indicators.contrib.color_hma:ColorHMA",
+      "module": "backtrader.indicators.contrib.color_hma",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorJVariationIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_j_variation_indicator:ColorJVariationIndicator",
+      "module": "backtrader.indicators.contrib.color_j_variation_indicator",
+      "param_names": [
+        "period_",
+        "ma_method_",
+        "jlength_",
+        "jphase_"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorMetroDeMarkerIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_metro_de_marker_indicator:ColorMetroDeMarkerIndicator",
+      "module": "backtrader.indicators.contrib.color_metro_de_marker_indicator",
+      "param_names": [
+        "period_demarker",
+        "step_size_fast",
+        "step_size_slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorMetroStochasticIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_metro_stochastic_indicator:ColorMetroStochasticIndicator",
+      "module": "backtrader.indicators.contrib.color_metro_stochastic_indicator",
+      "param_names": [
+        "k_period",
+        "d_period",
+        "slowing",
+        "ma_method",
+        "step_size_fast",
+        "step_size_slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorMetroWprIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_metro_wpr_indicator:ColorMetroWprIndicator",
+      "module": "backtrader.indicators.contrib.color_metro_wpr_indicator",
+      "param_names": [
+        "period_wpr",
+        "step_size_fast",
+        "step_size_slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorSchaffDeMarkerTrendCycle",
+      "entry_id": "backtrader.indicators.contrib.color_schaff_de_marker_trend_cycle:ColorSchaffDeMarkerTrendCycle",
+      "module": "backtrader.indicators.contrib.color_schaff_de_marker_trend_cycle",
+      "param_names": [
+        "fast_demarker",
+        "slow_demarker",
+        "cycle",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorSchaffTrendCycleIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_schaff_trend_cycle_indicator:ColorSchaffTrendCycleIndicator",
+      "module": "backtrader.indicators.contrib.color_schaff_trend_cycle_indicator",
+      "param_names": [
+        "xma_method",
+        "fast_xma",
+        "slow_xma",
+        "xphase",
+        "applied_price",
+        "cycle",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorStepXCCXIndicator",
+      "entry_id": "backtrader.indicators.contrib.color_step_xccx_indicator:ColorStepXCCXIndicator",
+      "module": "backtrader.indicators.contrib.color_step_xccx_indicator",
+      "param_names": [
+        "dsmooth_method",
+        "dperiod",
+        "dphase",
+        "msmooth_method",
+        "mperiod",
+        "mphase",
+        "ipc",
+        "step_size_fast",
+        "step_size_slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorX2MA",
+      "entry_id": "backtrader.indicators.contrib.color_x2_ma:ColorX2MA",
+      "module": "backtrader.indicators.contrib.color_x2_ma",
+      "param_names": [
+        "length1",
+        "length2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorXDerivative",
+      "entry_id": "backtrader.indicators.contrib.color_x_derivative:ColorXDerivative",
+      "module": "backtrader.indicators.contrib.color_x_derivative",
+      "param_names": [
+        "i_slowing",
+        "xlength"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorZerolagDeMarker",
+      "entry_id": "backtrader.indicators.contrib.color_zerolag_de_marker:ColorZerolagDeMarker",
+      "module": "backtrader.indicators.contrib.color_zerolag_de_marker",
+      "param_names": [
+        "smoothing",
+        "factor1",
+        "demarker_period1",
+        "factor2",
+        "demarker_period2",
+        "factor3",
+        "demarker_period3",
+        "factor4",
+        "demarker_period4",
+        "factor5",
+        "demarker_period5"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CorrectedAverageIndicator",
+      "entry_id": "backtrader.indicators.contrib.corrected_average_indicator:CorrectedAverageIndicator",
+      "module": "backtrader.indicators.contrib.corrected_average_indicator",
+      "param_names": [
+        "ma_method",
+        "length",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DarvasBoxesSystem",
+      "entry_id": "backtrader.indicators.contrib.darvas_boxes_system:DarvasBoxesSystem",
+      "module": "backtrader.indicators.contrib.darvas_boxes_system",
+      "param_names": [
+        "symmetry",
+        "shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DemaRangeChannelColor",
+      "entry_id": "backtrader.indicators.contrib.dema_range_channel_color:DemaRangeChannelColor",
+      "module": "backtrader.indicators.contrib.dema_range_channel_color",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DerivativeIndicator",
+      "entry_id": "backtrader.indicators.contrib.derivative_indicator:DerivativeIndicator",
+      "module": "backtrader.indicators.contrib.derivative_indicator",
+      "param_names": [
+        "i_slowing",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DigitalFT01Indicator",
+      "entry_id": "backtrader.indicators.contrib.digital_ft01_indicator:DigitalFT01Indicator",
+      "module": "backtrader.indicators.contrib.digital_ft01_indicator",
+      "param_names": [
+        "halfchannel",
+        "applied_price_code",
+        "point",
+        "signal_period_minutes"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DigitalMacd",
+      "entry_id": "backtrader.indicators.contrib.digital_macd:DigitalMacd",
+      "module": "backtrader.indicators.contrib.digital_macd",
+      "param_names": [
+        "signal_period",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DonchianChannelsSystem",
+      "entry_id": "backtrader.indicators.contrib.donchian_channels_system:DonchianChannelsSystem",
+      "module": "backtrader.indicators.contrib.donchian_channels_system",
+      "param_names": [
+        "period",
+        "shift",
+        "margins"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "DotsIndicator",
+      "entry_id": "backtrader.indicators.contrib.dots_indicator:DotsIndicator",
+      "module": "backtrader.indicators.contrib.dots_indicator",
+      "param_names": [
+        "length",
+        "filter_points",
+        "price_code",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "EFDistanceIndicator",
+      "entry_id": "backtrader.indicators.contrib.ef_distance_indicator:EFDistanceIndicator",
+      "module": "backtrader.indicators.contrib.ef_distance_indicator",
+      "param_names": [
+        "length",
+        "power",
+        "ipc",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "EmaRsiVa",
+      "entry_id": "backtrader.indicators.contrib.ema_rsi_va:EmaRsiVa",
+      "module": "backtrader.indicators.contrib.ema_rsi_va",
+      "param_names": [
+        "rsi_period",
+        "ema_periods",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "EnvelopesJpAlonso",
+      "entry_id": "backtrader.indicators.contrib.envelopes_jp_alonso:EnvelopesJpAlonso",
+      "module": "backtrader.indicators.contrib.envelopes_jp_alonso",
+      "param_names": [
+        "period",
+        "deviation"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "F2aAOIndicator",
+      "entry_id": "backtrader.indicators.contrib.f2a_ao_indicator:F2aAOIndicator",
+      "module": "backtrader.indicators.contrib.f2a_ao_indicator",
+      "param_names": [
+        "ma_filtr",
+        "ma_fast",
+        "ma_slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FatlFilter",
+      "entry_id": "backtrader.indicators.contrib.fatl_filter:FatlFilter",
+      "module": "backtrader.indicators.contrib.fatl_filter",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "JFatlApprox",
+      "entry_id": "backtrader.indicators.contrib.fatl_filter:JFatlApprox",
+      "module": "backtrader.indicators.contrib.fatl_filter",
+      "param_names": [
+        "length",
+        "phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "JFatlCandleApprox",
+      "entry_id": "backtrader.indicators.contrib.fatl_filter:JFatlCandleApprox",
+      "module": "backtrader.indicators.contrib.fatl_filter",
+      "param_names": [
+        "length",
+        "phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FiboCandlesIndicator",
+      "entry_id": "backtrader.indicators.contrib.fibo_candles_indicator:FiboCandlesIndicator",
+      "module": "backtrader.indicators.contrib.fibo_candles_indicator",
+      "param_names": [
+        "period",
+        "fibo_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FineTuningMA",
+      "entry_id": "backtrader.indicators.contrib.fine_tuning_ma:FineTuningMA",
+      "module": "backtrader.indicators.contrib.fine_tuning_ma",
+      "param_names": [
+        "ftma",
+        "rank1",
+        "rank2",
+        "rank3",
+        "shift1",
+        "shift2",
+        "shift3",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FisherOrgV1",
+      "entry_id": "backtrader.indicators.contrib.fisher_org_v1:FisherOrgV1",
+      "module": "backtrader.indicators.contrib.fisher_org_v1",
+      "param_names": [
+        "length",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FisherOrgV1Sign",
+      "entry_id": "backtrader.indicators.contrib.fisher_org_v1_sign:FisherOrgV1Sign",
+      "module": "backtrader.indicators.contrib.fisher_org_v1_sign",
+      "param_names": [
+        "atr_period",
+        "length",
+        "ipc",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ForceIndexEMA",
+      "entry_id": "backtrader.indicators.contrib.force_index_ema:ForceIndexEMA",
+      "module": "backtrader.indicators.contrib.force_index_ema",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ForceDiverSign",
+      "entry_id": "backtrader.indicators.contrib.force_index_ema:ForceDiverSign",
+      "module": "backtrader.indicators.contrib.force_index_ema",
+      "param_names": [
+        "i_period1",
+        "i_period2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ForceIndexEma",
+      "entry_id": "backtrader.indicators.contrib.force_index_ema_2:ForceIndexEma",
+      "module": "backtrader.indicators.contrib.force_index_ema_2",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ForecastOscilator",
+      "entry_id": "backtrader.indicators.contrib.forecast_oscilator:ForecastOscilator",
+      "module": "backtrader.indicators.contrib.forecast_oscilator",
+      "param_names": [
+        "length",
+        "t3",
+        "b",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FractalAMAMBK",
+      "entry_id": "backtrader.indicators.contrib.fractal_amambk:FractalAMAMBK",
+      "module": "backtrader.indicators.contrib.fractal_amambk",
+      "param_names": [
+        "r_period",
+        "multiplier",
+        "signal_multiplier"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FramaSeries",
+      "entry_id": "backtrader.indicators.contrib.frama_series:FramaSeries",
+      "module": "backtrader.indicators.contrib.frama_series",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FramaLinesIndicator",
+      "entry_id": "backtrader.indicators.contrib.frama_series:FramaLinesIndicator",
+      "module": "backtrader.indicators.contrib.frama_series",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FRASMAv2Indicator",
+      "entry_id": "backtrader.indicators.contrib.frasm_av2_indicator:FRASMAv2Indicator",
+      "module": "backtrader.indicators.contrib.frasm_av2_indicator",
+      "param_names": [
+        "e_period",
+        "normal_speed",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "GOIndicator",
+      "entry_id": "backtrader.indicators.contrib.go_indicator:GOIndicator",
+      "module": "backtrader.indicators.contrib.go_indicator",
+      "param_names": [
+        "period",
+        "ma_method"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HLRIndicator",
+      "entry_id": "backtrader.indicators.contrib.hlr_indicator:HLRIndicator",
+      "module": "backtrader.indicators.contrib.hlr_indicator",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ZeroLagHLRIndicator",
+      "entry_id": "backtrader.indicators.contrib.hlr_indicator:ZeroLagHLRIndicator",
+      "module": "backtrader.indicators.contrib.hlr_indicator",
+      "param_names": [
+        "smoothing",
+        "factor1",
+        "hlr_period1",
+        "factor2",
+        "hlr_period2",
+        "factor3",
+        "hlr_period3",
+        "factor4",
+        "hlr_period4",
+        "factor5",
+        "hlr_period5",
+        "preserve_source_hlr3_weight"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "HMA",
+      "entry_id": "backtrader.indicators.contrib.hma:HMA",
+      "module": "backtrader.indicators.contrib.hma",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "OsHMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.hma:OsHMAIndicator",
+      "module": "backtrader.indicators.contrib.hma",
+      "param_names": [
+        "fast_hma",
+        "slow_hma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "I4DRFV2",
+      "entry_id": "backtrader.indicators.contrib.i4_drfv2:I4DRFV2",
+      "module": "backtrader.indicators.contrib.i4_drfv2",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "I4DRFV3",
+      "entry_id": "backtrader.indicators.contrib.i4_drfv3:I4DRFV3",
+      "module": "backtrader.indicators.contrib.i4_drfv3",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IAnchMomIndicator",
+      "entry_id": "backtrader.indicators.contrib.i_anch_mom_indicator:IAnchMomIndicator",
+      "module": "backtrader.indicators.contrib.i_anch_mom_indicator",
+      "param_names": [
+        "sma_period",
+        "ema_period",
+        "price_type"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IDeMarkerSignIndicator",
+      "entry_id": "backtrader.indicators.contrib.i_de_marker_sign_indicator:IDeMarkerSignIndicator",
+      "module": "backtrader.indicators.contrib.i_de_marker_sign_indicator",
+      "param_names": [
+        "atr_period",
+        "demarker_period",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IGapIndicator",
+      "entry_id": "backtrader.indicators.contrib.i_gap_indicator:IGapIndicator",
+      "module": "backtrader.indicators.contrib.i_gap_indicator",
+      "param_names": [
+        "size_gap",
+        "point",
+        "atr_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IStochKomposterIndicator",
+      "entry_id": "backtrader.indicators.contrib.i_stoch_komposter_indicator:IStochKomposterIndicator",
+      "module": "backtrader.indicators.contrib.i_stoch_komposter_indicator",
+      "param_names": [
+        "atr_period",
+        "k_period",
+        "d_period",
+        "slowing",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ITrendIndicator",
+      "entry_id": "backtrader.indicators.contrib.i_trend_indicator:ITrendIndicator",
+      "module": "backtrader.indicators.contrib.i_trend_indicator",
+      "param_names": [
+        "price_type",
+        "ma_period",
+        "ma_type",
+        "ma_price",
+        "bb_period",
+        "deviation",
+        "bb_price",
+        "bb_mode"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IAMMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.iamma_indicator:IAMMAIndicator",
+      "module": "backtrader.indicators.contrib.iamma_indicator",
+      "param_names": [
+        "ma_period",
+        "price_shift",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IndexedMovingAverage",
+      "entry_id": "backtrader.indicators.contrib.indexed_moving_average:IndexedMovingAverage",
+      "module": "backtrader.indicators.contrib.indexed_moving_average",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "InstantaneousTrendFilterIndicator",
+      "entry_id": "backtrader.indicators.contrib.instantaneous_trend_filter_indicator:InstantaneousTrendFilterIndicator",
+      "module": "backtrader.indicators.contrib.instantaneous_trend_filter_indicator",
+      "param_names": [
+        "alpha"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "InverseReactionIndicator",
+      "entry_id": "backtrader.indicators.contrib.inverse_reaction_indicator:InverseReactionIndicator",
+      "module": "backtrader.indicators.contrib.inverse_reaction_indicator",
+      "param_names": [
+        "ma_period",
+        "coefficient"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IRSISignIndicator",
+      "entry_id": "backtrader.indicators.contrib.irsi_sign_indicator:IRSISignIndicator",
+      "module": "backtrader.indicators.contrib.irsi_sign_indicator",
+      "param_names": [
+        "atr_period",
+        "rsi_period",
+        "rsi_price",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IWPRSignIndicator",
+      "entry_id": "backtrader.indicators.contrib.iwpr_sign_indicator:IWPRSignIndicator",
+      "module": "backtrader.indicators.contrib.iwpr_sign_indicator",
+      "param_names": [
+        "atr_period",
+        "wpr_period",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "JBrainTrend1SigIndicator",
+      "entry_id": "backtrader.indicators.contrib.j_brain_trend1_sig_indicator:JBrainTrend1SigIndicator",
+      "module": "backtrader.indicators.contrib.j_brain_trend1_sig_indicator",
+      "param_names": [
+        "atr_period",
+        "sto_period",
+        "ma_method",
+        "xlength"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UltraRSIIndicator",
+      "entry_id": "backtrader.indicators.contrib.j_brain_trend1_sig_indicator:UltraRSIIndicator",
+      "module": "backtrader.indicators.contrib.j_brain_trend1_sig_indicator",
+      "param_names": [
+        "rsi_period",
+        "applied_price",
+        "w_method",
+        "start_length",
+        "nstep",
+        "nsteps_total",
+        "smooth_method",
+        "smooth_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "JTpoProxy",
+      "entry_id": "backtrader.indicators.contrib.j_tpo_proxy:JTpoProxy",
+      "module": "backtrader.indicators.contrib.j_tpo_proxy",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "JMASlopeIndicator",
+      "entry_id": "backtrader.indicators.contrib.jma_slope_indicator:JMASlopeIndicator",
+      "module": "backtrader.indicators.contrib.jma_slope_indicator",
+      "param_names": [
+        "jlength",
+        "jphase",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KalmanFilterIndicator",
+      "entry_id": "backtrader.indicators.contrib.kalman_filter_indicator:KalmanFilterIndicator",
+      "module": "backtrader.indicators.contrib.kalman_filter_indicator",
+      "param_names": [
+        "k",
+        "applied_price",
+        "signal_mode",
+        "price_shift",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KalmanFilterLine",
+      "entry_id": "backtrader.indicators.contrib.kalman_filter_line:KalmanFilterLine",
+      "module": "backtrader.indicators.contrib.kalman_filter_line",
+      "param_names": [
+        "k",
+        "price_shift_points"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KalmanFilterCandleIndicator",
+      "entry_id": "backtrader.indicators.contrib.kalman_filter_line:KalmanFilterCandleIndicator",
+      "module": "backtrader.indicators.contrib.kalman_filter_line",
+      "param_names": [
+        "k",
+        "point",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KAMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.kama_indicator:KAMAIndicator",
+      "module": "backtrader.indicators.contrib.kama_indicator",
+      "param_names": [
+        "period",
+        "fast_period",
+        "slow_period",
+        "power"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorMomentumAMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.kama_indicator:ColorMomentumAMAIndicator",
+      "module": "backtrader.indicators.contrib.kama_indicator",
+      "param_names": [
+        "alength",
+        "ama_period",
+        "fast_ma_period",
+        "slow_ma_period",
+        "ipc",
+        "g"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KaracaticaIndicator",
+      "entry_id": "backtrader.indicators.contrib.karacatica_indicator:KaracaticaIndicator",
+      "module": "backtrader.indicators.contrib.karacatica_indicator",
+      "param_names": [
+        "iperiod"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KDJIndicator",
+      "entry_id": "backtrader.indicators.contrib.kdj_indicator:KDJIndicator",
+      "module": "backtrader.indicators.contrib.kdj_indicator",
+      "param_names": [
+        "m1",
+        "m2",
+        "kdj_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KwanCccIndicator",
+      "entry_id": "backtrader.indicators.contrib.kwan_ccc_indicator:KwanCccIndicator",
+      "module": "backtrader.indicators.contrib.kwan_ccc_indicator",
+      "param_names": [
+        "fast_ma_period",
+        "slow_ma_period",
+        "ma_method",
+        "cci_period",
+        "cci_price",
+        "momentum_period",
+        "momentum_price",
+        "xma_method",
+        "x_length",
+        "x_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KwanNrpIndicator",
+      "entry_id": "backtrader.indicators.contrib.kwan_nrp_indicator:KwanNrpIndicator",
+      "module": "backtrader.indicators.contrib.kwan_nrp_indicator",
+      "param_names": [
+        "k_period",
+        "d_period",
+        "slowing",
+        "rsi_period",
+        "momentum_period",
+        "x_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KwanRdpIndicator",
+      "entry_id": "backtrader.indicators.contrib.kwan_rdp_indicator:KwanRdpIndicator",
+      "module": "backtrader.indicators.contrib.kwan_rdp_indicator",
+      "param_names": [
+        "demarker_period",
+        "mfi_period",
+        "volume_type",
+        "momentum_period",
+        "momentum_price",
+        "xma_method",
+        "x_length",
+        "x_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreAdxIndicator",
+      "entry_id": "backtrader.indicators.contrib.laguerre_adx_indicator:LaguerreAdxIndicator",
+      "module": "backtrader.indicators.contrib.laguerre_adx_indicator",
+      "param_names": [
+        "adx_period",
+        "gamma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreFilterIndicator",
+      "entry_id": "backtrader.indicators.contrib.laguerre_filter_indicator:LaguerreFilterIndicator",
+      "module": "backtrader.indicators.contrib.laguerre_filter_indicator",
+      "param_names": [
+        "gamma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerrePlusDiProxy",
+      "entry_id": "backtrader.indicators.contrib.laguerre_plus_di_proxy:LaguerrePlusDiProxy",
+      "module": "backtrader.indicators.contrib.laguerre_plus_di_proxy",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreRocIndicator",
+      "entry_id": "backtrader.indicators.contrib.laguerre_roc_indicator:LaguerreRocIndicator",
+      "module": "backtrader.indicators.contrib.laguerre_roc_indicator",
+      "param_names": [
+        "vperiod",
+        "gamma",
+        "up_level",
+        "dn_level",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LeManSignalIndicator",
+      "entry_id": "backtrader.indicators.contrib.le_man_signal_indicator:LeManSignalIndicator",
+      "module": "backtrader.indicators.contrib.le_man_signal_indicator",
+      "param_names": [
+        "lperiod",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LinearRegSlopeV2Indicator",
+      "entry_id": "backtrader.indicators.contrib.linear_reg_slope_v2_indicator:LinearRegSlopeV2Indicator",
+      "module": "backtrader.indicators.contrib.linear_reg_slope_v2_indicator",
+      "param_names": [
+        "sl_method",
+        "sl_length",
+        "sl_phase",
+        "ipc",
+        "trigger_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LocoIndicator",
+      "entry_id": "backtrader.indicators.contrib.loco_indicator:LocoIndicator",
+      "module": "backtrader.indicators.contrib.loco_indicator",
+      "param_names": [
+        "length",
+        "ipc",
+        "price_shift_points"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LRMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.lrma_indicator:LRMAIndicator",
+      "module": "backtrader.indicators.contrib.lrma_indicator",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ChangeOfVolatilityIndicator",
+      "entry_id": "backtrader.indicators.contrib.lrma_indicator:ChangeOfVolatilityIndicator",
+      "module": "backtrader.indicators.contrib.lrma_indicator",
+      "param_names": [
+        "mperiod",
+        "short",
+        "long"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VininITrendLRMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.lrma_indicator:VininITrendLRMAIndicator",
+      "module": "backtrader.indicators.contrib.lrma_indicator",
+      "param_names": [
+        "lrma_period",
+        "ma_method1",
+        "length1",
+        "phase1",
+        "ma_step",
+        "ma_count",
+        "ma_method2",
+        "length2",
+        "phase2",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LsmaAngleIndicator",
+      "entry_id": "backtrader.indicators.contrib.lsma_angle_indicator:LsmaAngleIndicator",
+      "module": "backtrader.indicators.contrib.lsma_angle_indicator",
+      "param_names": [
+        "lsma_period",
+        "angle_threshold",
+        "start_shift",
+        "end_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MARoundingChannelIndicator",
+      "entry_id": "backtrader.indicators.contrib.ma_rounding_channel_indicator:MARoundingChannelIndicator",
+      "module": "backtrader.indicators.contrib.ma_rounding_channel_indicator",
+      "param_names": [
+        "xma_method",
+        "xlength",
+        "xphase",
+        "ipc",
+        "ma_round",
+        "atr_period",
+        "atr_factor",
+        "chan_continuity"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Macd2Indicator",
+      "entry_id": "backtrader.indicators.contrib.macd2_indicator:Macd2Indicator",
+      "module": "backtrader.indicators.contrib.macd2_indicator",
+      "param_names": [
+        "fast_macd",
+        "slow_macd",
+        "signal_macd"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MacdCandleIndicator",
+      "entry_id": "backtrader.indicators.contrib.macd_candle_indicator:MacdCandleIndicator",
+      "module": "backtrader.indicators.contrib.macd_candle_indicator",
+      "param_names": [
+        "fast_ema_period",
+        "slow_ema_period",
+        "signal_period",
+        "mode"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MalrIndicator",
+      "entry_id": "backtrader.indicators.contrib.malr_indicator:MalrIndicator",
+      "module": "backtrader.indicators.contrib.malr_indicator",
+      "param_names": [
+        "ma_period",
+        "ma_shift",
+        "channel_reversal",
+        "channel_breakout"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MomentumCandleSignIndicator",
+      "entry_id": "backtrader.indicators.contrib.momentum_candle_sign_indicator:MomentumCandleSignIndicator",
+      "module": "backtrader.indicators.contrib.momentum_candle_sign_indicator",
+      "param_names": [
+        "period",
+        "atr_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MovingAverageFNIndicator",
+      "entry_id": "backtrader.indicators.contrib.moving_average_fn_indicator:MovingAverageFNIndicator",
+      "module": "backtrader.indicators.contrib.moving_average_fn_indicator",
+      "param_names": [
+        "filter_number",
+        "xma_method",
+        "xlength",
+        "xphase",
+        "ipc",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Mt5StochasticCloseClose",
+      "entry_id": "backtrader.indicators.contrib.mt5_stochastic_close_close:Mt5StochasticCloseClose",
+      "module": "backtrader.indicators.contrib.mt5_stochastic_close_close",
+      "param_names": [
+        "k_period",
+        "d_period",
+        "slowing"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "MUVNorDiffCloudIndicator",
+      "entry_id": "backtrader.indicators.contrib.muv_nor_diff_cloud_indicator:MUVNorDiffCloudIndicator",
+      "module": "backtrader.indicators.contrib.muv_nor_diff_cloud_indicator",
+      "param_names": [
+        "ma_period",
+        "momentum",
+        "kperiod"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "NonLagDotIndicator",
+      "entry_id": "backtrader.indicators.contrib.non_lag_dot_indicator:NonLagDotIndicator",
+      "module": "backtrader.indicators.contrib.non_lag_dot_indicator",
+      "param_names": [
+        "length",
+        "filter_pts",
+        "deviation",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "NRTRExtrIndicator",
+      "entry_id": "backtrader.indicators.contrib.nrtr_extr_indicator:NRTRExtrIndicator",
+      "module": "backtrader.indicators.contrib.nrtr_extr_indicator",
+      "param_names": [
+        "iperiod",
+        "idig"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "NRTRIndicator",
+      "entry_id": "backtrader.indicators.contrib.nrtr_indicator:NRTRIndicator",
+      "module": "backtrader.indicators.contrib.nrtr_indicator",
+      "param_names": [
+        "iperiod",
+        "idig"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PChannelSystem",
+      "entry_id": "backtrader.indicators.contrib.p_channel_system:PChannelSystem",
+      "module": "backtrader.indicators.contrib.p_channel_system",
+      "param_names": [
+        "period",
+        "shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentEnvelope",
+      "entry_id": "backtrader.indicators.contrib.percent_envelope:PercentEnvelope",
+      "module": "backtrader.indicators.contrib.percent_envelope",
+      "param_names": [
+        "period",
+        "perc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PercentageCrossoverChannel",
+      "entry_id": "backtrader.indicators.contrib.percentage_crossover_channel:PercentageCrossoverChannel",
+      "module": "backtrader.indicators.contrib.percentage_crossover_channel",
+      "param_names": [
+        "percent"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PivotZigZagProxy",
+      "entry_id": "backtrader.indicators.contrib.pivot_zig_zag_proxy:PivotZigZagProxy",
+      "module": "backtrader.indicators.contrib.pivot_zig_zag_proxy",
+      "param_names": [
+        "depth"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PriceChannelStopIndicator",
+      "entry_id": "backtrader.indicators.contrib.price_channel_stop_indicator:PriceChannelStopIndicator",
+      "module": "backtrader.indicators.contrib.price_channel_stop_indicator",
+      "param_names": [
+        "channel_period",
+        "risk"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "PriceExtremeChannel",
+      "entry_id": "backtrader.indicators.contrib.price_extreme_channel:PriceExtremeChannel",
+      "module": "backtrader.indicators.contrib.price_extreme_channel",
+      "param_names": [
+        "multiplier"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "QQECloudIndicator",
+      "entry_id": "backtrader.indicators.contrib.qqe_cloud_indicator:QQECloudIndicator",
+      "module": "backtrader.indicators.contrib.qqe_cloud_indicator",
+      "param_names": [
+        "rsi_period",
+        "sf",
+        "darfactor",
+        "xma_method",
+        "xphase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RaviIndicator",
+      "entry_id": "backtrader.indicators.contrib.ravi_indicator:RaviIndicator",
+      "module": "backtrader.indicators.contrib.ravi_indicator",
+      "param_names": [
+        "fast_length",
+        "slow_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RawCloseCloseStochastic",
+      "entry_id": "backtrader.indicators.contrib.raw_close_close_stochastic:RawCloseCloseStochastic",
+      "module": "backtrader.indicators.contrib.raw_close_close_stochastic",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "CloseCloseEmaStochastic",
+      "entry_id": "backtrader.indicators.contrib.raw_close_close_stochastic:CloseCloseEmaStochastic",
+      "module": "backtrader.indicators.contrib.raw_close_close_stochastic",
+      "param_names": [
+        "period",
+        "slowing",
+        "dperiod"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RDTrendTriggerIndicator",
+      "entry_id": "backtrader.indicators.contrib.rd_trend_trigger_indicator:RDTrendTriggerIndicator",
+      "module": "backtrader.indicators.contrib.rd_trend_trigger_indicator",
+      "param_names": [
+        "regress",
+        "t3_length",
+        "t3_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RenkoLevel",
+      "entry_id": "backtrader.indicators.contrib.renko_level:RenkoLevel",
+      "module": "backtrader.indicators.contrib.renko_level",
+      "param_names": [
+        "size_of_block",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RenkoLineBreak",
+      "entry_id": "backtrader.indicators.contrib.renko_line_break:RenkoLineBreak",
+      "module": "backtrader.indicators.contrib.renko_line_break",
+      "param_names": [
+        "min_box_size",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RFTLIndicator",
+      "entry_id": "backtrader.indicators.contrib.rftl_indicator:RFTLIndicator",
+      "module": "backtrader.indicators.contrib.rftl_indicator",
+      "param_names": [
+        "weights"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RKDIndicator",
+      "entry_id": "backtrader.indicators.contrib.rkd_indicator:RKDIndicator",
+      "module": "backtrader.indicators.contrib.rkd_indicator",
+      "param_names": [
+        "kd_period",
+        "m1",
+        "m2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ROC2VGIndicator",
+      "entry_id": "backtrader.indicators.contrib.roc2_vg_indicator:ROC2VGIndicator",
+      "module": "backtrader.indicators.contrib.roc2_vg_indicator",
+      "param_names": [
+        "roc_period1",
+        "roc_type1",
+        "roc_period2",
+        "roc_type2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RSIHistogramIndicator",
+      "entry_id": "backtrader.indicators.contrib.rsi_histogram_indicator:RSIHistogramIndicator",
+      "module": "backtrader.indicators.contrib.rsi_histogram_indicator",
+      "param_names": [
+        "rsi_period",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RSISlowdown",
+      "entry_id": "backtrader.indicators.contrib.rsi_slowdown:RSISlowdown",
+      "module": "backtrader.indicators.contrib.rsi_slowdown",
+      "param_names": [
+        "rsi_period",
+        "level_max",
+        "level_min",
+        "seek_slowdown"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RsiomaV2",
+      "entry_id": "backtrader.indicators.contrib.rsioma_v2:RsiomaV2",
+      "module": "backtrader.indicators.contrib.rsioma_v2",
+      "param_names": [
+        "rsioma_period",
+        "ma_rsioma_period",
+        "mom_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RVIHistogramIndicator",
+      "entry_id": "backtrader.indicators.contrib.rvi_histogram_indicator:RVIHistogramIndicator",
+      "module": "backtrader.indicators.contrib.rvi_histogram_indicator",
+      "param_names": [
+        "rvi_period",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SafeADX",
+      "entry_id": "backtrader.indicators.contrib.safe_adx:SafeADX",
+      "module": "backtrader.indicators.contrib.safe_adx",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SafeAMA",
+      "entry_id": "backtrader.indicators.contrib.safe_adx:SafeAMA",
+      "module": "backtrader.indicators.contrib.safe_adx",
+      "param_names": [
+        "period",
+        "fast_period",
+        "slow_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SkyscraperFixIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SkyscraperFixIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "length",
+        "kv",
+        "percentage",
+        "use_high_low",
+        "atr_period",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SkyscraperFixDuplexIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SkyscraperFixDuplexIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "length",
+        "kv",
+        "percentage",
+        "use_high_low",
+        "atr_period",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SkyscraperFixColorAMLIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SkyscraperFixColorAMLIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "length",
+        "kv",
+        "percentage",
+        "use_high_low",
+        "atr_period",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AppliedPriceCCI",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:AppliedPriceCCI",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period",
+        "factor"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorAMLIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:ColorAMLIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fractal",
+        "lag",
+        "shift",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorAMLMeanReversionIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:ColorAMLMeanReversionIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fractal",
+        "lag",
+        "shift",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "X2MACandleApprox",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:X2MACandleApprox",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "length1",
+        "phase1",
+        "length2",
+        "phase2",
+        "gap"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XPeriodCandleColor",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:XPeriodCandleColor",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "cperiod",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XPeriodCandleSystemColor",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:XPeriodCandleSystemColor",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period",
+        "bb_length",
+        "bands_deviation"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AcceleratorOscillator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:AcceleratorOscillator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AIAcceleratorOscillator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:AIAcceleratorOscillator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AdaptiveMarketLevel",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:AdaptiveMarketLevel",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fractal",
+        "lag",
+        "shift",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AmlIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:AmlIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fractal",
+        "lag",
+        "shift",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FunctionalAwesomeOscillator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:FunctionalAwesomeOscillator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fast",
+        "slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "AIAwesomeOscillator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:AIAwesomeOscillator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fast",
+        "slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauErgodicMDI",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:BlauErgodicMDI",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BlauErgodicMDIClassic",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:BlauErgodicMDIClassic",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "xlength",
+        "xlength1",
+        "xlength2",
+        "xlength3",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "BrakeExpIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:BrakeExpIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "a",
+        "b"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FlatTrendIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:FlatTrendIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "FlatTrendDistanceIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:FlatTrendDistanceIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "stdev_period",
+        "stdev_method",
+        "stdev_length",
+        "stdev_phase",
+        "atr_period",
+        "atr_method",
+        "atr_length",
+        "atr_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "IinMASignalIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:IinMASignalIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "fast_period",
+        "fast_ma",
+        "slow_period",
+        "slow_ma",
+        "atr_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "KDJ",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:KDJ",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period",
+        "period_dfast",
+        "period_dslow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:LaguerreIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "gamma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "LaguerreColorIndicator",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:LaguerreColorIndicator",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "gamma",
+        "high_level",
+        "middle_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "RelativeVigorIndex",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:RelativeVigorIndex",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SmoothedRelativeVigorIndex",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SmoothedRelativeVigorIndex",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SafeCCI",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SafeCCI",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SafeCCIWithFactor",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SafeCCIWithFactor",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "period",
+        "factor"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SilverTrendSignalProxy",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SilverTrendSignalProxy",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "risk"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SilverTrendDirectionSignalProxy",
+      "entry_id": "backtrader.indicators.contrib.shared_strategy_indicators:SilverTrendDirectionSignalProxy",
+      "module": "backtrader.indicators.contrib.shared_strategy_indicators",
+      "param_names": [
+        "risk"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SidusIndicator",
+      "entry_id": "backtrader.indicators.contrib.sidus_indicator:SidusIndicator",
+      "module": "backtrader.indicators.contrib.sidus_indicator",
+      "param_names": [
+        "fast_ema",
+        "slow_ema",
+        "fast_lwma",
+        "slow_lwma",
+        "digit"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SilverTrendIndicator",
+      "entry_id": "backtrader.indicators.contrib.silver_trend_indicator:SilverTrendIndicator",
+      "module": "backtrader.indicators.contrib.silver_trend_indicator",
+      "param_names": [
+        "ssp",
+        "risk"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SlidingRangeColor",
+      "entry_id": "backtrader.indicators.contrib.sliding_range_color:SlidingRangeColor",
+      "module": "backtrader.indicators.contrib.sliding_range_color",
+      "param_names": [
+        "up_calc_period_range",
+        "up_calc_period_shift",
+        "dn_calc_period_range",
+        "dn_calc_period_shift",
+        "up_digit",
+        "dn_digit"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SlowStoch",
+      "entry_id": "backtrader.indicators.contrib.slow_stoch:SlowStoch",
+      "module": "backtrader.indicators.contrib.slow_stoch",
+      "param_names": [
+        "k_period",
+        "d_period",
+        "slowing",
+        "xlength"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SmoothedADXIndicator",
+      "entry_id": "backtrader.indicators.contrib.smoothed_adx_indicator:SmoothedADXIndicator",
+      "module": "backtrader.indicators.contrib.smoothed_adx_indicator",
+      "param_names": [
+        "xma_method",
+        "adx_period",
+        "adx_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SmoothedRsi",
+      "entry_id": "backtrader.indicators.contrib.smoothed_rsi:SmoothedRsi",
+      "module": "backtrader.indicators.contrib.smoothed_rsi",
+      "param_names": [
+        "period",
+        "smoothing"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "SpearmanRankCorrelationHistogram",
+      "entry_id": "backtrader.indicators.contrib.spearman_rank_correlation_histogram:SpearmanRankCorrelationHistogram",
+      "module": "backtrader.indicators.contrib.spearman_rank_correlation_histogram",
+      "param_names": [
+        "range_n",
+        "direction",
+        "in_high_level",
+        "in_low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StalinIndicator",
+      "entry_id": "backtrader.indicators.contrib.stalin_indicator:StalinIndicator",
+      "module": "backtrader.indicators.contrib.stalin_indicator",
+      "param_names": [
+        "ma_method",
+        "fast",
+        "slow",
+        "rsi_period",
+        "confirm",
+        "flat",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StarterLaguerreFilter",
+      "entry_id": "backtrader.indicators.contrib.starter_laguerre_filter:StarterLaguerreFilter",
+      "module": "backtrader.indicators.contrib.starter_laguerre_filter",
+      "param_names": [
+        "gamma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StepMANRTRIndicator",
+      "entry_id": "backtrader.indicators.contrib.step_manrtr_indicator:StepMANRTRIndicator",
+      "module": "backtrader.indicators.contrib.step_manrtr_indicator",
+      "param_names": [
+        "length",
+        "kv",
+        "step_size",
+        "percentage",
+        "switch"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "StochasticHistogramIndicator",
+      "entry_id": "backtrader.indicators.contrib.stochastic_histogram_indicator:StochasticHistogramIndicator",
+      "module": "backtrader.indicators.contrib.stochastic_histogram_indicator",
+      "param_names": [
+        "k_period",
+        "d_period",
+        "slowing",
+        "ma_method",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "T3AlarmIndicator",
+      "entry_id": "backtrader.indicators.contrib.t3_alarm_indicator:T3AlarmIndicator",
+      "module": "backtrader.indicators.contrib.t3_alarm_indicator",
+      "param_names": [
+        "ma_period",
+        "ma_shift",
+        "ma_method",
+        "ma_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "T3Average",
+      "entry_id": "backtrader.indicators.contrib.t3_average:T3Average",
+      "module": "backtrader.indicators.contrib.t3_average",
+      "param_names": [
+        "period",
+        "vfactor"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "T3Trix",
+      "entry_id": "backtrader.indicators.contrib.t3_average:T3Trix",
+      "module": "backtrader.indicators.contrib.t3_average",
+      "param_names": [
+        "xlength1",
+        "xlength2",
+        "xphase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "T3Indicator",
+      "entry_id": "backtrader.indicators.contrib.t3_indicator:T3Indicator",
+      "module": "backtrader.indicators.contrib.t3_indicator",
+      "param_names": [
+        "period",
+        "vfactor"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "The20sV020Signal",
+      "entry_id": "backtrader.indicators.contrib.the20s_v020_signal:The20sV020Signal",
+      "module": "backtrader.indicators.contrib.the20s_v020_signal",
+      "param_names": [
+        "alg",
+        "level",
+        "ratio",
+        "direct",
+        "atr_period",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ThreeCandlesIndicator",
+      "entry_id": "backtrader.indicators.contrib.three_candles_indicator:ThreeCandlesIndicator",
+      "module": "backtrader.indicators.contrib.three_candles_indicator",
+      "param_names": [
+        "max_bar1",
+        "volume_type"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ThreeLineBreakIndicator",
+      "entry_id": "backtrader.indicators.contrib.three_line_break_indicator:ThreeLineBreakIndicator",
+      "module": "backtrader.indicators.contrib.three_line_break_indicator",
+      "param_names": [
+        "lines_break"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TimeLine",
+      "entry_id": "backtrader.indicators.contrib.time_line:TimeLine",
+      "module": "backtrader.indicators.contrib.time_line",
+      "param_names": [
+        "day_end_time"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TradingChannelIndexProxy",
+      "entry_id": "backtrader.indicators.contrib.trading_channel_index_proxy:TradingChannelIndexProxy",
+      "module": "backtrader.indicators.contrib.trading_channel_index_proxy",
+      "param_names": [
+        "length1",
+        "length2",
+        "coeff",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrendArrowsIndicator",
+      "entry_id": "backtrader.indicators.contrib.trend_arrows_indicator:TrendArrowsIndicator",
+      "module": "backtrader.indicators.contrib.trend_arrows_indicator",
+      "param_names": [
+        "iperiod",
+        "ifullperiods"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrendContinuationIndicator",
+      "entry_id": "backtrader.indicators.contrib.trend_continuation_indicator:TrendContinuationIndicator",
+      "module": "backtrader.indicators.contrib.trend_continuation_indicator",
+      "param_names": [
+        "nperiod",
+        "xmethod",
+        "xperiod",
+        "xphase",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrendIntensityIndexProxy",
+      "entry_id": "backtrader.indicators.contrib.trend_intensity_index_proxy:TrendIntensityIndexProxy",
+      "module": "backtrader.indicators.contrib.trend_intensity_index_proxy",
+      "param_names": [
+        "length1",
+        "length2",
+        "high_level",
+        "low_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TrendManagerIndicator",
+      "entry_id": "backtrader.indicators.contrib.trend_manager_indicator:TrendManagerIndicator",
+      "module": "backtrader.indicators.contrib.trend_manager_indicator",
+      "param_names": [
+        "length1",
+        "length2"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TriXCandleIndicator",
+      "entry_id": "backtrader.indicators.contrib.tri_x_candle_indicator:TriXCandleIndicator",
+      "module": "backtrader.indicators.contrib.tri_x_candle_indicator",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TriggerLine",
+      "entry_id": "backtrader.indicators.contrib.trigger_line:TriggerLine",
+      "module": "backtrader.indicators.contrib.trigger_line",
+      "param_names": [
+        "rperiod",
+        "lsma_period",
+        "price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TripleEmaRate",
+      "entry_id": "backtrader.indicators.contrib.triple_ema_rate:TripleEmaRate",
+      "module": "backtrader.indicators.contrib.triple_ema_rate",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TRVIIndicator",
+      "entry_id": "backtrader.indicators.contrib.trvi_indicator:TRVIIndicator",
+      "module": "backtrader.indicators.contrib.trvi_indicator",
+      "param_names": [
+        "period",
+        "volume_type"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ColorRMACDIndicator",
+      "entry_id": "backtrader.indicators.contrib.trvi_indicator:ColorRMACDIndicator",
+      "module": "backtrader.indicators.contrib.trvi_indicator",
+      "param_names": [
+        "fast_rvi",
+        "slow_trvi",
+        "volume_type",
+        "signal_method",
+        "signal_xma"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TwoPbIdealXOSMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.two_pb_ideal_xosma_indicator:TwoPbIdealXOSMAIndicator",
+      "module": "backtrader.indicators.contrib.two_pb_ideal_xosma_indicator",
+      "param_names": [
+        "period1",
+        "period2",
+        "periodx1",
+        "periodx2",
+        "periody1",
+        "periody2",
+        "periodz1",
+        "periodz2",
+        "smooth_method",
+        "smooth_period",
+        "smooth_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UltraAbsolutelyNoLagLwmaColor",
+      "entry_id": "backtrader.indicators.contrib.ultra_absolutely_no_lag_lwma_color:UltraAbsolutelyNoLagLwmaColor",
+      "module": "backtrader.indicators.contrib.ultra_absolutely_no_lag_lwma_color",
+      "param_names": [
+        "flength",
+        "start_length",
+        "pstep",
+        "psteps_total",
+        "smooth_length",
+        "up_level",
+        "dn_level"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UltraWPRIndicator",
+      "entry_id": "backtrader.indicators.contrib.ultra_wpr_indicator:UltraWPRIndicator",
+      "module": "backtrader.indicators.contrib.ultra_wpr_indicator",
+      "param_names": [
+        "wpr_period",
+        "w_method",
+        "start_length",
+        "w_phase",
+        "xstep",
+        "xsteps_total",
+        "smooth_method",
+        "smooth_length",
+        "smooth_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "UpDownCandleStrength",
+      "entry_id": "backtrader.indicators.contrib.up_down_candle_strength:UpDownCandleStrength",
+      "module": "backtrader.indicators.contrib.up_down_candle_strength",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VininITrendIndicator",
+      "entry_id": "backtrader.indicators.contrib.vinin_i_trend_indicator:VininITrendIndicator",
+      "module": "backtrader.indicators.contrib.vinin_i_trend_indicator",
+      "param_names": [
+        "ma_method1",
+        "length1",
+        "phase1",
+        "ma_step",
+        "ma_count",
+        "ma_method2",
+        "length2",
+        "phase2",
+        "ipc"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VolumeWeightedMAIndicator",
+      "entry_id": "backtrader.indicators.contrib.volume_weighted_ma_indicator:VolumeWeightedMAIndicator",
+      "module": "backtrader.indicators.contrib.volume_weighted_ma_indicator",
+      "param_names": [
+        "length",
+        "ipc",
+        "use_tick_volume"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VolumeWeightedMAStDevIndicator",
+      "entry_id": "backtrader.indicators.contrib.volume_weighted_ma_st_dev_indicator:VolumeWeightedMAStDevIndicator",
+      "module": "backtrader.indicators.contrib.volume_weighted_ma_st_dev_indicator",
+      "param_names": [
+        "length",
+        "ipc",
+        "use_tick_volume",
+        "dk1",
+        "dk2",
+        "std_period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Vortex",
+      "entry_id": "backtrader.indicators.contrib.vortex:Vortex",
+      "module": "backtrader.indicators.contrib.vortex",
+      "param_names": [
+        "period"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VWAPCloseIndicator",
+      "entry_id": "backtrader.indicators.contrib.vwap_close_indicator:VWAPCloseIndicator",
+      "module": "backtrader.indicators.contrib.vwap_close_indicator",
+      "param_names": [
+        "n"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VWMACandle",
+      "entry_id": "backtrader.indicators.contrib.vwma_candle:VWMACandle",
+      "module": "backtrader.indicators.contrib.vwma_candle",
+      "param_names": [
+        "length",
+        "use_tick_volume"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "VWMADigitSystem",
+      "entry_id": "backtrader.indicators.contrib.vwma_digit_system:VWMADigitSystem",
+      "module": "backtrader.indicators.contrib.vwma_digit_system",
+      "param_names": [
+        "length",
+        "digit",
+        "shift",
+        "use_tick_volume",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "Wami",
+      "entry_id": "backtrader.indicators.contrib.wami:Wami",
+      "module": "backtrader.indicators.contrib.wami",
+      "param_names": [
+        "period_ma1",
+        "period_ma2",
+        "period_ma3",
+        "period_sig",
+        "point_size"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "WPRSISignalIndicator",
+      "entry_id": "backtrader.indicators.contrib.wprsi_signal_indicator:WPRSISignalIndicator",
+      "module": "backtrader.indicators.contrib.wprsi_signal_indicator",
+      "param_names": [
+        "wprsi_period",
+        "filter_up",
+        "filter_dn"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XDeMarkerHistogramVolDirectIndicator",
+      "entry_id": "backtrader.indicators.contrib.x_de_marker_histogram_vol_direct_indicator:XDeMarkerHistogramVolDirectIndicator",
+      "module": "backtrader.indicators.contrib.x_de_marker_histogram_vol_direct_indicator",
+      "param_names": [
+        "de_marker_period",
+        "volume_type",
+        "high_level2",
+        "high_level1",
+        "low_level1",
+        "low_level2",
+        "ma_method",
+        "ma_length",
+        "ma_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XFisherIndicator",
+      "entry_id": "backtrader.indicators.contrib.x_fisher_indicator:XFisherIndicator",
+      "module": "backtrader.indicators.contrib.x_fisher_indicator",
+      "param_names": [
+        "flength",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XCCIHistogramVolDirectIndicator",
+      "entry_id": "backtrader.indicators.contrib.xcci_histogram_vol_direct_indicator:XCCIHistogramVolDirectIndicator",
+      "module": "backtrader.indicators.contrib.xcci_histogram_vol_direct_indicator",
+      "param_names": [
+        "cci_period",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XCCIHistogramVolIndicator",
+      "entry_id": "backtrader.indicators.contrib.xcci_histogram_vol_indicator:XCCIHistogramVolIndicator",
+      "module": "backtrader.indicators.contrib.xcci_histogram_vol_indicator",
+      "param_names": [
+        "cci_period",
+        "high_level2",
+        "high_level1",
+        "low_level1",
+        "low_level2",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XmaIchimoku",
+      "entry_id": "backtrader.indicators.contrib.xma_ichimoku:XmaIchimoku",
+      "module": "backtrader.indicators.contrib.xma_ichimoku",
+      "param_names": [
+        "up_period",
+        "dn_period",
+        "up_mode",
+        "dn_mode",
+        "xma_method",
+        "x_length",
+        "x_phase",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "TwoXmaIchimokuOscillator",
+      "entry_id": "backtrader.indicators.contrib.xma_ichimoku:TwoXmaIchimokuOscillator",
+      "module": "backtrader.indicators.contrib.xma_ichimoku",
+      "param_names": [
+        "up_period1",
+        "dn_period1",
+        "up_period2",
+        "dn_period2",
+        "up_mode1",
+        "dn_mode1",
+        "up_mode2",
+        "dn_mode2",
+        "xma1_method",
+        "xma2_method",
+        "x_length1",
+        "x_length2",
+        "x_phase",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XMAIshimokuChannelIndicator",
+      "entry_id": "backtrader.indicators.contrib.xma_ishimoku_channel_indicator:XMAIshimokuChannelIndicator",
+      "module": "backtrader.indicators.contrib.xma_ishimoku_channel_indicator",
+      "param_names": [
+        "up_period",
+        "dn_period",
+        "up_mode",
+        "dn_mode",
+        "xma_method",
+        "xlength",
+        "xphase",
+        "up_percent",
+        "dn_percent",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XMAIshimokuLine",
+      "entry_id": "backtrader.indicators.contrib.xma_ishimoku_line:XMAIshimokuLine",
+      "module": "backtrader.indicators.contrib.xma_ishimoku_line",
+      "param_names": [
+        "up_period",
+        "dn_period",
+        "xma_method",
+        "xlength",
+        "xphase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XMARangeBandsIndicator",
+      "entry_id": "backtrader.indicators.contrib.xma_range_bands_indicator:XMARangeBandsIndicator",
+      "module": "backtrader.indicators.contrib.xma_range_bands_indicator",
+      "param_names": [
+        "ma_method1",
+        "length1",
+        "phase1",
+        "ma_method2",
+        "length2",
+        "phase2",
+        "deviation",
+        "ipc",
+        "price_shift"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XMACDIndicator",
+      "entry_id": "backtrader.indicators.contrib.xmacd_indicator:XMACDIndicator",
+      "module": "backtrader.indicators.contrib.xmacd_indicator",
+      "param_names": [
+        "ma_method",
+        "signal_method",
+        "fast_period",
+        "slow_period",
+        "signal_period",
+        "applied_price"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XrsiDeMarkerHistogram",
+      "entry_id": "backtrader.indicators.contrib.xrsi_de_marker_histogram:XrsiDeMarkerHistogram",
+      "module": "backtrader.indicators.contrib.xrsi_de_marker_histogram",
+      "param_names": [
+        "ind_period",
+        "rsi_price",
+        "high_level",
+        "low_level",
+        "xma_method",
+        "x_length",
+        "x_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XRSIHistogramVolDirectIndicator",
+      "entry_id": "backtrader.indicators.contrib.xrsi_histogram_vol_direct_indicator:XRSIHistogramVolDirectIndicator",
+      "module": "backtrader.indicators.contrib.xrsi_histogram_vol_direct_indicator",
+      "param_names": [
+        "rsi_period",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XRSIHistogramVolIndicator",
+      "entry_id": "backtrader.indicators.contrib.xrsi_histogram_vol_indicator:XRSIHistogramVolIndicator",
+      "module": "backtrader.indicators.contrib.xrsi_histogram_vol_indicator",
+      "param_names": [
+        "rsi_period",
+        "high_level2",
+        "high_level1",
+        "low_level1",
+        "low_level2",
+        "ma_length"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "XRVIIndicator",
+      "entry_id": "backtrader.indicators.contrib.xrvi_indicator:XRVIIndicator",
+      "module": "backtrader.indicators.contrib.xrvi_indicator",
+      "param_names": [
+        "rvi_method",
+        "rvi_period",
+        "rvi_phase",
+        "sign_method",
+        "sign_period",
+        "sign_phase"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ZeroLagMacd",
+      "entry_id": "backtrader.indicators.contrib.zero_lag_macd:ZeroLagMacd",
+      "module": "backtrader.indicators.contrib.zero_lag_macd",
+      "param_names": [
+        "fast",
+        "slow"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ZigZagRecentPivotSignal",
+      "entry_id": "backtrader.indicators.contrib.zig_zag_recent_pivot_signal:ZigZagRecentPivotSignal",
+      "module": "backtrader.indicators.contrib.zig_zag_recent_pivot_signal",
+      "param_names": [
+        "depth",
+        "deviation",
+        "backstep",
+        "point"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    },
+    {
+      "class_name": "ZPFIndicator",
+      "entry_id": "backtrader.indicators.contrib.zpf_indicator:ZPFIndicator",
+      "module": "backtrader.indicators.contrib.zpf_indicator",
+      "param_names": [
+        "xma_method",
+        "xlength",
+        "xphase",
+        "ipc",
+        "volume_type"
+      ],
+      "schema_version": "indicator-entry-v1",
+      "source_available": false
+    }
+  ],
+  "mode": "snapshot",
+  "provenance": {
+    "extraction": "ast-static-v1",
+    "scan": "read-only"
+  },
+  "registry_id": "backtrader-indicator-registry-v1",
+  "schema_version": "indicator-registry-v1"
+}

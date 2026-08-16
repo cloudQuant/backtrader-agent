@@ -37,6 +37,7 @@ from .data import DatasetService
 from .engines import inspect_engine, inspect_execution_environment
 from .errors import AgentError
 from .locking import exclusive_file_lock
+from .memory import MemoryStore
 from .roots import RootRegistry
 from .runner import ControlledRunner
 from .runner.execute import (
@@ -802,9 +803,12 @@ def run_sweep(
     verified per-cell results under the same token and effect. A whitelisted
     transient cell failure retries once; a cell that fails anywhere in its
     pipeline with a domain error is persisted as a failed cell record and the
-    remaining cells still complete. An unexpected in-process exception
-    journals the session FAILED before re-raising so the sweep never silently
-    strands in RUNNING.
+    remaining cells still complete. On completion the top-5 ranked passed
+    cells are recorded as cross-session parameter priors for the plan
+    archetype (R22); a priors write failure journals FAILED before re-raising
+    so the sweep never reports success with the priors record missing. An
+    unexpected in-process exception journals the session FAILED before
+    re-raising so the sweep never silently strands in RUNNING.
     """
 
     state_root = Path(state)
@@ -901,6 +905,27 @@ def run_sweep(
                 completed += 1
             else:
                 failed += 1
+        try:
+            _record_priors(state_root, plan)
+        except AgentError as exc:
+            # The cross-session priors effect is part of a complete sweep:
+            # journal FAILED (retryable via a replayed run) instead of ever
+            # reporting success with the priors record missing.
+            _mark_sweep_failed(
+                sessions, plan, sweep_id, completed, failed, code=exc.code
+            )
+            raise
+        except Exception:
+            # Unexpected in-process priors failure: never strand the session.
+            _mark_sweep_failed(
+                sessions,
+                plan,
+                sweep_id,
+                completed,
+                failed,
+                code="BTAG-SWEEP-CRASH",
+            )
+            raise
         pending = len(cells) - len(attempted)
         final_state = "PASSED" if failed == 0 else "FAILED"
         effects = {
@@ -972,6 +997,43 @@ def _load_cell_result(
         ):
             raise AgentError("BTAG-SWEEP-RESULT", "cell run manifest is invalid")
     return result
+
+
+def _record_priors(state_root: Path, plan: Dict[str, Any]) -> None:
+    """Persist the sweep's top-5 ranked passed cells as parameter priors (R22).
+
+    Every passed cell's verified run result contributes its params and
+    ``final_value`` to the cross-session memory store under the plan
+    archetype; the store merges, deduplicates, and keeps the best 5 by
+    ranking. A sweep with no passed cells records nothing.
+    """
+
+    entries: List[Dict[str, Any]] = []
+    for cell in plan["cells"]:
+        result = _load_cell_result(state_root, plan, cell)
+        if result is None or result.get("status") != "passed":
+            continue
+        metrics = result.get("metrics")
+        entries.append(
+            {
+                "sweep_id": plan["sweep_id"],
+                "cell_id": cell["cell_id"],
+                "params": cell["params"],
+                # A missing/non-finite final_value is rejected as a contained
+                # domain failure by ``record_priors`` instead of escaping here.
+                "final_value": (
+                    metrics.get("final_value") if isinstance(metrics, dict) else None
+                ),
+            }
+        )
+    if not entries:
+        return
+    archetype = plan["spec"].get("archetype")
+    if not isinstance(archetype, str) or not archetype:
+        raise AgentError(
+            "BTAG-SWEEP-ARCHETYPE", "sweep plan spec declares no archetype"
+        )
+    MemoryStore(state_root).record_priors(archetype, entries)
 
 
 def sweep_report(state: Path, sweep_id: str) -> Dict[str, Any]:

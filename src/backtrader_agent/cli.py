@@ -19,6 +19,7 @@ from .doctor import diagnose
 from .engines import inspect_engine, inspect_execution_environment
 from .errors import AgentError
 from .installer import AdapterInstaller
+from .memory import MemoryStore
 from .observability import record_call
 from .repair import RepairWorkflow
 from .report import compare_metrics, normalize_metrics
@@ -401,6 +402,25 @@ def build_parser() -> argparse.ArgumentParser:
     )
     sweep_report_action.add_argument("--sweep-id", required=True)
 
+    memory_cmd = sub.add_parser(
+        "memory", help="inspect and annotate the cross-session memory store"
+    )
+    memory_sub = memory_cmd.add_subparsers(dest="memory_command", required=True)
+    memory_list = memory_sub.add_parser("list")
+    memory_list_mode = memory_list.add_mutually_exclusive_group()
+    memory_list_mode.add_argument(
+        "--datasets", action="store_true", help="list dataset memory records"
+    )
+    memory_list_mode.add_argument(
+        "--params", action="store_true", help="list sweep parameter priors"
+    )
+    memory_list.add_argument(
+        "--archetype", help="restrict --params output to one archetype"
+    )
+    memory_note = memory_sub.add_parser("note")
+    memory_note.add_argument("--dataset-id", required=True)
+    memory_note.add_argument("--note", required=True)
+
     session = sub.add_parser(
         "session", help="create, inspect, recover, cancel, or archive"
     )
@@ -706,6 +726,22 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
                 timeout_per_cell=args.timeout_per_cell,
             )
         return sweep_report(state, args.sweep_id)
+    if args.command == "memory":
+        store = MemoryStore(state)
+        if args.memory_command == "note":
+            store.note_dataset(args.dataset_id, args.note)
+            return {
+                "dataset_id": args.dataset_id,
+                "note": args.note,
+                "status": "recorded",
+            }
+        if getattr(args, "params", False):
+            if args.archetype:
+                return {"priors": store.param_priors(args.archetype)}
+            return {"priors": store.priors()}
+        if args.archetype:
+            raise AgentError("BTAG-MEMORY-INPUT", "--archetype requires --params")
+        return {"datasets": store.datasets()}
     if args.command == "session":
         sessions = SessionStore(state)
         if args.session_command == "create":

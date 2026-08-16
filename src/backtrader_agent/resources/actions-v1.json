@@ -635,6 +635,75 @@
         }
       ]
     },
+    "memory": {
+      "help": "inspect and annotate the cross-session memory store",
+      "params": []
+    },
+    "memory list": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": false,
+          "help": "list dataset memory records",
+          "name": "datasets",
+          "option_strings": [
+            "--datasets"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": "list sweep parameter priors",
+          "name": "params",
+          "option_strings": [
+            "--params"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "restrict --params output to one archetype",
+          "name": "archetype",
+          "option_strings": [
+            "--archetype"
+          ],
+          "required": false,
+          "type": null
+        }
+      ]
+    },
+    "memory note": {
+      "help": null,
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "dataset_id",
+          "option_strings": [
+            "--dataset-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "note",
+          "option_strings": [
+            "--note"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
     "payload": {
       "help": "return packaged product-owned agent instructions",
       "params": []

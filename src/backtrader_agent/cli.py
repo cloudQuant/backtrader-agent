@@ -215,6 +215,16 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument(
         "--json", action="store_true", help="emit machine-readable JSON"
     )
+    doctor.add_argument(
+        "--audit",
+        action="store_true",
+        help="append a read-only state-root health audit as `diagnostics`",
+    )
+    doctor.add_argument(
+        "--audit-deep",
+        action="store_true",
+        help="audit with full per-file CAS hash verification (implies --audit)",
+    )
     backtrader = sub.add_parser(
         "backtrader",
         help="inspect or install the required CloudQuant Backtrader runtime",
@@ -432,7 +442,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     if args.command == "doctor":
-        return diagnose(state_root=_state(args))
+        return diagnose(
+            state_root=_state(args),
+            audit=getattr(args, "audit", False),
+            audit_deep=getattr(args, "audit_deep", False),
+        )
     if args.command == "actions":
         return build_action_schema(build_parser())
     if args.command == "backtrader":
@@ -477,7 +491,7 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
             )
             return value
         if args.data_command == "list":
-            return {"datasets": service.list()}
+            return service.list()
         return service.preview(args.dataset_id, rows=args.rows)
     if args.command == "spec":
         specification = StrategySpec.from_dict(_json_load(args.file))
@@ -703,11 +717,11 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
         if args.session_command == "cancel":
             return sessions.cancel(args.session_id)
         if args.session_command == "list":
-            return {"sessions": sessions.list()}
+            return sessions.list()
         return sessions.archive(args.session_id)
     if args.command == "runs":
         if args.runs_command == "list":
-            return {"runs": list_runs(state)}
+            return list_runs(state)
     if args.command == "install":
         installer = AdapterInstaller()
         if args.uninstall:

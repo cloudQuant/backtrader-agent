@@ -1,13 +1,15 @@
-"""Host invocation tracing (R19) and child output retention (R20)."""
+"""Host invocation tracing (R19), child output retention (R20), and the
+state-root health audit (R21)."""
 
 import json
+import time
 from pathlib import Path
 from typing import Any, Dict
 
 import pytest
 
 import backtrader_agent
-from backtrader_agent import cli
+from backtrader_agent import cli, doctor
 from backtrader_agent.canonical import hash_object
 from backtrader_agent.catalog import SnapshotCatalog
 from backtrader_agent.changes import ChangeManager
@@ -437,3 +439,199 @@ def test_over_quota_run_lands_redacted_tail_logs(tmp_path):
     assert text == "A" * 2000
     assert "truncated" not in text
     assert "BACKTRADER_AGENT_RESULT=" not in text
+
+
+# --- R21: doctor state-root audit --------------------------------------------
+
+
+def _drive_session_to_running(sessions: SessionStore, session_id: str) -> None:
+    """Walk one session through every legal transition up to RUNNING."""
+    chain = [
+        ("DATA_READY", "dataset-register"),
+        ("SPEC_DRAFT", "spec-draft"),
+        ("SPEC_APPROVED", "spec-approve"),
+        ("SOURCES_SELECTED", "sources-select"),
+        ("DRAFT_READY", "draft-render"),
+        ("VALIDATED", "strategy-validate"),
+        ("APPLY_PREPARED", "change-prepare"),
+        ("APPLIED", "change-apply"),
+        ("RUN_APPROVED", "run-approve"),
+        ("RUNNING", "run-start"),
+    ]
+    for to_state, action_type in chain:
+        sessions.transition(session_id, to_state, action_type, {"subject": action_type})
+
+
+def test_doctor_audit_reports_corrupt_journal(tmp_path):
+    state = tmp_path / "state"
+    sessions = SessionStore(state)
+    sessions.create("session-001")
+    journal = state / "sessions" / "session-001" / "journal.jsonl"
+    journal.write_text(journal.read_text() + '{"garbage": true}\n')
+    original = journal.read_bytes()
+    diags = doctor.audit_state(state)
+    assert any(d["code"] == "BTAG-AUDIT-JOURNAL" for d in diags)
+    # The audit is strictly read-only: the torn suffix stays untouched.
+    assert journal.read_bytes() == original
+
+
+def test_doctor_audit_reports_running_orphan(tmp_path, monkeypatch):
+    state = tmp_path / "state"
+    sessions = SessionStore(state)
+    sessions.create("session-orb")
+    _drive_session_to_running(sessions, "session-orb")
+    assert sessions.load("session-orb")["state"] == "RUNNING"
+    # A freshly RUNNING session is not an orphan.
+    assert not any(d["code"] == "BTAG-AUDIT-ORPHAN" for d in doctor.audit_state(state))
+    future = time.time() + doctor.ORPHAN_RUNNING_SECONDS + 60
+    monkeypatch.setattr(doctor.time, "time", lambda: future)
+    diags = doctor.audit_state(state)
+    assert any(d["code"] == "BTAG-AUDIT-ORPHAN" for d in diags)
+    assert any(
+        "session-orb" in d["message"] for d in diags if d["code"] == "BTAG-AUDIT-ORPHAN"
+    )
+
+
+def test_doctor_audit_clean_state_is_empty(tmp_path):
+    assert doctor.audit_state(tmp_path / "state") == []
+
+
+def test_doctor_audit_clean_registered_state_is_empty(tmp_path):
+    state = tmp_path / "state"
+    input_root = tmp_path / "input"
+    input_root.mkdir()
+    write_price_csv(input_root / "prices.csv", rows=40)
+    roots = RootRegistry(state)
+    roots.register("input", input_root, writable=False, kind="dataset")
+    SessionStore(state).create("session-clean")
+    DatasetService(roots, state).register(data_spec())
+    assert doctor.audit_state(state) == []
+
+
+def test_doctor_audit_deep_detects_cas_hash_violation(tmp_path):
+    state = tmp_path / "state"
+    input_root = tmp_path / "input"
+    input_root.mkdir()
+    write_price_csv(input_root / "prices.csv", rows=40)
+    roots = RootRegistry(state)
+    roots.register("input", input_root, writable=False, kind="dataset")
+    dataset = DatasetService(roots, state).register(data_spec())
+    cas_path = (
+        state
+        / dataset["feeds"][0]["extensions"]["backtrader_agent"]["cas_relative_path"]
+    )
+    assert cas_path.is_file()
+    cas_path.chmod(0o644)
+    cas_path.write_text("tampered\n", encoding="utf-8")
+    # The default audit checks counts and manifest references, not content.
+    assert not any(d["code"] == "BTAG-AUDIT-CAS" for d in doctor.audit_state(state))
+    diags = doctor.audit_state(state, deep=True)
+    assert any(d["code"] == "BTAG-AUDIT-CAS" for d in diags)
+
+
+def test_doctor_audit_reports_missing_cas_reference(tmp_path):
+    state = tmp_path / "state"
+    input_root = tmp_path / "input"
+    input_root.mkdir()
+    write_price_csv(input_root / "prices.csv", rows=40)
+    roots = RootRegistry(state)
+    roots.register("input", input_root, writable=False, kind="dataset")
+    dataset = DatasetService(roots, state).register(data_spec())
+    cas_path = (
+        state
+        / dataset["feeds"][0]["extensions"]["backtrader_agent"]["cas_relative_path"]
+    )
+    cas_path.unlink()
+    diags = doctor.audit_state(state)
+    assert any(d["code"] == "BTAG-AUDIT-CAS" for d in diags)
+
+
+def test_doctor_audit_reports_expired_approvals(tmp_path):
+    state = tmp_path / "state"
+    approvals = state / "approvals"
+    approvals.mkdir(parents=True)
+    (approvals / "aprq-expired.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "approval-request-v1",
+                "request_id": "aprq-expired",
+                "kind": "change",
+                "subject_hash": "a" * 64,
+                "state": "PENDING",
+                "expires_at": 1,
+            }
+        )
+    )
+    # A consumed approval is terminal: it never counts as accumulation.
+    (approvals / "aprq-consumed.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "approval-request-v1",
+                "request_id": "aprq-consumed",
+                "kind": "run",
+                "subject_hash": "b" * 64,
+                "state": "CONSUMED",
+                "expires_at": 1,
+            }
+        )
+    )
+    diags = doctor.audit_state(state)
+    matches = [d for d in diags if d["code"] == "BTAG-AUDIT-APPROVALS"]
+    assert len(matches) == 1
+    assert "1" in matches[0]["message"]
+
+
+def test_doctor_audit_reports_trace_violations(tmp_path):
+    state = tmp_path / "state"
+    trace_dir = state / "trace"
+    trace_dir.mkdir(parents=True)
+    (trace_dir / "global.jsonl").write_text(
+        '{"ok": true}\nnot a json line\n', encoding="utf-8"
+    )
+    (trace_dir / "stray.txt").write_text("stray", encoding="utf-8")
+    diags = doctor.audit_state(state)
+    trace_diags = [d for d in diags if d["code"] == "BTAG-AUDIT-TRACE"]
+    assert len(trace_diags) == 2
+    assert {d["severity"] for d in trace_diags} == {"error", "warning"}
+
+
+def test_doctor_audit_cli_flag_wires_diagnostics(tmp_path, capsys):
+    state = tmp_path / "state"
+    code = cli.main(["--state-root", str(state), "doctor", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert "diagnostics" not in payload["result"]
+    code = cli.main(["--state-root", str(state), "doctor", "--audit"])
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert payload["result"]["diagnostics"] == []
+    code = cli.main(["--state-root", str(state), "doctor", "--audit-deep"])
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 0
+    assert payload["result"]["diagnostics"] == []
+
+
+def test_listing_commands_report_skipped_counts(tmp_path, capsys):
+    state = tmp_path / "state"
+    SessionStore(state).create("session-good")
+    bad_session = state / "sessions" / "session-bad"
+    bad_session.mkdir(parents=True)
+    (bad_session / "manifest.json").write_text("{bad", encoding="utf-8")
+    datasets = state / "datasets"
+    datasets.mkdir(parents=True)
+    (datasets / "ds_bad.json").write_text("{bad", encoding="utf-8")
+    run_dir = state / "runs" / "run-bad"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run-result.json").write_text("{bad", encoding="utf-8")
+    cli.main(["--state-root", str(state), "session", "list"])
+    payload = json.loads(capsys.readouterr().out)
+    assert len(payload["result"]["sessions"]) == 1
+    assert payload["result"]["skipped"] == 1
+    cli.main(["--state-root", str(state), "data", "list"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["result"]["datasets"] == []
+    assert payload["result"]["skipped"] == 1
+    cli.main(["--state-root", str(state), "runs", "list"])
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["result"]["runs"] == []
+    assert payload["result"]["skipped"] == 1

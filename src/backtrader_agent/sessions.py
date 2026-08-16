@@ -88,9 +88,13 @@ class SessionStore:
         ):
             yield
 
-    def create(self, session_id: str, *, parent_session_id: Optional[str] = None) -> Dict[str, Any]:
+    def create(
+        self, session_id: str, *, parent_session_id: Optional[str] = None
+    ) -> Dict[str, Any]:
         with self._locked(session_id):
-            return self._create_unlocked(session_id, parent_session_id=parent_session_id)
+            return self._create_unlocked(
+                session_id, parent_session_id=parent_session_id
+            )
 
     def _create_unlocked(
         self, session_id: str, *, parent_session_id: Optional[str] = None
@@ -101,7 +105,9 @@ class SessionStore:
             existing = read_json(manifest_path)
             if existing.get("session_id") == session_id:
                 return existing
-            raise AgentError("BTAG-SESSION-CONFLICT", "session path contains another session")
+            raise AgentError(
+                "BTAG-SESSION-CONFLICT", "session path contains another session"
+            )
         directory.mkdir(parents=True, exist_ok=True)
         journal = directory / "journal.jsonl"
         self._ensure_empty_bootstrap_journal(journal)
@@ -138,7 +144,11 @@ class SessionStore:
 
         def verify_existing() -> None:
             try:
-                if journal.is_symlink() or not journal.is_file() or journal.read_bytes() != b"":
+                if (
+                    journal.is_symlink()
+                    or not journal.is_file()
+                    or journal.read_bytes() != b""
+                ):
                     raise AgentError(
                         "BTAG-SESSION-BOOTSTRAP",
                         "session bootstrap journal is not a safe empty regular file",
@@ -182,7 +192,9 @@ class SessionStore:
             {key: value for key, value in manifest.items() if key != "checkpoint_hash"}
         )
         if expected != actual:
-            raise AgentError("BTAG-SESSION-CHECKPOINT", "session checkpoint hash is invalid")
+            raise AgentError(
+                "BTAG-SESSION-CHECKPOINT", "session checkpoint hash is invalid"
+            )
         return manifest
 
     def _append(self, session_id: str, event: Dict[str, Any]) -> None:
@@ -239,8 +251,12 @@ class SessionStore:
                 "requested session state transition is not legal",
                 details={"from": from_state, "to": to_state},
             )
-        normalized_inputs = {str(key): str(value) for key, value in input_hashes.items()}
-        effects = {str(key): str(value) for key, value in (effect_references or {}).items()}
+        normalized_inputs = {
+            str(key): str(value) for key, value in input_hashes.items()
+        }
+        effects = {
+            str(key): str(value) for key, value in (effect_references or {}).items()
+        }
         if from_state == "FAILED" and to_state == "RUN_APPROVED":
             self._guard_retry_transition(manifest, normalized_inputs, effects)
         sequence = int(manifest["last_sequence"]) + 1
@@ -312,7 +328,9 @@ class SessionStore:
                 details={"from": "FAILED", "to": "RUN_APPROVED"},
             )
 
-    def _parse_valid_prefix(self, session_id: str, data: bytes) -> Tuple[List[Dict[str, Any]], int]:
+    def _parse_valid_prefix(
+        self, session_id: str, data: bytes
+    ) -> Tuple[List[Dict[str, Any]], int]:
         events: List[Dict[str, Any]] = []
         offset = 0
         expected_sequence = 1
@@ -337,7 +355,9 @@ class SessionStore:
                 or stored_hash != actual_hash
             ):
                 return events, line_start
-            if event.get("to_state") not in TRANSITIONS.get(event.get("from_state"), set()):
+            if event.get("to_state") not in TRANSITIONS.get(
+                event.get("from_state"), set()
+            ):
                 return events, line_start
             if events and event.get("from_state") != events[-1].get("to_state"):
                 return events, line_start
@@ -414,32 +434,43 @@ class SessionStore:
         with self._locked(session_id):
             manifest = self._load_unlocked(session_id)
             if manifest["state"] in TERMINAL:
-                raise AgentError("BTAG-STATE-TERMINAL", "terminal session cannot be cancelled")
-            return self._transition_unlocked(session_id, "CANCELLED", "session-cancel", {})
+                raise AgentError(
+                    "BTAG-STATE-TERMINAL", "terminal session cannot be cancelled"
+                )
+            return self._transition_unlocked(
+                session_id, "CANCELLED", "session-cancel", {}
+            )
 
     def archive(self, session_id: str) -> Dict[str, Any]:
         with self._locked(session_id):
             manifest = self._load_unlocked(session_id)
             if manifest["state"] not in {"COMPLETED", "CANCELLED"}:
                 raise AgentError(
-                    "BTAG-STATE-ARCHIVE", "only completed or cancelled sessions may archive"
+                    "BTAG-STATE-ARCHIVE",
+                    "only completed or cancelled sessions may archive",
                 )
-            return self._transition_unlocked(session_id, "ARCHIVED", "session-archive", {})
+            return self._transition_unlocked(
+                session_id, "ARCHIVED", "session-archive", {}
+            )
 
-    def list(self) -> List[Dict[str, Any]]:
-        """Return compact summaries of every session manifest on disk.
+    def list(self) -> Dict[str, Any]:
+        """Return compact summaries of every session manifest on disk plus the
+        count of corrupt records skipped (R21).
 
         Corrupt manifests are skipped so one damaged session cannot hide the
-        rest of the registry from a listing command.
+        rest of the registry from a listing command; the skip count is
+        reported so silent degradation stays visible.
         """
 
         if not self.sessions_root.is_dir():
-            return []
+            return {"sessions": [], "skipped": 0}
         summaries: List[Dict[str, Any]] = []
+        skipped = 0
         for path in sorted(self.sessions_root.glob("*/manifest.json")):
             try:
                 manifest = self.load(path.parent.name)
             except AgentError:
+                skipped += 1
                 continue
             summaries.append(
                 {
@@ -449,4 +480,4 @@ class SessionStore:
                     "last_sequence": manifest.get("last_sequence"),
                 }
             )
-        return summaries
+        return {"sessions": summaries, "skipped": skipped}

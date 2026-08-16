@@ -20,7 +20,15 @@ from .contracts import DatasetManifest
 from .errors import AgentError
 from .roots import RootRegistry
 
-STANDARD_COLUMNS = ("datetime", "open", "high", "low", "close", "volume", "openinterest")
+STANDARD_COLUMNS = (
+    "datetime",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "openinterest",
+)
 ALLOWED_FORMATS = set(ADAPTER_FORMATS)
 TIMEFRAMES = {
     "Ticks",
@@ -49,7 +57,9 @@ def _number(value: Any, name: str, *, default: Optional[str] = None) -> str:
             "BTAG-DATA-NUMERIC", f"column '{name}' contains a non-numeric value"
         ) from exc
     if not number.is_finite():
-        raise AgentError("BTAG-DATA-FINITE", f"column '{name}' contains NaN or Infinity")
+        raise AgentError(
+            "BTAG-DATA-FINITE", f"column '{name}' contains NaN or Infinity"
+        )
     if number == 0:
         return "0"
     return format(number.normalize(), "f")
@@ -81,7 +91,9 @@ def _parse_datetime(text: str, configured_format: Optional[str]) -> datetime:
         try:
             parsed = datetime.fromisoformat(stripped.replace("Z", "+00:00"))
         except ValueError as exc:
-            raise AgentError("BTAG-DATA-DATETIME", "datetime value cannot be parsed") from exc
+            raise AgentError(
+                "BTAG-DATA-DATETIME", "datetime value cannot be parsed"
+            ) from exc
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
@@ -111,13 +123,19 @@ def _source_value(
         except ValueError as exc:
             if optional:
                 return None
-            raise AgentError("BTAG-DATA-MAPPING", f"mapped column '{field}' is absent") from exc
+            raise AgentError(
+                "BTAG-DATA-MAPPING", f"mapped column '{field}' is absent"
+            ) from exc
     else:
-        raise AgentError("BTAG-DATA-MAPPING", f"mapping '{field}' must be a name or index")
+        raise AgentError(
+            "BTAG-DATA-MAPPING", f"mapping '{field}' must be a name or index"
+        )
     if index < 0 or index >= len(row):
         if optional:
             return None
-        raise AgentError("BTAG-DATA-MAPPING", f"mapped column '{field}' is out of range")
+        raise AgentError(
+            "BTAG-DATA-MAPPING", f"mapped column '{field}' is out of range"
+        )
     return row[index]
 
 
@@ -148,7 +166,9 @@ class DatasetService:
                 raise AgentError("BTAG-DATA-FORMAT", "data format is not allowlisted")
             name = feed.get("name")
             if not isinstance(name, str) or not name or name in names:
-                raise AgentError("BTAG-DATA-FEED-NAME", "feed names must be non-empty and unique")
+                raise AgentError(
+                    "BTAG-DATA-FEED-NAME", "feed names must be non-empty and unique"
+                )
             names.add(name)
             if feed.get("role") not in {
                 "execution",
@@ -159,7 +179,9 @@ class DatasetService:
             }:
                 raise AgentError("BTAG-DATA-ROLE", "feed role is not allowlisted")
             if not isinstance(feed.get("columns", {}), dict):
-                raise AgentError("BTAG-DATA-COLUMNS", "column mappings must be an object")
+                raise AgentError(
+                    "BTAG-DATA-COLUMNS", "column mappings must be an object"
+                )
             if len(feed.get("columns", {})) > self.MAX_COLUMNS:
                 raise AgentError("BTAG-DATA-COLUMNS", "too many columns")
             source = feed.get("source")
@@ -227,7 +249,9 @@ class DatasetService:
                     },
                 }
             )
-        alignment = spec.get("alignment", {"mode": "intersection", "minimum_overlap": 1})
+        alignment = spec.get(
+            "alignment", {"mode": "intersection", "minimum_overlap": 1}
+        )
         if (
             not isinstance(alignment, dict)
             or set(alignment) != {"mode", "minimum_overlap"}
@@ -240,12 +264,18 @@ class DatasetService:
         master_feed = spec.get(
             "master_feed",
             next(
-                (feed["name"] for feed in normalized_feeds if feed["role"] == "execution"),
+                (
+                    feed["name"]
+                    for feed in normalized_feeds
+                    if feed["role"] == "execution"
+                ),
                 normalized_feeds[0]["name"],
             ),
         )
         if master_feed not in names:
-            raise AgentError("BTAG-DATA-MASTER", "master_feed must name a declared feed")
+            raise AgentError(
+                "BTAG-DATA-MASTER", "master_feed must name a declared feed"
+            )
         transforms = spec.get("transforms", [])
         if not isinstance(transforms, list):
             raise AgentError("BTAG-DATA-TRANSFORM", "transform descriptors are invalid")
@@ -259,7 +289,9 @@ class DatasetService:
                 or not isinstance(item.get("parameters"), dict)
                 or set(item["parameters"]) != {"feed", "timeframe", "compression"}
             ):
-                raise AgentError("BTAG-DATA-TRANSFORM", "transform descriptor is not typed")
+                raise AgentError(
+                    "BTAG-DATA-TRANSFORM", "transform descriptor is not typed"
+                )
             parameters = item["parameters"]
             feed_name = parameters.get("feed")
             target_timeframe = parameters.get("timeframe")
@@ -272,7 +304,9 @@ class DatasetService:
                 or isinstance(compression, bool)
                 or compression < 1
             ):
-                raise AgentError("BTAG-DATA-TRANSFORM", "transform parameters are invalid")
+                raise AgentError(
+                    "BTAG-DATA-TRANSFORM", "transform parameters are invalid"
+                )
             transformed_feeds.add(feed_name)
             normalized_transforms.append(
                 {
@@ -290,7 +324,9 @@ class DatasetService:
             "master_feed": master_feed,
             "alignment": alignment,
             "transforms": normalized_transforms,
-            "extensions": {"backtrader_agent": {"name": str(spec.get("name", "dataset"))}},
+            "extensions": {
+                "backtrader_agent": {"name": str(spec.get("name", "dataset"))}
+            },
         }
         computed_hash = hash_object(core)
         supplied_hash = spec.get("spec_hash")
@@ -310,7 +346,9 @@ class DatasetService:
             or before.st_mtime_ns != after.st_mtime_ns
             or len(data) != after.st_size
         ):
-            raise AgentError("BTAG-DATA-TOCTOU", "dataset changed while it was being read")
+            raise AgentError(
+                "BTAG-DATA-TOCTOU", "dataset changed while it was being read"
+            )
         return data, after
 
     def _canonicalize_feed(self, feed: Dict[str, Any]) -> Dict[str, Any]:
@@ -335,7 +373,9 @@ class DatasetService:
         if not rows:
             raise AgentError("BTAG-DATA-EMPTY", "dataset contains no rows")
         has_header = bool(options.get("headers", True))
-        header = rows[0] if has_header else [str(index) for index in range(len(rows[0]))]
+        header = (
+            rows[0] if has_header else [str(index) for index in range(len(rows[0]))]
+        )
         body = rows[1:] if has_header else rows
         if len(body) > self.MAX_ROWS:
             raise AgentError("BTAG-DATA-ROWS", "dataset exceeds the P0 row limit")
@@ -369,7 +409,9 @@ class DatasetService:
                     _source_value(row, header, mappings.get(name), name), name
                 )
             normalized["volume"] = _number(
-                _source_value(row, header, mappings.get("volume"), "volume", optional=True),
+                _source_value(
+                    row, header, mappings.get("volume"), "volume", optional=True
+                ),
                 "volume",
                 default="0",
             )
@@ -404,9 +446,13 @@ class DatasetService:
             raise AgentError("BTAG-DATA-EMPTY", "dataset contains no data rows")
         duplicate_policy = options.get("duplicate_policy", "reject")
         if duplicate_count and duplicate_policy == "reject":
-            raise AgentError("BTAG-DATA-DUPLICATE", "duplicate timestamps are not permitted")
+            raise AgentError(
+                "BTAG-DATA-DUPLICATE", "duplicate timestamps are not permitted"
+            )
         if duplicate_policy not in {"reject", "allow"}:
-            raise AgentError("BTAG-DATA-DUPLICATE-POLICY", "duplicate policy is unsupported")
+            raise AgentError(
+                "BTAG-DATA-DUPLICATE-POLICY", "duplicate policy is unsupported"
+            )
 
         output = io.StringIO(newline="")
         writer = csv.writer(output, lineterminator="\n")
@@ -449,7 +495,9 @@ class DatasetService:
         feeds = [self._canonicalize_feed(feed) for feed in normalized_spec["feeds"]]
         public_feeds = []
         for feed in feeds:
-            clean = {key: value for key, value in feed.items() if not key.startswith("_")}
+            clean = {
+                key: value for key, value in feed.items() if not key.startswith("_")
+            }
             public_feeds.append(clean)
         semantic = {
             "schema_version": "dataset-manifest-v1",
@@ -467,7 +515,9 @@ class DatasetService:
             "status": "valid",
             "diagnostics": [],
             "provenance": {
-                "dataset_name": normalized_spec["extensions"]["backtrader_agent"]["name"],
+                "dataset_name": normalized_spec["extensions"]["backtrader_agent"][
+                    "name"
+                ],
                 "sources": [
                     {
                         "root_id": feed["source"]["root_id"],
@@ -513,7 +563,11 @@ class DatasetService:
             key: value for key, value in inspected.items() if not key.startswith("_")
         }
         manifest_payload["manifest_hash"] = hash_object(
-            {key: value for key, value in manifest_payload.items() if key != "manifest_hash"}
+            {
+                key: value
+                for key, value in manifest_payload.items()
+                if key != "manifest_hash"
+            }
         )
         DatasetManifest.from_dict(manifest_payload)
         manifest_path = self.manifest_root / f"{manifest_payload['dataset_id']}.json"
@@ -544,20 +598,24 @@ class DatasetService:
             raise AgentError("BTAG-DATASET-HASH", "dataset manifest hash is invalid")
         return manifest
 
-    def list(self) -> List[Dict[str, Any]]:
-        """Return compact summaries of every registered dataset manifest.
+    def list(self) -> Dict[str, Any]:
+        """Return compact summaries of every registered dataset manifest plus
+        the count of corrupt records skipped (R21).
 
         Corrupt manifest files are skipped rather than raising so a listing
-        command never masks the rest of the registry behind one bad record.
+        command never masks the rest of the registry behind one bad record;
+        the skip count keeps that degradation visible.
         """
 
         if not self.manifest_root.is_dir():
-            return []
+            return {"datasets": [], "skipped": 0}
         summaries: List[Dict[str, Any]] = []
+        skipped = 0
         for path in sorted(self.manifest_root.glob("ds_*.json")):
             try:
                 manifest = read_json(path)
-            except (OSError, ValueError):
+            except (OSError, ValueError, AgentError):
+                skipped += 1
                 continue
             summaries.append(
                 {
@@ -568,11 +626,13 @@ class DatasetService:
                     "status": manifest.get("status"),
                 }
             )
-        return summaries
+        return {"datasets": summaries, "skipped": skipped}
 
     def preview(self, dataset_id: str, *, rows: int = 5) -> Dict[str, Any]:
         if rows < 1 or rows > 50:
-            raise AgentError("BTAG-DATA-PREVIEW", "preview rows must be between 1 and 50")
+            raise AgentError(
+                "BTAG-DATA-PREVIEW", "preview rows must be between 1 and 50"
+            )
         manifest = self.load(dataset_id)
         previews = []
         for feed in manifest["feeds"]:

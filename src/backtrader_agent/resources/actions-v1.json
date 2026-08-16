@@ -480,6 +480,28 @@
           ],
           "required": false,
           "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": "append a read-only state-root health audit as `diagnostics`",
+          "name": "audit",
+          "option_strings": [
+            "--audit"
+          ],
+          "required": false,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": false,
+          "help": "audit with full per-file CAS hash verification (implies --audit)",
+          "name": "audit_deep",
+          "option_strings": [
+            "--audit-deep"
+          ],
+          "required": false,
+          "type": null
         }
       ]
     },

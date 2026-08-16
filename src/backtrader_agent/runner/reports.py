@@ -16,22 +16,27 @@ from ..errors import AgentError
 from ..report import ReportRenderer
 
 
-def list_runs(state_root: Path) -> List[Dict[str, Any]]:
-    """Return compact summaries of every persisted run result on disk.
+def list_runs(state_root: Path) -> Dict[str, Any]:
+    """Return compact summaries of every persisted run result plus the count
+    of corrupt records skipped (R21).
 
-    Corrupt result records are skipped so one bad run cannot hide the rest.
+    Corrupt result records are skipped so one bad run cannot hide the rest;
+    the skip count keeps that degradation visible to listing commands.
     """
 
     runs_root = Path(state_root) / "runs"
     if not runs_root.is_dir():
-        return []
+        return {"runs": [], "skipped": 0}
     summaries: List[Dict[str, Any]] = []
+    skipped = 0
     for path in sorted(runs_root.glob("*/run-result.json")):
         try:
             result = read_json(path)
-        except (OSError, ValueError):
+        except (OSError, ValueError, AgentError):
+            skipped += 1
             continue
         if result.get("schema_version") != "run-result-v1":
+            skipped += 1
             continue
         metrics = result.get("metrics", {})
         summaries.append(
@@ -43,7 +48,7 @@ def list_runs(state_root: Path) -> List[Dict[str, Any]]:
                 "result_hash": result.get("result_hash"),
             }
         )
-    return summaries
+    return {"runs": summaries, "skipped": skipped}
 
 
 def _persist_exact_bytes(path: Path, content: bytes) -> None:

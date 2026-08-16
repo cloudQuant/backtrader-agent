@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/capabilities/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/capabilities/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/capabilities/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/changelog/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/changelog/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/ecosystem/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/ecosystem/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/ecosystem/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/workflow/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/workflow/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/workflow/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/zh/capabilities/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/capabilities/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/capabilities/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/zh/changelog/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/changelog/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/zh/ecosystem/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/ecosystem/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/ecosystem/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/zh/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/"/>
+    </url>
+    <url>
+        <loc>https://cloudquant.github.io/backtrader-agent/zh/workflow/</loc>
+        <lastmod>2026-08-16</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://cloudquant.github.io/backtrader-agent/zh/workflow/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://cloudquant.github.io/backtrader-agent/workflow/"/>
+    </url>
+</urlset>

@@ -1,0 +1,824 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://cloudquant.github.io/backtrader-agent/workflow/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../capabilities/">
+      
+      
+        
+          <link rel="alternate" href="./" hreflang="en">
+        
+          <link rel="alternate" href="../zh/workflow/" hreflang="zh">
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Workflow - backtrader-agent</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#workflow" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="backtrader-agent" class="md-header__button md-logo" aria-label="backtrader-agent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            backtrader-agent
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Workflow
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+      <div class="md-header__option">
+  <div class="md-select">
+    
+    <button class="md-header__button md-icon" aria-label="Select language">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m12.87 15.07-2.54-2.51.03-.03A17.5 17.5 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2zm-2.62 7 1.62-4.33L19.12 17z"/></svg>
+    </button>
+    <div class="md-select__inner">
+      <ul class="md-select__list">
+        
+          <li class="md-select__item">
+            <a href="./" hreflang="en" class="md-select__link">
+              English
+            </a>
+          </li>
+        
+          <li class="md-select__item">
+            <a href="../zh/workflow/" hreflang="zh" class="md-select__link">
+              中文
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</div>
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="backtrader-agent" class="md-nav__button md-logo" aria-label="backtrader-agent" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    backtrader-agent
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Workflow
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-prepare-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Prepare the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-register-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Register data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-validate-the-strategyspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Validate the StrategySpec
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-search-the-packaged-snapshot-and-render-a-draft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Search the packaged snapshot and render a draft
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-validate-the-draft-ast-only-never-imported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Validate the draft (AST only, never imported)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-prepare-and-approve-the-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Prepare and approve the change
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-approve-and-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Approve and run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-read-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Read reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter sweep
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recovery-and-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recovery and state
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../capabilities/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Capabilities
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ecosystem/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ecosystem
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Changelog
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-prepare-the-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. Prepare the environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-register-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Register data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-validate-the-strategyspec" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Validate the StrategySpec
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-search-the-packaged-snapshot-and-render-a-draft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Search the packaged snapshot and render a draft
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-validate-the-draft-ast-only-never-imported" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Validate the draft (AST only, never imported)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-prepare-and-approve-the-change" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Prepare and approve the change
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-approve-and-run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Approve and run
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-read-reports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. Read reports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parameter-sweep" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameter sweep
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recovery-and-state" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recovery and state
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="workflow">Workflow</h1>
+<p>The P0 workflow is a two-stage write/run pipeline: nothing is written to your
+workspace without a change approval, and nothing runs without a separate run
+approval. Every step returns the uniform envelope
+(<code>{"status": "ok", "result": ...}</code>); file-typed arguments accept inline JSON,
+<code>@file</code> references, or plain paths.</p>
+<h2 id="1-prepare-the-environment">1. Prepare the environment</h2>
+<pre><code class="language-bash">backtrader-agent doctor --json
+backtrader-agent backtrader check
+backtrader-agent --state-root $STATE roots register --id workspace --kind workspace --writable --path /path/to/workspace
+backtrader-agent --state-root $STATE roots register --id prices --kind dataset --path /path/to/offline-data
+backtrader-agent --state-root $STATE roots register --id engine --kind engine --path /path/to/cloudquant-backtrader
+backtrader-agent --state-root $STATE session create --session-id session-001
+</code></pre>
+<h2 id="2-register-data">2. Register data</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE data inspect --spec data-spec.json
+backtrader-agent --state-root $STATE data register --session-id session-001 --spec data-spec.json
+</code></pre>
+<p>Six offline adapters are supported: <code>generic_csv</code>, <code>backtrader_csv</code>,
+<code>yahoo_csv</code>, <code>mt5_csv</code>, <code>pandas</code>, <code>pandas_custom_lines</code>. Registration writes a
+canonical CSV into the content-addressed store and emits a <code>DatasetManifest</code>.
+Already registered datasets can be reused across sessions:</p>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE data list
+</code></pre>
+<h2 id="3-validate-the-strategyspec">3. Validate the StrategySpec</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE spec --session-id session-001 --approve --file strategy-spec.json
+</code></pre>
+<p>Seven archetypes: <code>single_data_indicator</code>, <code>multi_indicator_system</code>,
+<code>multi_asset_allocation</code>, <code>multi_timeframe</code>, <code>pairs_spread</code>, <code>order_risk</code>,
+<code>precomputed_ml</code> — each renderable as <code>single_test</code> or <code>python_bundle</code>.</p>
+<h2 id="4-search-the-packaged-snapshot-and-render-a-draft">4. Search the packaged snapshot and render a draft</h2>
+<pre><code class="language-bash">backtrader-agent catalog search --query &quot;multi timeframe clock&quot; --top-k 3
+backtrader-agent --state-root $STATE draft --session-id session-001 \
+  --spec strategy-spec.json --dataset-manifest dataset-manifest.json
+</code></pre>
+<h2 id="5-validate-the-draft-ast-only-never-imported">5. Validate the draft (AST only, never imported)</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE validate \
+  --artifact-manifest artifact-manifest.json --draft-root $DRAFT_ROOT \
+  --session-id session-001 --dataset-hash $DATASET_HASH \
+  --engine-root-id engine
+</code></pre>
+<h2 id="6-prepare-and-approve-the-change">6. Prepare and approve the change</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE changes prepare --session-id session-001 \
+  --draft-root $DRAFT_ROOT --files '[{&quot;source&quot;: &quot;...&quot;, &quot;target&quot;: &quot;...&quot;}]' \
+  --target-root-id workspace --validation-token $VALIDATION_TOKEN
+backtrader-agent --state-root $STATE approval request --kind change \
+  --subject-hash $SUBJECT --bindings '{&quot;...&quot;: &quot;...&quot;}'
+backtrader-agent --state-root $STATE approval grant --request-id $REQUEST_ID \
+  --approver you --confirm
+backtrader-agent --state-root $STATE changes apply --manifest $CHANGE_MANIFEST \
+  --change-token $CHANGE_TOKEN --idempotency-key key-1
+</code></pre>
+<h2 id="7-approve-and-run">7. Approve and run</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE approval request --kind run \
+  --subject-hash $RUN_SUBJECT --bindings '{&quot;...&quot;: &quot;...&quot;}'
+backtrader-agent --state-root $STATE approval grant --request-id $REQUEST_ID \
+  --approver you --confirm
+backtrader-agent --state-root $STATE run --applied-artifact $APPLIED \
+  --dataset-manifest dataset-manifest.json --validation-token $VALIDATION_TOKEN \
+  --run-token $RUN_TOKEN --mode runonce --idempotency-key run-1
+</code></pre>
+<p>Modes: <code>runonce</code> and <code>runnext</code>. A transient failure (timeout) marks the
+session <code>FAILED</code> with <code>retry_eligible=true</code>; recover by requesting and
+granting a fresh run approval for the same effect — the new RunManifest
+records a <code>retry_of</code> chain. Non-transient failures must go through <code>repair</code>
+with a revised spec.</p>
+<h2 id="8-read-reports">8. Read reports</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE report --run-id $RUN_ID --format markdown
+backtrader-agent --state-root $STATE compare --left-run-id $R1 --right-run-id $R2
+backtrader-agent --state-root $STATE runs list
+</code></pre>
+<h2 id="parameter-sweep">Parameter sweep</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE sweep prepare --session-id session-001 \
+  --spec strategy-spec.json --dataset-manifest dataset-manifest.json \
+  --param-grid '{&quot;fast_period&quot;: [10, 20], &quot;slow_period&quot;: [30, 40]}' \
+  --engine-root-id engine
+backtrader-agent --state-root $STATE approval request --kind sweep \
+  --subject-hash $PLAN_HASH --bindings '{&quot;...&quot;: &quot;...&quot;}'
+backtrader-agent --state-root $STATE approval grant --request-id $REQUEST_ID \
+  --approver you --confirm
+backtrader-agent --state-root $STATE sweep run --sweep-id $SWEEP_ID \
+  --token $SWEEP_TOKEN --max-cells 100 --timeout-per-cell 120
+backtrader-agent --state-root $STATE sweep report --sweep-id $SWEEP_ID
+</code></pre>
+<p>Sweep is a <strong>run-only</strong> capability: cells execute from private renderer-owned
+drafts and never write your workspace. One sweep approval covers the whole
+deterministic enumerated plan; each cell lands its own immutable
+RunManifest/RunResult. The top-5 parameter priors per archetype are recorded
+in the cross-session memory store.</p>
+<h2 id="recovery-and-state">Recovery and state</h2>
+<pre><code class="language-bash">backtrader-agent --state-root $STATE session status --session-id session-001
+backtrader-agent --state-root $STATE session recover --session-id session-001
+backtrader-agent --state-root $STATE doctor --audit
+</code></pre>
+<p>Every transition is journaled in a strictly ordered, hash-chained session
+log; checkpoints are atomic; recovery accepts only a verified prefix.
+<code>doctor --audit</code> reports torn journals, <code>RUNNING</code> orphans, CAS violations,
+and expired-approval accumulation. Every CLI invocation is traced into
+<code>&lt;state&gt;/trace/*.jsonl</code> (argument values are hashed, never raw).</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": [], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

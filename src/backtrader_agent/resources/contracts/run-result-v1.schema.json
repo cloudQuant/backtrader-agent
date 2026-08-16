@@ -17,6 +17,7 @@
     "run_id": {"type": "string", "minLength": 1},
     "status": {"enum": ["passed", "failed", "error", "timeout", "cancelled"]},
     "metrics": {"$ref": "#/$defs/Metrics"},
+    "extended_metrics": {"$ref": "#/$defs/ExtendedMetrics"},
     "diagnostics": {"type": "array", "items": {"type": "object"}},
     "artifacts": {"type": "array", "items": {"$ref": "#/$defs/File"}},
     "result_hash": {"$ref": "#/$defs/Hash"},
@@ -27,6 +28,29 @@
   },
   "$defs": {
     "Hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "FiniteNumber": {"type": ["number", "null"]},
+    "ExtendedMetrics": {
+      "type": ["object", "null"],
+      "properties": {
+        "trade_analyzer": {"$ref": "#/$defs/TradeAnalyzerSubset"},
+        "sqn": {"$ref": "#/$defs/FiniteNumber"},
+        "calmar": {"$ref": "#/$defs/FiniteNumber"},
+        "vwr": {"$ref": "#/$defs/FiniteNumber"},
+        "gross_leverage": {"$ref": "#/$defs/FiniteNumber"},
+        "positions_value": {"$ref": "#/$defs/FiniteNumber"}
+      },
+      "additionalProperties": false
+    },
+    "TradeAnalyzerSubset": {
+      "type": ["object", "null"],
+      "properties": {
+        "profit_factor": {"$ref": "#/$defs/FiniteNumber"},
+        "avg_holding_bars": {"$ref": "#/$defs/FiniteNumber"},
+        "max_consecutive_wins": {"$ref": "#/$defs/FiniteNumber"},
+        "max_consecutive_losses": {"$ref": "#/$defs/FiniteNumber"}
+      },
+      "additionalProperties": false
+    },
     "Metrics": {
       "type": "object",
       "required": [

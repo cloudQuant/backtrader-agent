@@ -61,8 +61,11 @@ ALLOWED_BACKTRADER_FEEDS = {
 }
 ALLOWED_BACKTRADER_ANALYZERS = {
     "AnnualReturn",
+    "Calmar",
     "DrawDown",
+    "GrossLeverage",
     "PeriodStats",
+    "PositionsValue",
     "Returns",
     "SQN",
     "SharpeRatio",

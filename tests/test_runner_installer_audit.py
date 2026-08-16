@@ -24,8 +24,9 @@ from backtrader_agent.engines import inspect_engine, inspect_execution_environme
 from backtrader_agent.errors import AgentError
 from backtrader_agent.installer import AdapterInstaller
 from backtrader_agent.roots import RootRegistry
-from backtrader_agent.report import compare_metrics
+from backtrader_agent.report import compare_metrics, normalize_extended_metrics
 from backtrader_agent.runner import ControlledRunner
+from backtrader_agent.runner.execute import parse_child_result
 from backtrader_agent.scaffold import ArtifactRenderer
 from backtrader_agent.sessions import SessionStore
 from backtrader_agent.tokens import TokenAuthority
@@ -578,6 +579,193 @@ def test_controlled_end_to_end_run_and_report(
         path = Path(evidence_root) / f"{archetype}--{profile}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(evidence, sort_keys=True) + "\n", encoding="utf-8")
+
+
+REQUIRED_SCALARS = {
+    "bar_num",
+    "buy_count",
+    "sell_count",
+    "win_count",
+    "loss_count",
+    "trade_num",
+    "final_value",
+    "sharpe_ratio",
+    "annual_return",
+    "max_drawdown",
+    "return_rate",
+}
+
+EXTENDED_METRIC_FIELDS = {
+    "trade_analyzer",
+    "sqn",
+    "calmar",
+    "vwr",
+    "gross_leverage",
+    "positions_value",
+}
+
+TRADE_ANALYZER_SUBSET_FIELDS = {
+    "profit_factor",
+    "avg_holding_bars",
+    "max_consecutive_wins",
+    "max_consecutive_losses",
+}
+
+
+def test_eleven_scalars_still_required_in_schema() -> None:
+    schema = json.loads(
+        (CONTRACT_ROOT / "run-result-v1.schema.json").read_text(encoding="utf-8")
+    )
+    assert set(schema["$defs"]["Metrics"]["required"]) == REQUIRED_SCALARS
+    assert "extended_metrics" not in schema["required"]
+    extended = schema["$defs"].get("ExtendedMetrics")
+    assert extended is not None
+    assert EXTENDED_METRIC_FIELDS <= set(extended["properties"])
+    assert extended["type"] == ["object", "null"]
+    trade_analyzer = schema["$defs"].get("TradeAnalyzerSubset")
+    assert trade_analyzer is not None
+    assert TRADE_ANALYZER_SUBSET_FIELDS <= set(trade_analyzer["properties"])
+
+
+def test_run_result_extended_metrics_from_real_cell(tmp_path: Path) -> None:
+    result, _, _, _ = _execute_matrix_mode(
+        tmp_path,
+        "python_bundle",
+        "single_data_indicator",
+        "runonce",
+    )
+    assert "extended_metrics" in result
+    em = result["extended_metrics"]
+    assert em is not None
+    assert set(em) == EXTENDED_METRIC_FIELDS
+    assert "sqn" in em and "calmar" in em
+    assert set(em["trade_analyzer"]) == TRADE_ANALYZER_SUBSET_FIELDS
+    assert REQUIRED_SCALARS <= set(result["metrics"])
+    validate_contract("run-result-v1.schema.json", result)
+
+
+def test_missing_extended_analyzer_does_not_fail_the_run(tmp_path: Path) -> None:
+    engine_root = tmp_path / "engine"
+    shutil.copytree(BACKTRADER_ROOT / "backtrader", engine_root / "backtrader")
+    init_path = engine_root / "backtrader" / "analyzers" / "__init__.py"
+    init_path.write_text(
+        init_path.read_text(encoding="utf-8").replace(
+            "from .sqn import *\n", ""
+        ),
+        encoding="utf-8",
+    )
+    (engine_root / "backtrader" / "analyzers" / "sqn.py").unlink()
+
+    result, _, _, _ = _execute_matrix_mode(
+        tmp_path / "run",
+        "python_bundle",
+        "single_data_indicator",
+        "runonce",
+        engine_root=engine_root,
+    )
+    assert result["status"] == "passed"
+    em = result["extended_metrics"]
+    assert em is not None
+    assert set(em) == EXTENDED_METRIC_FIELDS
+    assert em["sqn"] is None
+    assert em["gross_leverage"] is not None
+    assert em["positions_value"] is not None
+    validate_contract("run-result-v1.schema.json", result)
+
+
+def test_runtime_error_in_extended_analyzer_does_not_fail_the_run(
+    tmp_path: Path,
+) -> None:
+    engine_root = tmp_path / "engine"
+    shutil.copytree(BACKTRADER_ROOT / "backtrader", engine_root / "backtrader")
+    sqn_path = engine_root / "backtrader" / "analyzers" / "sqn.py"
+    source = sqn_path.read_text(encoding="utf-8")
+    poisoned = source.replace(
+        "def stop(self):",
+        "def stop(self):\n        raise RuntimeError('poisoned analyzer stop')",
+        1,
+    )
+    assert poisoned != source
+    sqn_path.write_text(poisoned, encoding="utf-8")
+
+    result, _, _, _ = _execute_matrix_mode(
+        tmp_path / "run",
+        "python_bundle",
+        "single_data_indicator",
+        "runonce",
+        engine_root=engine_root,
+    )
+    assert result["status"] == "passed"
+    em = result["extended_metrics"]
+    assert em is not None
+    assert set(em) == EXTENDED_METRIC_FIELDS
+    assert em["sqn"] is None
+    assert em["gross_leverage"] is not None
+    assert em["positions_value"] is not None
+    validate_contract("run-result-v1.schema.json", result)
+
+
+def test_extended_metrics_normalization_nulls_non_finite_values() -> None:
+    with pytest.warns(RuntimeWarning):
+        normalized = normalize_extended_metrics(
+            {
+                "trade_analyzer": {
+                    "profit_factor": 1.5,
+                    "avg_holding_bars": 2,
+                    "max_consecutive_wins": 3,
+                    "max_consecutive_losses": float("nan"),
+                },
+                "sqn": 4.2,
+                "calmar": None,
+                "vwr": float("inf"),
+                "gross_leverage": "not-a-number",
+                "positions_value": 1234.5,
+            }
+        )
+    assert normalized is not None
+    assert normalized["trade_analyzer"]["profit_factor"] == 1.5
+    assert normalized["trade_analyzer"]["avg_holding_bars"] == 2.0
+    assert normalized["trade_analyzer"]["max_consecutive_wins"] == 3.0
+    assert normalized["trade_analyzer"]["max_consecutive_losses"] is None
+    assert normalized["sqn"] == 4.2
+    assert normalized["calmar"] is None
+    assert normalized["vwr"] is None
+    assert normalized["gross_leverage"] is None
+    assert normalized["positions_value"] == 1234.5
+
+
+def test_extended_metrics_normalization_tolerates_missing_analyzers() -> None:
+    assert normalize_extended_metrics(None) is None
+    with pytest.warns(RuntimeWarning):
+        assert normalize_extended_metrics("garbage") is None
+    normalized = normalize_extended_metrics({})
+    assert set(normalized) == EXTENDED_METRIC_FIELDS
+    assert normalized["trade_analyzer"] is None
+    assert normalized["sqn"] is None
+
+
+def test_parse_child_result_sets_null_extended_metrics_when_absent() -> None:
+    payload = "BACKTRADER_AGENT_RESULT=" + json.dumps(
+        {
+            "metrics": {
+                "bar_num": 0,
+                "buy_count": 0,
+                "sell_count": 0,
+                "win_count": 0,
+                "loss_count": 0,
+                "trade_num": 0,
+                "final_value": 100000.0,
+                "sharpe_ratio": None,
+                "annual_return": None,
+                "max_drawdown": 0.0,
+                "return_rate": 0.0,
+            }
+        },
+        sort_keys=True,
+    )
+    result = parse_child_result(payload)
+    assert result["extended_metrics"] is None
+    assert REQUIRED_SCALARS <= set(result["metrics"])
 
 
 def test_executable_validation_requires_signed_product_provenance(tmp_path: Path) -> None:

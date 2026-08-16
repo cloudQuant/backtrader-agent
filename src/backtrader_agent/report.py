@@ -2,8 +2,9 @@
 
 import html
 import math
+import warnings
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .canonical import atomic_write_bytes, atomic_write_json, hash_object
 from .errors import AgentError
@@ -38,6 +39,19 @@ EVENT_FIELDS = (
     "price",
     "status",
 )
+EXTENDED_SCALAR_NAMES = (
+    "sqn",
+    "calmar",
+    "vwr",
+    "gross_leverage",
+    "positions_value",
+)
+TRADE_ANALYZER_SUBSET_NAMES = (
+    "profit_factor",
+    "avg_holding_bars",
+    "max_consecutive_wins",
+    "max_consecutive_losses",
+)
 
 
 def normalize_metrics(raw: Dict[str, Any]) -> Dict[str, Any]:
@@ -61,6 +75,84 @@ def normalize_metrics(raw: Dict[str, Any]) -> Dict[str, Any]:
             raise AgentError("BTAG-RUN-METRIC", f"metric '{name}' must be finite")
         normalized[name] = number
     return normalized
+
+
+def _finite_extended_value(value: Any, name: str) -> Optional[float]:
+    """Best-effort extended-metric scalar: non-finite or invalid -> null + warning.
+
+    The eleven required scalars keep the strict failure discipline of
+    :func:`normalize_metrics`; extended metrics degrade instead (R23).
+    """
+
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        warnings.warn(
+            f"extended metric '{name}' is not numeric; reported as null",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        warnings.warn(
+            f"extended metric '{name}' is non-finite; reported as null",
+            RuntimeWarning,
+            stacklevel=3,
+        )
+        return None
+    return number
+
+
+def normalize_extended_metrics(raw: Any) -> Optional[Dict[str, Any]]:
+    """Normalize the optional R23 ``extended_metrics`` block; never raises.
+
+    A missing analyzer or a malformed payload normalizes to ``None`` so a
+    degraded child payload can never fail an otherwise healthy run
+    (design 6.1). Any sub-item may be null.
+    """
+
+    if raw is None:
+        return None
+    try:
+        if not isinstance(raw, dict):
+            warnings.warn(
+                "extended metrics payload is not an object; reported as null",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            return None
+        trade_raw = raw.get("trade_analyzer")
+        if trade_raw is None:
+            trade_analyzer = None
+        elif isinstance(trade_raw, dict):
+            trade_analyzer = {
+                name: _finite_extended_value(
+                    trade_raw.get(name), f"trade_analyzer.{name}"
+                )
+                for name in TRADE_ANALYZER_SUBSET_NAMES
+            }
+        else:
+            warnings.warn(
+                "extended metric 'trade_analyzer' is not an object; reported as null",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            trade_analyzer = None
+        return {
+            "trade_analyzer": trade_analyzer,
+            **{
+                name: _finite_extended_value(raw.get(name), name)
+                for name in EXTENDED_SCALAR_NAMES
+            },
+        }
+    except Exception as exc:  # best-effort data must never fail the run
+        warnings.warn(
+            f"extended metrics could not be normalized ({exc}); reported as null",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return None
 
 
 def compare_metrics(

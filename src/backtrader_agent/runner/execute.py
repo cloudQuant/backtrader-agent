@@ -22,7 +22,7 @@ from ..caching import memoized
 from ..data import DatasetService
 from ..errors import AgentError
 from ..locking import exclusive_file_lock
-from ..report import normalize_metrics
+from ..report import normalize_extended_metrics, normalize_metrics
 from ..roots import RootRegistry
 from ..sessions import SessionStore
 from ..tokens import TokenAuthority, expected_bindings
@@ -196,6 +196,8 @@ def parse_child_result(stdout_text: str) -> Dict[str, Any]:
 
     Raises ``BTAG-RUN-RESULT`` for a malformed or missing payload and
     ``BTAG-RUN-METRIC`` (from :func:`normalize_metrics`) for invalid metrics.
+    ``extended_metrics`` is always present in the returned payload; a missing
+    analyzer or malformed block normalizes to ``None`` without failing (R23).
     """
 
     payload = None
@@ -210,7 +212,11 @@ def parse_child_result(stdout_text: str) -> Dict[str, Any]:
     if not isinstance(payload, dict) or not isinstance(payload.get("metrics"), dict):
         raise AgentError("BTAG-RUN-RESULT", "child emitted no structured metrics")
     metrics = normalize_metrics(payload["metrics"])
-    return {**payload, "metrics": metrics}
+    return {
+        **payload,
+        "metrics": metrics,
+        "extended_metrics": normalize_extended_metrics(payload.get("extended_metrics")),
+    }
 
 
 def build_dataset_descriptors(
@@ -991,6 +997,7 @@ class ControlledRunner:
                 )
             raise
         metrics = payload["metrics"]
+        extended_metrics = payload["extended_metrics"]
 
         self._persist_exact_json(run_root / "run-manifest.json", run_manifest)
         persisted_manifest = run_root / "run-manifest.json"
@@ -999,6 +1006,7 @@ class ControlledRunner:
             "run_id": run_id,
             "status": "passed",
             "metrics": metrics,
+            "extended_metrics": extended_metrics,
             "diagnostics": [],
             "artifacts": [
                 {

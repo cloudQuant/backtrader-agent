@@ -17,7 +17,7 @@
     "changes/apply.py": "653ad6c7f4a58880beb8e956f10acef16cde9e6743f897f39c710826a2f7abef",
     "changes/prepare.py": "ef4ea07bb60d6e379c863b192a6b860a09c86a80c1df4681c12ac07f96e820a8",
     "changes/rollback.py": "cffcbbccadd4bb7576d482157ff5cf6d7104241addb9d43784d8b6d5dcdcc2d0",
-    "cli.py": "0f21ba5710e97c7a87de64d48dea4e176cd5f8ff682494189e3c2f34fd7b93d1",
+    "cli.py": "88a18a0c4e8fff64a084a214663c8d637c7de1dcb31d8a492bbfad0bc5f43aab",
     "contracts.py": "ceafb5b116cec2e3d201e939bc1a2c33399cac7c5d5f3b99150bf2458b1230e6",
     "data.py": "1cbe69d539bbd305d1d414f2442c9eedb7eb2734b4642b06ce9d50a2970dd155",
     "doctor.py": "5ea8a7acf01c12fb11d373717ca16592b854373dbe8ec3286bdc64b64e668cea",

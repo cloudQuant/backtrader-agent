@@ -765,13 +765,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     started = time.monotonic()
-    state = _state(args)
     session_id = getattr(args, "session_id", None)
     command = args.command
     arg_hashes = _trace_arg_hashes(args)
+    state: Optional[Path] = None
     exit_code = 0
     error_code: Optional[str] = None
     try:
+        state = _state(args)
         result = dispatch(args)
     except AgentError as exc:
         _emit({"status": "failed", "diagnostic": exc.as_dict()})
@@ -806,9 +807,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     finally:
         if error_code is None and sys.exc_info()[0] is not None:
             exit_code, error_code = 1, "BTAG-CLI-INTERNAL"
-        _record_trace(
-            state, session_id, command, arg_hashes, started, exit_code, error_code
-        )
+        if state is not None:
+            _record_trace(
+                state, session_id, command, arg_hashes, started, exit_code, error_code
+            )
     if exit_code != 0:
         return exit_code
     warnings = result.get("warnings", [])

@@ -90,3 +90,34 @@ def test_record_call_rejects_malformed_session_id(tmp_path):
         )
     assert excinfo.value.code == "BTAG-TRACE-ID"
     assert not (tmp_path / "state" / "trace").exists()
+
+
+def test_trace_write_failure_warns_without_changing_exit_code(
+    monkeypatch, capsys, tmp_path
+):
+    def boom(*args, **kwargs):
+        raise AgentError("BTAG-TRACE", "trace unavailable")
+
+    monkeypatch.setattr(cli, "record_call", boom)
+    state = tmp_path / "state"
+    code = cli.main(["--state-root", str(state), "doctor", "--json"])
+    captured = capsys.readouterr()
+    assert code == 0
+    assert json.loads(captured.out)["status"] == "ok"
+    assert "WARNING" in captured.err
+    assert "BTAG-TRACE" in captured.err
+    assert not (state / "trace").exists()
+
+
+def test_unresolvable_state_root_keeps_io_error_envelope(monkeypatch, capsys, tmp_path):
+    # A deleted working directory makes Path.resolve() raise FileNotFoundError
+    # (an OSError) inside main(); the Task 2 exit-code matrix must still hold.
+    doomed = tmp_path / "doomed"
+    doomed.mkdir()
+    monkeypatch.chdir(doomed)
+    doomed.rmdir()
+    code = cli.main(["doctor", "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    assert code == 4
+    assert payload["status"] == "failed"
+    assert payload["diagnostic"]["code"] == "BTAG-CLI-IO"

@@ -173,7 +173,7 @@
     "tests/evals/graders.py": "d389a2ce82cd2998d65635a79bfc038aaabb095aa582e6451fe2b12c4ca1ab39",
     "tests/evals/harness.py": "80c44d1d1c19ae7f58c3559f6c6c5136fc0e8a44ee8f98659d70d5923d7039d2",
     "tests/evals/tasks/inject-bad-data.json": "59bce818a2190bf7530fac25d5e981467f11f607c4f4ce2d3cc02faffb224ebd",
-    "tests/evals/tasks/inject-corrupt-journal.json": "e3aa045c02f516f4d484c014f6fdf8e5b0234398d16b2077b9d8a1f31acc0656",
+    "tests/evals/tasks/inject-corrupt-journal.json": "d87e11127d3acb8ff55e7f16dd7b1031db01d9843b1da59665ff519329d214bc",
     "tests/evals/tasks/inject-expired-token.json": "2fbb4f418ae248d5908c8ac38b47662eb87b12f1a0b8ece6e996f29d80b59b75",
     "tests/evals/tasks/inject-invalid-spec.json": "d8e4f759d64d406e10abe95d52af2b2145c89e41659238ec7494d10032473210",
     "tests/evals/tasks/inject-preimage.json": "57a6fe8b71c4ea62543815402ba16a5c385e13e9d831cf04cb0faf1ab5194d60",

@@ -125,7 +125,8 @@
           "result.last_sequence": 3,
           "result.allowed_next_actions": [
             "CANCELLED",
-            "SOURCES_SELECTED"
+            "SOURCES_SELECTED",
+            "SWEEP_PREPARED"
           ]
         }
       }

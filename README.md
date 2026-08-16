@@ -280,11 +280,17 @@ The seven archetypes are `single_data_indicator`,
 > **Renderer scope:** the P0 renderer is a deterministic scaffold selector.
 > It maps a StrategySpec to one of the seven fixed archetype templates,
 > parameterized only by `archetype`, `output_profile`, and numeric parameter
-> defaults (e.g. `fast_period` / `slow_period`). The `entry`, `exit`, `sizing`,
-> and `risk` fields are validated and recorded in the spec hash, but are **not**
+> defaults (e.g. `fast_period` / `slow_period`). The `entry`, `exit`, and
+> `risk` fields are validated and recorded in the spec hash, but are **not**
 > translated into executable logic — `next()` behavior comes entirely from the
-> chosen archetype. To change trade logic, pick a different archetype or revise
-> parameters. See [references/current-fork-rules.md](references/current-fork-rules.md).
+> chosen archetype. The `sizing` field is functional in a limited way:
+> `{method: fixed, fixed_size: n}` renders
+> `cerebro.addsizer(bt.sizers.FixedSize, stake=n)` and
+> `{method: percent, percent: p}` renders
+> `cerebro.addsizer(bt.sizers.PercentSizer, percents=p)`; omit the field (or
+> set it to `null`) to keep Backtrader's default sizer. To change trade logic,
+> pick a different archetype or revise parameters. See
+> [references/current-fork-rules.md](references/current-fork-rules.md).
 
 Validation uses Python AST only. It never imports a candidate into the host
 process. Imports, `os` access, Backtrader APIs, local strategy symbols, and
@@ -714,10 +720,13 @@ run_modes, allowed_imports
 
 > **Renderer 范围：**P0 renderer 是确定性的脚手架选择器。它把 StrategySpec 映射到
 > 七个固定 archetype 模板之一，仅由 `archetype`、`output_profile` 和数值参数默认值
-> （如 `fast_period` / `slow_period`）参数化。`entry`、`exit`、`sizing`、`risk` 字段
-> 会被校验并记入 spec 哈希，但**不会**被翻译成可执行逻辑——`next()` 的行为完全来自所选
-> archetype。要改变交易逻辑，请换一个 archetype 或调整参数。见
-> [references/current-fork-rules.md](references/current-fork-rules.md)。
+> （如 `fast_period` / `slow_period`）参数化。`entry`、`exit`、`risk` 字段会被校验
+> 并记入 spec 哈希，但**不会**被翻译成可执行逻辑——`next()` 的行为完全来自所选
+> archetype。`sizing` 字段已有限落地：`{method: fixed, fixed_size: n}` 渲染为
+> `cerebro.addsizer(bt.sizers.FixedSize, stake=n)`，`{method: percent, percent: p}`
+> 渲染为 `cerebro.addsizer(bt.sizers.PercentSizer, percents=p)`；省略该字段（或置为
+> `null`）则保持 Backtrader 默认 sizer。要改变交易逻辑，请换一个 archetype 或调整参数。
+> 见 [references/current-fork-rules.md](references/current-fork-rules.md)。
 
 校验仅用 Python AST，绝不把候选项导入宿主进程。import、`os` 访问、Backtrader API、
 本地策略符号和环境键使用精确的能力白名单。它拒绝动态执行、反射、文件系统访问、进程

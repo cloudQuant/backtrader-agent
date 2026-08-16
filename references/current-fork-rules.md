@@ -19,13 +19,18 @@ generator. It translates a StrategySpec into one of seven fixed archetype
 templates, parameterized only by the declared `archetype`, `output_profile`,
 and numeric parameter defaults (notably `fast_period` / `slow_period`).
 
-The spec fields `entry`, `exit`, `sizing`, and `risk` are **contract and
-documentation only** at P0: they are validated for presence and shape, recorded
-in the immutable spec hash, and shown in the generated `config.yaml`, but they
-are **not translated into executable strategy logic**. The actual `next()`
-behavior comes entirely from the chosen archetype template. An autonomous patch
-synthesizer that turns natural-language entry/exit rules into code is deferred
-(see IMPLEMENTATION_REPORT.md). To change trade logic today, select a different
-`archetype` or revise parameters; do not expect prose `entry`/`exit` text to
-alter the generated `next()`.
+The spec fields `entry`, `exit`, and `risk` are **contract and documentation
+only**: they are validated for presence and shape and recorded in the immutable
+spec hash, but they are **not translated into executable strategy logic**. The
+`sizing` field is functional in a limited way: `{method: fixed, fixed_size: n}`
+and `{method: percent, percent: p}` render a fixed
+`cerebro.addsizer(bt.sizers.FixedSize, stake=n)` /
+`cerebro.addsizer(bt.sizers.PercentSizer, percents=p)` assembly, and entry
+orders delegate their stake to that sizer; without a `sizing` block (or with
+`null`) the strategy keeps the fork's default `FixedSize(stake=1)`. The actual
+`next()` signal logic comes entirely from the chosen archetype template. An
+autonomous patch synthesizer that turns natural-language entry/exit rules into
+code is deferred (see IMPLEMENTATION_REPORT.md). To change trade logic today,
+select a different `archetype` or revise parameters; do not expect prose
+`entry`/`exit` text to alter the generated `next()`.
 

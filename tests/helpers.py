@@ -219,7 +219,6 @@ def strategy_spec(
         },
         "entry": "long when the fast signal is above the slow signal",
         "exit": "close when the fast signal is below the slow signal",
-        "sizing": {"kind": "fixed", "stake": 1},
         "risk": {"max_position": 1},
         "cash": 100000.0,
         "commission": 0.001,

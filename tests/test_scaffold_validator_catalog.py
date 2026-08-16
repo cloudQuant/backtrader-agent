@@ -4,10 +4,42 @@ import pytest
 
 from backtrader_agent.catalog import SnapshotCatalog
 from backtrader_agent.contracts import StrategySpec
+from backtrader_agent.errors import AgentError
 from backtrader_agent.scaffold import ARCHETYPES, PROFILES, ArtifactRenderer
 from backtrader_agent.validator import StrategyValidator
 
 from helpers import strategy_spec
+
+
+def _sized_spec_dict(sizing):
+    raw = strategy_spec("ds_" + "a" * 64)
+    if sizing is None:
+        raw.pop("sizing", None)
+    else:
+        raw["sizing"] = sizing
+    return raw
+
+
+def _rendered_source(tmp_path, sizing, profile="python_bundle"):
+    renderer = ArtifactRenderer(tmp_path / "state")
+    dataset = {
+        "dataset_id": "ds_" + "a" * 64,
+        "manifest_hash": "a" * 64,
+        "feeds": [
+            {"name": "primary", "role": "execution", "columns": {"signal": "signal"}},
+            {"name": "secondary", "role": "signal", "columns": {}},
+        ],
+    }
+    raw = _sized_spec_dict(sizing)
+    raw["output_profile"] = profile
+    spec = StrategySpec.from_dict(raw)
+    artifact = renderer.render("session-1", spec, dataset)
+    sources = [
+        (Path(artifact["_draft_path"]) / item["path"]).read_text(encoding="utf-8")
+        for item in artifact["files"]
+        if item["path"].endswith(".py")
+    ]
+    return "\n".join(sources), artifact
 
 
 def test_all_fourteen_scaffolds_render_and_validate_without_requiring_direct_strategy_super(
@@ -136,3 +168,127 @@ def test_catalog_search_uses_explicit_snapshot_path(tmp_path):
         ]
     )
     assert code in (0, 3)  # 参数被接受;空快照允许 BTAG 领域错误,不允许用法错误(2)
+
+
+@pytest.mark.parametrize(
+    "sizing",
+    [
+        {"method": "martingale", "fixed_size": 1},
+        {"method": "fixed"},
+        {"method": "fixed", "fixed_size": 0},
+        {"method": "fixed", "fixed_size": -5},
+        {"method": "fixed", "fixed_size": "ten"},
+        {"method": "fixed", "fixed_size": True},
+        {"method": "fixed", "fixed_size": 1, "percent": 50},
+        {"method": "percent"},
+        {"method": "percent", "percent": 0},
+        {"method": "percent", "percent": 101},
+        {"method": "percent", "fixed_size": 1},
+        "all-in",
+        [],
+    ],
+)
+def test_spec_rejects_invalid_sizing(sizing) -> None:
+    with pytest.raises(AgentError) as exc:
+        StrategySpec.from_dict(_sized_spec_dict(sizing))
+    assert exc.value.code == "BTAG-SPEC-SIZING"
+
+
+@pytest.mark.parametrize(
+    ("sizing", "expected"),
+    [
+        (
+            {"method": "fixed", "fixed_size": 100},
+            {"method": "fixed", "fixed_size": 100},
+        ),
+        (
+            {"method": "fixed", "fixed_size": 2.5},
+            {"method": "fixed", "fixed_size": 2.5},
+        ),
+        ({"method": "percent", "percent": 95}, {"method": "percent", "percent": 95}),
+        ({"method": "percent", "percent": 100}, {"method": "percent", "percent": 100}),
+        (None, None),
+    ],
+)
+def test_spec_accepts_valid_sizing(sizing, expected) -> None:
+    spec = StrategySpec.from_dict(_sized_spec_dict(sizing))
+    assert spec.to_dict()["sizing"] == expected
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+def test_scaffold_renders_fixed_sizer(tmp_path, profile) -> None:
+    source, artifact = _rendered_source(
+        tmp_path, {"method": "fixed", "fixed_size": 100}, profile=profile
+    )
+    assert "cerebro.addsizer(bt.sizers.FixedSize, stake=100)" in source
+    assert StrategyValidator().validate_artifact(artifact)["status"] == "passed"
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+def test_scaffold_renders_percent_sizer(tmp_path, profile) -> None:
+    source, artifact = _rendered_source(
+        tmp_path, {"method": "percent", "percent": 95}, profile=profile
+    )
+    assert "cerebro.addsizer(bt.sizers.PercentSizer, percents=95)" in source
+    assert StrategyValidator().validate_artifact(artifact)["status"] == "passed"
+
+
+def test_spec_without_sizing_renders_no_sizer(tmp_path) -> None:
+    source, artifact = _rendered_source(tmp_path, None)
+    assert "addsizer" not in source
+    assert StrategyValidator().validate_artifact(artifact)["status"] == "passed"
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_code"),
+    [
+        ("cerebro.addsizer(bt.sizers.CustomSizer(stake=1))", "BTAG-SEC-CAPABILITY"),
+        ("cerebro.addsizer(bt.sizers.CustomSizer, stake=1)", "BTAG-SEC-CAPABILITY"),
+        ("cerebro.addsizer(bt.sizers.FixedSize(tranches=2))", "BTAG-VAL-SIZER"),
+        ("cerebro.addsizer(bt.sizers.FixedSize(5))", "BTAG-VAL-SIZER"),
+        ("cerebro.addsizer(bt.sizers.FixedSize, tranches=2)", "BTAG-VAL-SIZER"),
+        ("cerebro.addsizer(bt.sizers.FixedSize, 5)", "BTAG-VAL-SIZER"),
+        (
+            "cerebro.addsizer(bt.sizers.PercentSizer(percents=50, retint=True))",
+            "BTAG-VAL-SIZER",
+        ),
+        ("cerebro.addsizer(bt.sizers.PercentSizer(**kwargs))", "BTAG-VAL-SIZER"),
+        (
+            "cerebro.addsizer(bt.sizers.PercentSizer, percents=50, retint=True)",
+            "BTAG-VAL-SIZER",
+        ),
+        ("cerebro.addsizer(*[bt.sizers.FixedSize], tranches=2)", "BTAG-VAL-SIZER"),
+        ("cerebro.addsizer(*(x for x in [bt.sizers.FixedSize]))", "BTAG-VAL-SIZER"),
+        ("cerebro.addsizer(bt.sizers.FixedSize(), stake=1)", "BTAG-VAL-SIZER"),
+        (
+            "cls = bt.sizers.FixedSize\ncerebro.addsizer(cls, tranches=2)",
+            "BTAG-VAL-SIZER",
+        ),
+        ("cerebro.addsizer()", "BTAG-VAL-SIZER"),
+        ("cerebro.addsizer(**{'stake': 1})", "BTAG-VAL-SIZER"),
+    ],
+)
+def test_validator_rejects_non_allowlisted_sizer_construction(
+    payload: str, expected_code: str
+) -> None:
+    source = (
+        "import backtrader as bt\n"
+        "class EscapeStrategy(bt.Strategy):\n"
+        "    def next(self):\n"
+        "        pass\n"
+        f"{payload}\n"
+    )
+    diagnostics = StrategyValidator().validate_source(source, "strategy_escape.py")
+    assert any(item["code"] == expected_code for item in diagnostics), diagnostics
+
+
+def test_validator_accepts_allowlisted_sizer_construction() -> None:
+    source = (
+        "import backtrader as bt\n"
+        "class SizerStrategy(bt.Strategy):\n"
+        "    def next(self):\n"
+        "        pass\n"
+        "cerebro.addsizer(bt.sizers.FixedSize, stake=1)\n"
+        "cerebro.addsizer(bt.sizers.PercentSizer, percents=50)\n"
+    )
+    assert StrategyValidator().validate_source(source, "strategy_sizer.py") == []

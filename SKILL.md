@@ -5,7 +5,7 @@ description: Independent, stateless Backtrader strategy authoring and controlled
 
 # Backtrader Agent
 
-version: "13.0.2"
+version: "13.0.3"
 
 Any content change to this payload MUST bump the version line above, update
 the golden SHA-256 in tests/test_payload_contract.py, mirror this file
@@ -122,7 +122,7 @@ retain both; the DatasetManifest hash is bound into every later artifact.
 Step 5 — validate and approve the StrategySpec.
 
 ```
-backtrader-agent --state-root .btag spec --file '{"spec_version": "strategy-spec-v1", "name": "Demo Momentum", "slug": "demo-momentum", "category": "trend_following", "archetype": "single_data_indicator", "output_profile": "python_bundle", "dataset_id": "<dataset_id from step 4>", "feeds": [{"name": "primary", "role": "execution"}], "parameters": {"fast_period": {"type": "integer", "default": 5, "minimum": 2}, "slow_period": {"type": "integer", "default": 12, "minimum": 3}}, "entry": "long when the fast signal is above the slow signal", "exit": "close when the fast signal is below the slow signal", "sizing": {"kind": "fixed", "stake": 1}, "risk": {"max_position": 1}, "cash": 100000.0, "commission": 0.001, "analyzers": ["TradeAnalyzer", "DrawDown", "SharpeRatio", "SQN"], "run_modes": ["runonce", "runnext"], "allowed_imports": ["backtrader", "json", "os", "math"], "non_goals": ["live trading"], "open_questions": []}' --session-id sess-001 --approve
+backtrader-agent --state-root .btag spec --file '{"spec_version": "strategy-spec-v1", "name": "Demo Momentum", "slug": "demo-momentum", "category": "trend_following", "archetype": "single_data_indicator", "output_profile": "python_bundle", "dataset_id": "<dataset_id from step 4>", "feeds": [{"name": "primary", "role": "execution"}], "parameters": {"fast_period": {"type": "integer", "default": 5, "minimum": 2}, "slow_period": {"type": "integer", "default": 12, "minimum": 3}}, "entry": "long when the fast signal is above the slow signal", "exit": "close when the fast signal is below the slow signal", "sizing": {"method": "fixed", "fixed_size": 1}, "risk": {"max_position": 1}, "cash": 100000.0, "commission": 0.001, "analyzers": ["TradeAnalyzer", "DrawDown", "SharpeRatio", "SQN"], "run_modes": ["runonce", "runnext"], "allowed_imports": ["backtrader", "json", "os", "math"], "non_goals": ["live trading"], "open_questions": []}' --session-id sess-001 --approve
 ```
 
 open_questions must be empty — unresolved questions block generation

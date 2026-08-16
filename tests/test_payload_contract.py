@@ -5,7 +5,7 @@ from backtrader_agent import cli
 from backtrader_agent.canonical import sha256_bytes
 
 EXPECTED_PAYLOAD_SHA256 = (
-    "ddaa0ee19c75cbbc5d054e038bfd7d9fb62f96108b99e0e81e0283be9bcb1df4"
+    "d98ff1086a8519a20e16268b0d33f06f3526350da4525747591eaedaeaea71b2"
 )
 
 
@@ -16,7 +16,7 @@ def test_payload_content_hash_pinned():
 
 def test_payload_has_version():
     content = cli.PAYLOAD_PATH.read_text(encoding="utf-8")
-    assert re.search(r'^version:\s*"13\.0\.2"', content, re.M)
+    assert re.search(r'^version:\s*"13\.0\.3"', content, re.M)
 
 
 def test_payload_menu_rows_point_to_real_commands(capsys, tmp_path):

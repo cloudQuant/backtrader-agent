@@ -27,8 +27,8 @@
   "entry": "long when the fast SMA is above the slow SMA",
   "exit": "close when the fast SMA is below the slow SMA",
   "sizing": {
-    "kind": "fixed",
-    "stake": 1
+    "method": "fixed",
+    "fixed_size": 1
   },
   "risk": {
     "max_position": 1

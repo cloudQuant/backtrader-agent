@@ -170,6 +170,7 @@ def _execute_matrix_mode(
     environment_hash: Optional[str] = None,
     before_run: Optional[Callable[[], None]] = None,
     run_context: Optional[Dict[str, Any]] = None,
+    sizing: Optional[Dict[str, Any]] = None,
 ) -> tuple:
     workspace = root / "workspace"
     input_root = root / "input"
@@ -210,6 +211,8 @@ def _execute_matrix_mode(
         profile=profile,
         archetype=archetype,
     )
+    if sizing is not None:
+        raw_spec["sizing"] = sizing
     raw_spec["feeds"] = [{"name": feed["name"], "role": feed["role"]} for feed in dataset["feeds"]]
     spec = StrategySpec.from_dict(raw_spec)
     sessions.transition(
@@ -625,6 +628,45 @@ def test_eleven_scalars_still_required_in_schema() -> None:
     trade_analyzer = schema["$defs"].get("TradeAnalyzerSubset")
     assert trade_analyzer is not None
     assert TRADE_ANALYZER_SUBSET_FIELDS <= set(trade_analyzer["properties"])
+
+
+def test_real_cell_sizer_changes_positions_vs_default_sizing(tmp_path: Path) -> None:
+    default_result, _, _, _ = _execute_matrix_mode(
+        tmp_path / "default",
+        "python_bundle",
+        "single_data_indicator",
+        "runonce",
+    )
+    # The bound engine fork defaults to FixedSize(stake=1); a 10x stake must
+    # visibly move final_value away from the start cash.
+    fixed_result, _, _, _ = _execute_matrix_mode(
+        tmp_path / "fixed",
+        "python_bundle",
+        "single_data_indicator",
+        "runonce",
+        sizing={"method": "fixed", "fixed_size": 10},
+    )
+    percent_result, _, _, _ = _execute_matrix_mode(
+        tmp_path / "percent",
+        "python_bundle",
+        "single_data_indicator",
+        "runonce",
+        sizing={"method": "percent", "percent": 95},
+    )
+    default_deviation = abs(default_result["metrics"]["final_value"] - 100000.0)
+    assert default_result["metrics"]["buy_count"] > 0
+    for sized_result in (fixed_result, percent_result):
+        assert (
+            default_result["metrics"]["buy_count"]
+            == sized_result["metrics"]["buy_count"]
+        )
+        sized_deviation = abs(sized_result["metrics"]["final_value"] - 100000.0)
+        assert sized_deviation > default_deviation
+        assert (
+            default_result["metrics"]["final_value"]
+            != sized_result["metrics"]["final_value"]
+        )
+        validate_contract("run-result-v1.schema.json", sized_result)
 
 
 def test_run_result_extended_metrics_from_real_cell(tmp_path: Path) -> None:

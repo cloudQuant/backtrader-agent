@@ -52,6 +52,11 @@ ALLOWED_BACKTRADER_TOP_LEVEL = {
     "ind",
     "indicators",
     "num2date",
+    "sizers",
+}
+ALLOWED_BACKTRADER_SIZERS = {
+    "FixedSize": frozenset({"stake"}),
+    "PercentSizer": frozenset({"percents"}),
 }
 ALLOWED_BACKTRADER_FEEDS = {
     "BacktraderCSVData",
@@ -140,6 +145,10 @@ def _backtrader_path_allowed(path: Tuple[str, ...]) -> bool:
         if len(path) == 2:
             return True
         return len(path) == 3 and path[2] in ALLOWED_BACKTRADER_ANALYZERS
+    if path[1] == "sizers":
+        if len(path) == 2:
+            return True
+        return len(path) == 3 and path[2] in ALLOWED_BACKTRADER_SIZERS
     return len(path) == 2
 
 
@@ -273,6 +282,79 @@ class StrategyValidator:
                         )
                     )
                 path = _attribute_path(node.func)
+                if (
+                    path
+                    and len(path) == 3
+                    and path[0] in {"bt", "backtrader"}
+                    and path[1] == "sizers"
+                    and path[2] in ALLOWED_BACKTRADER_SIZERS
+                ):
+                    allowed_keywords = ALLOWED_BACKTRADER_SIZERS[path[2]]
+                    if node.args or any(
+                        keyword.arg not in allowed_keywords for keyword in node.keywords
+                    ):
+                        diagnostics.append(
+                            _diagnostic(
+                                "BTAG-VAL-SIZER",
+                                "sizer construction is not capability-allowlisted",
+                                filename,
+                                node,
+                                hint=(
+                                    "bt.sizers.FixedSize accepts only stake=; "
+                                    "bt.sizers.PercentSizer accepts only percents="
+                                ),
+                            )
+                        )
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "addsizer"
+                ):
+                    first = node.args[0] if node.args else None
+                    first_path = (
+                        _attribute_path(first)
+                        if first is not None and not isinstance(first, ast.Starred)
+                        else None
+                    )
+                    is_literal_sizer = (
+                        first_path is not None
+                        and len(first_path) == 3
+                        and first_path[0] in {"bt", "backtrader"}
+                        and first_path[1] == "sizers"
+                        and first_path[2] in ALLOWED_BACKTRADER_SIZERS
+                    )
+                    if is_literal_sizer:
+                        allowed_keywords = ALLOWED_BACKTRADER_SIZERS[first_path[2]]
+                        if node.args[1:] or any(
+                            keyword.arg not in allowed_keywords
+                            for keyword in node.keywords
+                        ):
+                            diagnostics.append(
+                                _diagnostic(
+                                    "BTAG-VAL-SIZER",
+                                    "sizer arguments are not capability-allowlisted",
+                                    filename,
+                                    node,
+                                    hint=(
+                                        "bt.sizers.FixedSize accepts only stake=; "
+                                        "bt.sizers.PercentSizer accepts only percents="
+                                    ),
+                                )
+                            )
+                    else:
+                        diagnostics.append(
+                            _diagnostic(
+                                "BTAG-VAL-SIZER",
+                                "sizer construction is not capability-allowlisted",
+                                filename,
+                                node,
+                                hint=(
+                                    "cerebro.addsizer must receive the literal "
+                                    "bt.sizers.FixedSize or bt.sizers.PercentSizer "
+                                    "class; call, variable, and starred indirection "
+                                    "is forbidden"
+                                ),
+                            )
+                        )
                 if path == ("os", "environ", "get"):
                     key = _constant_string(node.args[0]) if node.args else None
                     if key not in SAFE_ENVIRONMENT_KEYS:

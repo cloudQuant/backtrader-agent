@@ -1,8 +1,9 @@
 """Typed core contracts with deterministic hashes."""
 
+import math
 import re
 from dataclasses import dataclass
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from .adapters import ADAPTER_FORMATS
 from .archetypes import ARCHETYPE_IDS
@@ -25,6 +26,51 @@ def _require_text(value: Dict[str, Any], field: str) -> str:
     if not isinstance(item, str) or not item.strip():
         raise AgentError("BTAG-SPEC-REQUIRED", f"StrategySpec field '{field}' is required")
     return item.strip()
+
+
+def _finite_positive_number(value: Any) -> bool:
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+        and value > 0
+    )
+
+
+def _normalize_sizing(value: Any) -> Optional[Dict[str, Any]]:
+    """Validate the R24 sizing block: {method: fixed|percent, fixed_size|percent}.
+
+    Absent or null sizing keeps Backtrader's default sizer (no addsizer
+    assembly), so specs without a sizing block behave exactly as before.
+    """
+
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        raise AgentError("BTAG-SPEC-SIZING", "sizing must be an object or null")
+    method = value.get("method")
+    if method == "fixed":
+        if set(value) != {"method", "fixed_size"} or not _finite_positive_number(
+            value.get("fixed_size")
+        ):
+            raise AgentError(
+                "BTAG-SPEC-SIZING",
+                "sizing method 'fixed' requires a positive numeric fixed_size",
+            )
+        return {"method": "fixed", "fixed_size": value["fixed_size"]}
+    if method == "percent":
+        percent = value.get("percent")
+        if (
+            set(value) != {"method", "percent"}
+            or not _finite_positive_number(percent)
+            or percent > 100
+        ):
+            raise AgentError(
+                "BTAG-SPEC-SIZING",
+                "sizing method 'percent' requires a numeric percent in (0, 100]",
+            )
+        return {"method": "percent", "percent": percent}
+    raise AgentError("BTAG-SPEC-SIZING", "sizing method must be 'fixed' or 'percent'")
 
 
 @dataclass(frozen=True)
@@ -84,10 +130,8 @@ class StrategySpec:
                     "lines": sorted({str(line) for line in lines}),
                 }
             )
-        sizing = source.get("sizing")
+        sizing = _normalize_sizing(source.get("sizing"))
         risk = source.get("risk")
-        if not isinstance(sizing, dict) or not sizing:
-            raise AgentError("BTAG-SPEC-SIZING", "sizing rules must be explicit")
         if not isinstance(risk, dict) or not risk:
             raise AgentError("BTAG-SPEC-RISK", "risk rules must be explicit")
         questions = source.get("open_questions", [])

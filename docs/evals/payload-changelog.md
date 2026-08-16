@@ -87,6 +87,31 @@ executable ground truth.
 This entry pins the golden SHA-256
 `ddaa0ee19c75cbbc5d054e038bfd7d9fb62f96108b99e0e81e0283be9bcb1df4`.
 
+## 13.0.3 — 2026-08-16
+
+**Motivation.** R24 limited landing (Task 21): the StrategySpec `sizing`
+field stops being inert — `{method: fixed, fixed_size: n}` and
+`{method: percent, percent: p}` render a fixed
+`cerebro.addsizer(bt.sizers.FixedSize, stake=n)` /
+`cerebro.addsizer(bt.sizers.PercentSizer, percents=p)` assembly through the
+scaffold, with the validator allowlist extended to those two sizer classes
+under restricted construction. The Step 5 worked example therefore shows the
+new sizing shape.
+
+**Changes.**
+
+- Worked trace step 5 spec: `"sizing": {"kind": "fixed", "stake": 1}` →
+  `"sizing": {"method": "fixed", "fixed_size": 1}` (the old shape is now
+  rejected with BTAG-SPEC-SIZING; omitting the field keeps the default
+  sizer).
+- Payload contract test: version regex pinned to 13.0.3.
+
+**Eval baseline.** T24's (release wrap-up): the Phase 2 boundary gate owns
+the full deterministic eval re-run against this payload, and the recorded
+baseline lands in the T24 wrap-up; until then the 13.0.2 baseline (Task 10
+suite, 23/23) is the latest recorded run. This entry pins the golden SHA-256
+`d98ff1086a8519a20e16268b0d33f06f3526350da4525747591eaedaeaea71b2`.
+
 ## 13.0.1 — 2026-08-16
 
 **Motivation.** Post-review correction of the 13.0.0 compression rules: the

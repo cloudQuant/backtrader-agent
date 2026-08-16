@@ -52,7 +52,29 @@
     },
     "entry": {"$ref": "#/$defs/RuleReferences"},
     "exit": {"$ref": "#/$defs/RuleReferences"},
-    "sizing": {"type": "object"},
+    "sizing": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["method", "fixed_size"],
+          "properties": {
+            "method": {"const": "fixed"},
+            "fixed_size": {"$ref": "#/$defs/PositiveNumber"}
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": ["method", "percent"],
+          "properties": {
+            "method": {"const": "percent"},
+            "percent": {"$ref": "#/$defs/Percent"}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
     "risk": {"type": "object"},
     "cash": {"type": "number", "exclusiveMinimum": 0},
     "commission": {"type": "number", "minimum": 0},
@@ -113,6 +135,15 @@
         }
       },
       "additionalProperties": false
+    },
+    "PositiveNumber": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "Percent": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 100
     }
   },
   "x-hash-contract": {

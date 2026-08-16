@@ -190,6 +190,7 @@ def test_built_wheel_contains_all_contracts_policy_catalog_and_payload(
     assert metadata["License"] == "MIT"
     assert set(metadata.get_all("Provides-Extra", [])) == {
         "backtest",
+        "docs",
         "single-test",
         "test",
         "eval",

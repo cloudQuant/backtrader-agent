@@ -13,6 +13,7 @@ authors = [{ name = "cloudQuant" }]
 dependencies = []
 
 [project.optional-dependencies]
+docs = ["mkdocs>=1.5,<2", "mkdocs-material>=9", "mkdocs-static-i18n>=1.0"]
 backtest = [
   "backtrader @ git+https://github.com/cloudQuant/backtrader.git",
   "pandas>=1.0",

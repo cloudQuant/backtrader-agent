@@ -14,6 +14,15 @@ and compares the normalized metrics.
 It does not import, start, inspect, or depend on another Backtrader AI product.
 It also does not embed a model SDK or require a model API key.
 
+## Documentation
+
+Bilingual (English / 中文) online documentation:
+
+- GitHub Pages: <https://cloudquant.github.io/backtrader-agent/>
+- Read the Docs: <https://backtrader-agent.readthedocs.io/>
+
+See the [Ecosystem](#ecosystem) section for the sibling cloudQuant products.
+
 ## Adapter, payload, and runtime are different layers
 
 - A **native host adapter** is a tiny discovery/activation file in the host's
@@ -587,6 +596,24 @@ Sibling absence is mandatory in the default command: acceptance fails if either
 See [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md) for implemented scope,
 verification evidence, migration impact, and deferred items.
 
+## Ecosystem
+
+cloudQuant maintains a family of products around the Backtrader engine.
+`backtrader-agent` is one member:
+
+| Project | What it does |
+| --- | --- |
+| [cloudQuant/backtrader](https://github.com/cloudQuant/backtrader) | The engine: a performance-oriented fork of mementum/backtrader (100% API compatible, ~45% faster, 57+209 indicator modules, 18 analyzers, optimization backends, live trading, HFT brokers, unified plotting). The only runtime accepted by this product. |
+| [cloudQuant/backtrader-skills](https://github.com/cloudQuant/backtrader-skills) | Offline author/review/test CLI product: dataset + `StrategySpec v1` → pytest strategy or three-file bundle, static review, runonce/runnext child runs. |
+| [cloudQuant/backtrader-mcp](https://github.com/cloudQuant/backtrader-mcp) | Local-first MCP server with 30 annotated tools for the same offline authoring/run lifecycle over SQLite/WAL state. |
+| [cloudQuant/backtrader_web](https://github.com/cloudQuant/backtrader_web) | "AI for Investor" (aifortrader.cn): FastAPI + Vue 3 platform for knowledge-base research, strategy authoring, data pre-checks, backtest validation, and portfolio observation. |
+| [cloudQuant/backtrader-agent](https://github.com/cloudQuant/backtrader-agent) | This product: offline-first agent runtime driven by host LLM agents with hash-bound approvals, controlled runs, sweep, and a deterministic eval suite. |
+| [cloudQuant/fincore](https://github.com/cloudQuant/fincore) | Quantitative performance & risk analytics: 150+ metrics, portfolio optimization, Monte Carlo, performance attribution (maintained empyrical/pyfolio/alphalens continuation). |
+
+`backtrader-agent`, `backtrader-skills`, and `backtrader-mcp` share canonical
+contracts (StrategySpec v1, run results, dataset manifests) and are
+intentionally independent — none imports or starts the others.
+
 ---
 
 # 📖 中文文档
@@ -603,6 +630,15 @@ verification evidence, migration impact, and deferred items.
 
 它不会导入、启动、检查或依赖另一个 Backtrader AI 产品，也不嵌入 model SDK 或要求
 model API key。
+
+## 在线文档
+
+中英双语在线文档：
+
+- GitHub Pages：<https://cloudquant.github.io/backtrader-agent/>
+- Read the Docs：<https://backtrader-agent.readthedocs.io/>
+
+兄弟 cloudQuant 产品见[生态](#生态)一节。
 
 ## adapter、payload 和运行时是不同层次
 
@@ -1088,3 +1124,20 @@ sibling 缺失在默认命令中是强制的：若干净运行时可导入 `back
 
 实现范围、验证证据、迁移影响和延后项见
 [IMPLEMENTATION_REPORT.md](IMPLEMENTATION_REPORT.md)。
+
+## 生态
+
+cloudQuant 围绕 Backtrader 引擎维护了一组产品，`backtrader-agent` 是其中之一：
+
+| 项目 | 功能简介 |
+| --- | --- |
+| [cloudQuant/backtrader](https://github.com/cloudQuant/backtrader) | 引擎：mementum/backtrader 的性能优化 fork（100% API 兼容、约 45% 提速、57+209 个指标模块、18 个分析器、优化后端、实盘交易、HFT broker、统一绘图）。本产品唯一接受的运行时。 |
+| [cloudQuant/backtrader-skills](https://github.com/cloudQuant/backtrader-skills) | 离线编写/审查/测试 CLI 产品：数据集 + `StrategySpec v1` → pytest 策略或三文件 bundle，静态审查，runonce/runnext 子进程运行。 |
+| [cloudQuant/backtrader-mcp](https://github.com/cloudQuant/backtrader-mcp) | 本地优先的 MCP 服务器，30 个带注解的工具，覆盖同样的离线编写/运行生命周期，状态存于 SQLite/WAL。 |
+| [cloudQuant/backtrader_web](https://github.com/cloudQuant/backtrader_web) | 「AI for Investor」（aifortrader.cn）：FastAPI + Vue 3 平台，知识库研究、策略编写、数据预检、回测验证与组合观察。 |
+| [cloudQuant/backtrader-agent](https://github.com/cloudQuant/backtrader-agent) | 本产品：离线优先的 agent 运行时，由宿主 LLM agent 驱动，哈希绑定审批、受控运行、sweep 与确定性 eval 套件。 |
+| [cloudQuant/fincore](https://github.com/cloudQuant/fincore) | 量化绩效与风险分析：150+ 指标、组合优化、蒙特卡洛、绩效归因（empyrical/pyfolio/alphalens 的维护续作）。 |
+
+`backtrader-agent`、`backtrader-skills` 与 `backtrader-mcp` 共享规范契约
+（StrategySpec v1、run result、dataset manifest），并刻意保持相互独立 —— 任何
+一个都不导入或启动另一个。

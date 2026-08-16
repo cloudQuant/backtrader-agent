@@ -1,0 +1,31 @@
+site_name: backtrader-agent
+strict: true
+
+# Internal development artifacts (iteration plans, eval ledgers) must not be
+# published on the public site.
+exclude_docs: |
+  superpowers/
+  iterations/
+  evals/
+
+theme:
+  name: material
+
+nav:
+  - Home: index.md
+  - Workflow: workflow.md
+  - Capabilities: capabilities.md
+  - Ecosystem: ecosystem.md
+  - Changelog: changelog.md
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      fallback_to_default: false
+      languages:
+        - locale: en
+          name: English
+          default: true
+        - locale: zh
+          name: 中文

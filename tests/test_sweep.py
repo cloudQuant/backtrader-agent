@@ -1160,6 +1160,42 @@ def test_sweep_cell_transient_failure_retries_once_and_passes(
     assert SessionStore(state).load("session-001")["state"] == "PASSED"
 
 
+def test_sweep_cell_timeout_lands_redacted_partial_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A wall-clock-killed cell keeps what it printed before the kill: the
+    redacted failure logs carry the retained partial streams (R20)."""
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5]}
+    )
+    partial = b"PROBE-TIMEOUT-PARTIAL /tmp/fake-path\n"
+    monkeypatch.setattr(
+        sweep_run,
+        "_execute_profile",
+        lambda profile: (_ for _ in ()).throw(
+            subprocess.TimeoutExpired(
+                profile["argv"],
+                profile["timeout_seconds"],
+                output=partial,
+                stderr=partial,
+            )
+        ),
+    )
+
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    assert result["cells_failed"] == 1
+    cell_dir = _cell_dir(state, plan, plan["cells"][0])
+    stdout_log = (cell_dir / "stdout.log").read_text(encoding="utf-8")
+    stderr_log = (cell_dir / "stderr.log").read_text(encoding="utf-8")
+    assert "PROBE-TIMEOUT-PARTIAL" in stdout_log
+    assert "PROBE-TIMEOUT-PARTIAL" in stderr_log
+    assert "/tmp/fake-path" not in stdout_log
+    assert "/tmp/fake-path" not in stderr_log
+    assert len(stdout_log.encode("utf-8")) <= 2000
+    assert len(stderr_log.encode("utf-8")) <= 2000
+
+
 def test_sweep_cell_persistent_transient_failure_fails_sweep_and_report_rejects_tamper(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

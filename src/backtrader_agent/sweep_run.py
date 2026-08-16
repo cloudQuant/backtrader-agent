@@ -553,6 +553,8 @@ def _execute_cell(
     )
     attempts = 0
     total_duration = 0.0
+    timeout_stdout: Optional[bytes] = None
+    timeout_stderr: Optional[bytes] = None
     while True:
         attempts += 1
         started = time.monotonic()
@@ -567,9 +569,10 @@ def _execute_cell(
                     "output_dir": cell_dir,
                 }
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as exc:
             code = "BTAG-RUN-TIMEOUT"
             completed = None
+            timeout_stdout, timeout_stderr = exc.stdout, exc.stderr
         total_duration += time.monotonic() - started
         if completed is not None:
             stdout = completed.stdout
@@ -627,8 +630,8 @@ def _execute_cell(
             continue
         _persist_redacted_outputs(
             cell_dir,
-            completed.stdout if completed is not None else None,
-            completed.stderr if completed is not None else None,
+            completed.stdout if completed is not None else timeout_stdout,
+            completed.stderr if completed is not None else timeout_stderr,
             state_root=state_root,
             entrypoint=entrypoint,
             descriptors=descriptors,

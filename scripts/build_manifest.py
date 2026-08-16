@@ -45,6 +45,7 @@ ROOT_EXCLUDED_PARTS: Set[str] = {
     "build",
     ".git",
     ".superpowers",
+    ".backtrader-agent",
 }
 PKG_EXCLUDED_PARTS: Set[str] = {"__pycache__"}
 VERSION_RE = re.compile(r'^__version__\s*=\s*["\']([^"\']+)["\']', re.MULTILINE)

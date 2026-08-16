@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -18,6 +19,7 @@ from .doctor import diagnose
 from .engines import inspect_engine, inspect_execution_environment
 from .errors import AgentError
 from .installer import AdapterInstaller
+from .observability import record_call
 from .repair import RepairWorkflow
 from .report import compare_metrics, normalize_metrics
 from .roots import RootRegistry
@@ -719,14 +721,62 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
     raise AgentError("BTAG-CLI-COMMAND", "unknown command")
 
 
+def _trace_arg_hashes(args: argparse.Namespace) -> Dict[str, str]:
+    """Hash every supplied CLI argument so raw values never reach the trace."""
+
+    return {
+        str(name): sha256_bytes(str(value).encode("utf-8"))
+        for name, value in sorted(vars(args).items())
+        if value is not None and name != "command"
+    }
+
+
+def _record_trace(
+    state: Path,
+    session_id: Optional[str],
+    command: str,
+    arg_hashes: Dict[str, str],
+    started: float,
+    exit_code: int,
+    error_code: Optional[str],
+) -> None:
+    """Record one host invocation; trace failures warn without changing exit codes."""
+
+    duration_ms = int((time.monotonic() - started) * 1000)
+    try:
+        record_call(
+            state,
+            session_id,
+            command,
+            arg_hashes,
+            duration_ms,
+            exit_code,
+            error_code,
+        )
+    except (AgentError, OSError, ValueError) as exc:
+        code = getattr(exc, "code", None) or exc.__class__.__name__
+        print(
+            "WARNING: invocation trace could not be recorded ({})".format(code),
+            file=sys.stderr,
+        )
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    started = time.monotonic()
+    state = _state(args)
+    session_id = getattr(args, "session_id", None)
+    command = args.command
+    arg_hashes = _trace_arg_hashes(args)
+    exit_code = 0
+    error_code: Optional[str] = None
     try:
         result = dispatch(args)
     except AgentError as exc:
         _emit({"status": "failed", "diagnostic": exc.as_dict()})
-        return 3
+        exit_code = 3
+        error_code = exc.code
     except OSError as exc:
         _emit(
             {
@@ -738,7 +788,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 },
             }
         )
-        return 4
+        exit_code = 4
+        error_code = "BTAG-CLI-IO"
     except (ValueError, json.JSONDecodeError):
         _emit(
             {
@@ -750,7 +801,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 },
             }
         )
-        return 3
+        exit_code = 3
+        error_code = "BTAG-CLI-INPUT"
+    finally:
+        if error_code is None and sys.exc_info()[0] is not None:
+            exit_code, error_code = 1, "BTAG-CLI-INTERNAL"
+        _record_trace(
+            state, session_id, command, arg_hashes, started, exit_code, error_code
+        )
+    if exit_code != 0:
+        return exit_code
     warnings = result.get("warnings", [])
     if not isinstance(warnings, list):
         warnings = []

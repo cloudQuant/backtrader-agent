@@ -25,22 +25,12 @@ PACKAGE_ROOT = PRODUCT_ROOT / "src" / "backtrader_agent"
 def test_source_distribution_manifest_covers_every_file() -> None:
     manifest_path = PRODUCT_ROOT / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    excluded_parts = {
-        "__pycache__",
-        ".pytest_cache",
-        ".mypy_cache",
-        ".ruff_cache",
-        "dist",
-        "build",
-        ".git",
-        ".superpowers",
-    }
     actual = {
         path.relative_to(PRODUCT_ROOT).as_posix()
         for path in PRODUCT_ROOT.rglob("*")
         if path.is_file()
         and path != manifest_path
-        and not excluded_parts.intersection(path.parts)
+        and not ROOT_EXCLUDED_PARTS.intersection(path.parts)
         and not any(part.endswith(".egg-info") for part in path.parts)
         and path.suffix != ".pyc"
     }

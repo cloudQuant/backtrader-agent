@@ -1100,11 +1100,13 @@ def test_sweep_run_replays_completed_cells_after_crash(
     def crash_on_second(profile):
         calls["count"] += 1
         if calls["count"] == 2:
-            raise RuntimeError("simulated process death")
+            # A process-level kill (SIGINT/SIGKILL) journals nothing: the
+            # session stays RUNNING and recover() forces PAUSED for resume.
+            raise KeyboardInterrupt
         return real_execute(profile)
 
     monkeypatch.setattr(sweep_run, "_execute_profile", crash_on_second)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(KeyboardInterrupt):
         sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
     assert SessionStore(state).load("session-001")["state"] == "RUNNING"
     first_result_path = _cell_dir(state, plan, plan["cells"][0]) / "run-result.json"
@@ -1198,6 +1200,76 @@ def test_sweep_cell_persistent_transient_failure_fails_sweep_and_report_rejects_
     with pytest.raises(AgentError) as raised:
         sweep_run.sweep_report(state, plan["sweep_id"])
     assert raised.value.code == "BTAG-SWEEP-RESULT"
+
+
+def test_sweep_cell_failure_does_not_corrupt_other_cells(tmp_path: Path) -> None:
+    """One bad cell (a tampered cell draft) must not abort or strand the sweep.
+
+    The render of the tampered cell fails with a domain error; the cell is
+    persisted as failed and the remaining cells still complete.
+    """
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5, 10]}
+    )
+    tampered = plan["cells"][0]
+    tampered_dir = _cell_dir(state, plan, tampered)
+    tampered_dir.mkdir(parents=True)
+    (tampered_dir / "artifact-manifest.json").write_text("tampered", encoding="utf-8")
+
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    assert result["cells_completed"] == 1
+    assert result["cells_failed"] == 1
+    failed_record = read_json(tampered_dir / "run-result.json")
+    assert failed_record["status"] == "failed"
+    assert (
+        failed_record["extensions"]["backtrader_agent"]["failure_code"]
+        == "BTAG-DRAFT-MANIFEST"
+    )
+    report = sweep_run.sweep_report(state, plan["sweep_id"])
+    assert [cell["status"] for cell in report["cells"]] == ["passed", "failed"]
+    assert report["cells_completed"] == 1
+    assert report["cells_failed"] == 1
+    # The sweep completed (journaled), it did not silently strand in RUNNING.
+    assert SessionStore(state).load("session-001")["state"] == "FAILED"
+
+
+def test_sweep_unexpected_cell_exception_journals_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An unexpected in-process cell exception journals FAILED before re-raising.
+
+    A non-AgentError exception cannot be contained as a per-cell failure, so
+    the sweep must never leave the session stranded in RUNNING with the
+    one-time token already consumed.
+    """
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5]}
+    )
+    monkeypatch.setattr(
+        sweep_run,
+        "_execute_profile",
+        lambda profile: (_ for _ in ()).throw(OSError("simulated child exec failure")),
+    )
+
+    with pytest.raises(OSError):
+        sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    session = SessionStore(state).load("session-001")
+    assert session["state"] == "FAILED"
+    assert session["retry_eligible"] is False
+    failed_events = [
+        event
+        for event in _journal_events(state, "session-001")
+        if event["to_state"] == "FAILED"
+    ]
+    assert len(failed_events) == 1
+    assert failed_events[0]["action_type"] == "sweep-failed"
+    assert (
+        failed_events[0]["effect_references"]["run_failure_code"] == "BTAG-SWEEP-CRASH"
+    )
+    assert failed_events[0]["effect_references"]["sweep_id"] == plan["sweep_id"]
+    assert failed_events[0]["effect_references"]["cells_pending"] == "1"
 
 
 def test_cli_sweep_run_two_by_two(tmp_path: Path) -> None:

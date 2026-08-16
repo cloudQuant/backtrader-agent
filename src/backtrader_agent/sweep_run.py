@@ -418,7 +418,65 @@ def _run_cell(
     sweep_token: Dict[str, Any],
     timeout_per_cell: int,
 ) -> str:
-    """Render, validate, and execute one sweep cell (or replay its result)."""
+    """Render, validate, and execute one sweep cell (or replay its result).
+
+    Contained wrapper: a domain error anywhere in the pipeline (replay
+    verification, rendering, provenance, token issuance, descriptor building,
+    or execution) persists a failed cell record so one bad cell cannot abort
+    or strand the sweep. Unexpected exceptions propagate to the run loop,
+    which journals the session failure before re-raising.
+    """
+
+    try:
+        return _execute_cell(
+            state_root,
+            authority,
+            plan,
+            cell,
+            dataset,
+            engine_root=engine_root,
+            engine_descriptor=engine_descriptor,
+            environment_hash=environment_hash,
+            sweep_token=sweep_token,
+            timeout_per_cell=timeout_per_cell,
+        )
+    except AgentError as exc:
+        cell_dir = (
+            state_root / "sweeps" / plan["sweep_id"] / "cells" / cell["cell_hash"]
+        )
+        return _persist_failed_cell(
+            cell_dir,
+            context={
+                "sweep_id": plan["sweep_id"],
+                "cell_hash": cell["cell_hash"],
+                "dataset_manifest_hash": dataset["manifest_hash"],
+            },
+            failure_code=exc.code,
+            failure_stage="cell",
+            diagnostics=[
+                {"code": exc.code, "severity": "error", "message": exc.message}
+            ],
+            run_id=None,
+            validation_token_id=None,
+            attempts=0,
+            duration_seconds=0.0,
+        )
+
+
+def _execute_cell(
+    state_root: Path,
+    authority: TokenAuthority,
+    plan: Dict[str, Any],
+    cell: Dict[str, Any],
+    dataset: Dict[str, Any],
+    *,
+    engine_root: Path,
+    engine_descriptor: Dict[str, Any],
+    environment_hash: str,
+    sweep_token: Dict[str, Any],
+    timeout_per_cell: int,
+) -> str:
+    """Execute the per-cell pipeline without error containment."""
 
     cell_dir = state_root / "sweeps" / plan["sweep_id"] / "cells" / cell["cell_hash"]
     replayed = _replay_cell(state_root, plan, cell)
@@ -586,6 +644,39 @@ def _run_cell(
         )
 
 
+def _mark_sweep_failed(
+    sessions: SessionStore,
+    plan: Dict[str, Any],
+    sweep_id: str,
+    completed: int,
+    failed: int,
+    *,
+    code: str,
+) -> None:
+    """Journal ``RUNNING -> FAILED`` before an uncontainable cell error re-raises.
+
+    Mirrors the controlled runner's ``mark_failed``: the failure is committed
+    to the session journal with ``retry_eligible=False`` so an interrupted
+    sweep never silently strands in RUNNING with its one-time token consumed.
+    """
+
+    sessions.transition(
+        plan["session_id"],
+        "FAILED",
+        "sweep-failed",
+        {"sweep": plan["plan_hash"]},
+        effect_references={
+            "sweep_id": sweep_id,
+            "sweep_plan_hash": plan["plan_hash"],
+            "cells_completed": str(completed),
+            "cells_failed": str(failed),
+            "cells_pending": str(len(plan["cells"]) - completed - failed),
+            "run_failure_code": code,
+        },
+        retry_eligible=False,
+    )
+
+
 @contextmanager
 def _locked_sweep(
     state_root: Path, sweep_id: str, *, timeout_per_cell: int
@@ -696,8 +787,11 @@ def run_sweep(
     The one-time sweep token is verified against the pinned sweep binding
     shape and consumed exactly once; an interrupted run resumes by replaying
     verified per-cell results under the same token and effect. A whitelisted
-    transient cell failure retries once; a cell that still fails is recorded
-    and the sweep completes with ``cells_failed`` set.
+    transient cell failure retries once; a cell that fails anywhere in its
+    pipeline with a domain error is persisted as a failed cell record and the
+    remaining cells still complete. An unexpected in-process exception
+    journals the session FAILED before re-raising so the sweep never silently
+    strands in RUNNING.
     """
 
     state_root = Path(state)
@@ -758,18 +852,38 @@ def run_sweep(
         completed = 0
         failed = 0
         for cell in attempted:
-            status = _run_cell(
-                state_root,
-                authority,
-                plan,
-                cell,
-                dataset,
-                engine_root=engine_root,
-                engine_descriptor=engine_descriptor,
-                environment_hash=plan["environment_hash"],
-                sweep_token=token,
-                timeout_per_cell=timeout_per_cell,
-            )
+            try:
+                status = _run_cell(
+                    state_root,
+                    authority,
+                    plan,
+                    cell,
+                    dataset,
+                    engine_root=engine_root,
+                    engine_descriptor=engine_descriptor,
+                    environment_hash=plan["environment_hash"],
+                    sweep_token=token,
+                    timeout_per_cell=timeout_per_cell,
+                )
+            except AgentError as exc:
+                # Containment itself failed (e.g. the tampered cell directory
+                # rejected the failure record): journal and fail closed.
+                _mark_sweep_failed(
+                    sessions, plan, sweep_id, completed, failed, code=exc.code
+                )
+                raise
+            except Exception:
+                # Unexpected in-process failure: never strand the session in
+                # RUNNING with the token already consumed.
+                _mark_sweep_failed(
+                    sessions,
+                    plan,
+                    sweep_id,
+                    completed,
+                    failed,
+                    code="BTAG-SWEEP-CRASH",
+                )
+                raise
             if status == "passed":
                 completed += 1
             else:

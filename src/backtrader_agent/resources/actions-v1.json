@@ -1094,6 +1094,71 @@
         }
       ]
     },
+    "sweep report": {
+      "help": "rank the per-cell sweep results by final_value",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "sweep_id",
+          "option_strings": [
+            "--sweep-id"
+          ],
+          "required": true,
+          "type": null
+        }
+      ]
+    },
+    "sweep run": {
+      "help": "execute an approved sweep plan cell by cell",
+      "params": [
+        {
+          "choices": null,
+          "default": null,
+          "help": null,
+          "name": "sweep_id",
+          "option_strings": [
+            "--sweep-id"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": null,
+          "help": "sweep approval token JSON",
+          "name": "token",
+          "option_strings": [
+            "--token"
+          ],
+          "required": true,
+          "type": null
+        },
+        {
+          "choices": null,
+          "default": 100,
+          "help": null,
+          "name": "max_cells",
+          "option_strings": [
+            "--max-cells"
+          ],
+          "required": false,
+          "type": "int"
+        },
+        {
+          "choices": null,
+          "default": 120,
+          "help": null,
+          "name": "timeout_per_cell",
+          "option_strings": [
+            "--timeout-per-cell"
+          ],
+          "required": false,
+          "type": "int"
+        }
+      ]
+    },
     "validate": {
       "help": "AST/security validate a draft artifact",
       "params": [

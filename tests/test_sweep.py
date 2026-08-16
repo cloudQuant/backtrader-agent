@@ -16,15 +16,18 @@ The prepare contract:
 """
 
 import json
+import shutil
+import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional, Tuple
 
 import pytest
 
-from backtrader_agent import sweep
+from backtrader_agent import sweep, sweep_run
 from backtrader_agent.canonical import hash_object, read_json
 from backtrader_agent.cli import build_parser, dispatch
 from backtrader_agent.contracts import StrategySpec
+from backtrader_agent.data import DatasetService
 from backtrader_agent.engines import inspect_engine, inspect_execution_environment
 from backtrader_agent.errors import AgentError
 from backtrader_agent.roots import RootRegistry
@@ -814,3 +817,512 @@ def test_cli_sweep_approval_request_and_grant(tmp_path: Path) -> None:
     )
     assert grant["token"]["kind"] == "sweep"
     assert grant["token"]["bindings"]["sweep_plan_hash"] == plan["plan_hash"]
+
+
+# --- R17/R18: sweep run and report --------------------------------------------
+
+
+def _make_approved_sweep(
+    tmp_path: Path,
+    *,
+    grid: Optional[Dict[str, Any]] = None,
+    session_id: str = "session-001",
+    engine_root: Optional[Path] = None,
+) -> Tuple[Path, RootRegistry, TokenAuthority, Dict[str, Any], Dict[str, Any]]:
+    """Run-ready sweep setup: registered roots, a CAS dataset, an approved
+    spec, a prepared SweepPlan, and a granted one-time sweep token."""
+    workspace = tmp_path / "workspace"
+    inputs = tmp_path / "inputs"
+    workspace.mkdir()
+    inputs.mkdir()
+    write_price_csv(inputs / "prices.csv", rows=40)
+    state = workspace / ".backtrader-agent"
+    roots = RootRegistry(state)
+    roots.register("workspace", workspace, writable=True, kind="workspace")
+    roots.register("input", inputs, writable=False, kind="dataset")
+    if engine_root is None:
+        _register_engine(state)
+    else:
+        roots.register("engine", engine_root, writable=False, kind="engine")
+    dataset = DatasetService(roots, state).register(data_spec())
+    spec = StrategySpec.from_dict(_sweep_strategy_spec(dataset["dataset_id"]))
+    sessions = SessionStore(state)
+    sessions.create(session_id)
+    sessions.transition(
+        session_id,
+        "DATA_READY",
+        "dataset-register",
+        {"dataset": dataset["manifest_hash"]},
+        effect_references={
+            "dataset_id": dataset["dataset_id"],
+            "dataset_manifest_hash": dataset["manifest_hash"],
+        },
+    )
+    sessions.transition(
+        session_id,
+        "SPEC_DRAFT",
+        "spec-draft",
+        {"spec": spec.spec_hash},
+        effect_references={"spec_hash": spec.spec_hash},
+    )
+    sessions.transition(
+        session_id,
+        "SPEC_APPROVED",
+        "spec-approve",
+        {"spec": spec.spec_hash},
+        effect_references={"approved_spec_hash": spec.spec_hash},
+    )
+    plan = sweep.prepare_sweep(
+        state,
+        session_id,
+        spec,
+        dataset,
+        (
+            grid
+            if grid is not None
+            else {"fast_period": [5, 10], "slow_period": [15, 20]}
+        ),
+        engine_root_id="engine",
+    )
+    authority = TokenAuthority(state)
+    request = authority.prepare_approval(
+        "sweep", plan["plan_hash"], _sweep_bindings(plan)
+    )
+    token = authority.grant_approval(
+        request["request_id"], approver="me", confirmed=True
+    )["token"]
+    return state, roots, authority, plan, token
+
+
+def _cell_dir(state: Path, plan: Dict[str, Any], cell: Dict[str, Any]) -> Path:
+    return state / "sweeps" / plan["sweep_id"] / "cells" / cell["cell_hash"]
+
+
+def _journal_events(state: Path, session_id: str) -> list:
+    journal = state / "sessions" / session_id / "journal.jsonl"
+    return [
+        json.loads(line) for line in journal.read_text(encoding="utf-8").splitlines()
+    ]
+
+
+def test_sweep_run_two_by_two(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    state, roots, authority, plan, token = _make_approved_sweep(tmp_path)
+    before = {str(path) for path in workspace.rglob("*")}
+
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    assert result["schema_version"] == "sweep-run-v1"
+    assert result["sweep_id"] == plan["sweep_id"]
+    assert result["cells_total"] == 4
+    assert result["cells_completed"] == 4
+    assert result["cells_failed"] == 0
+    assert result["cells_skipped"] == 0
+
+    report = sweep_run.sweep_report(state, plan["sweep_id"])
+    assert report["schema_version"] == "sweep-result-v1"
+    assert report["sweep_id"] == plan["sweep_id"]
+    assert report["plan_hash"] == plan["plan_hash"]
+    assert report["cells_completed"] == 4
+    assert report["cells_failed"] == 0
+    assert report["cells_pending"] == 0
+    assert [cell["status"] for cell in report["cells"]] == ["passed"] * 4
+    finals = [cell["metrics"]["final_value"] for cell in report["cells"]]
+    assert finals == sorted(finals, reverse=True)  # ranked by final_value desc
+    assert report["report_hash"] == hash_object(
+        {key: value for key, value in report.items() if key != "report_hash"}
+    )
+
+    # Every cell renders a private draft under state/sweeps and persists its
+    # own RunManifest/RunResult without touching the workspace.
+    for cell in plan["cells"]:
+        cell_dir = _cell_dir(state, plan, cell)
+        assert (cell_dir / "artifact-manifest.json").is_file()
+        assert (cell_dir / "run.py").is_file()
+        assert (cell_dir / "run-manifest.json").is_file()
+        assert (cell_dir / "run-result.json").is_file()
+    new_files = {str(path) for path in workspace.rglob("*")} - before
+    assert new_files, "the run must persist per-cell records"
+    assert all(Path(path).is_relative_to(state) for path in new_files)
+
+    # Journal records the sweep start (RUNNING) and sweep-complete events.
+    session = SessionStore(state).load("session-001")
+    assert session["state"] == "PASSED"
+    sweep_events = [
+        event
+        for event in _journal_events(state, "session-001")
+        if event.get("action_type") in {"sweep", "sweep-complete"}
+    ]
+    assert [event["to_state"] for event in sweep_events] == [
+        "SWEEP_PREPARED",
+        "RUNNING",
+        "PASSED",
+    ]
+    assert sweep_events[-1]["action_type"] == "sweep-complete"
+    assert sweep_events[-1]["effect_references"]["cells_completed"] == "4"
+
+
+def test_sweep_run_respects_max_cells(tmp_path: Path) -> None:
+    state, roots, authority, plan, token = _make_approved_sweep(tmp_path)
+
+    result = sweep_run.run_sweep(
+        state, roots, authority, plan["sweep_id"], token, max_cells=2
+    )
+
+    assert result["cells_completed"] == 2
+    assert result["cells_skipped"] == 2
+    report = sweep_run.sweep_report(state, plan["sweep_id"])
+    assert report["cells_completed"] == 2
+    assert report["cells_pending"] == 2
+    assert [cell["status"] for cell in report["cells"][:2]] == ["passed", "passed"]
+    assert [cell["status"] for cell in report["cells"][2:]] == ["pending", "pending"]
+    assert SessionStore(state).load("session-001")["state"] == "PASSED"
+
+
+def test_sweep_run_refuses_legacy_plan_without_engine_fields(tmp_path: Path) -> None:
+    """Legacy plans predating engine/environment/spec fields fail closed.
+
+    A legacy plan can still receive a sweep token (bindings are form-required
+    only, Task 14), but the run must never trust the caller-supplied
+    unattested engine/environment values: the sealed plan is the only
+    attestation the run may execute from.
+    """
+    state = tmp_path / "state"
+    spec = StrategySpec.from_dict(_sweep_strategy_spec(DATASET_ID))
+    dataset = _dataset_manifest()
+    _register_engine(state)
+    _drive_approved_session(state, "legacy-1", spec, dataset)
+
+    cell_hash = hash_object(
+        {"spec_hash": spec.spec_hash, "params": {"fast_period": 10}}
+    )
+    payload = {
+        "schema_version": "sweep-plan-v1",
+        "session_id": "legacy-1",
+        "spec_hash": spec.spec_hash,
+        "dataset_manifest_hash": dataset["manifest_hash"],
+        "cells": [
+            {
+                "cell_id": "cell_" + cell_hash[:16],
+                "params": {"fast_period": 10},
+                "cell_hash": cell_hash,
+            }
+        ],
+    }
+    legacy = dict(payload)
+    legacy["sweep_id"] = "sweep_" + hash_object(payload)
+    legacy["plan_hash"] = hash_object(legacy)
+    legacy_dir = state / "sweeps" / legacy["sweep_id"]
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "sweep-plan.json").write_text(json.dumps(legacy), encoding="utf-8")
+    SessionStore(state).transition(
+        "legacy-1",
+        "SWEEP_PREPARED",
+        "sweep",
+        {"spec": spec.spec_hash, "dataset": dataset["manifest_hash"]},
+        effect_references={
+            "sweep_id": legacy["sweep_id"],
+            "sweep_plan_hash": legacy["plan_hash"],
+        },
+    )
+    authority = TokenAuthority(state)
+    bindings = {
+        "session_id": "legacy-1",
+        "sweep_plan_hash": legacy["plan_hash"],
+        "dataset_manifest_hash": legacy["dataset_manifest_hash"],
+        "environment_hash": "e" * 64,
+        "engine_hash": "f" * 64,
+        "engine_root_id": "engine",
+        "spec_hash": legacy["spec_hash"],
+    }
+    request = authority.prepare_approval("sweep", legacy["plan_hash"], bindings)
+    token = authority.grant_approval(
+        request["request_id"], approver="me", confirmed=True
+    )["token"]
+
+    with pytest.raises(AgentError) as raised:
+        sweep_run.run_sweep(
+            state, RootRegistry(state), authority, legacy["sweep_id"], token
+        )
+    assert raised.value.code == "BTAG-SWEEP-LEGACY"
+    authority.require_issued(token)  # the refusal must not consume the token
+
+
+def test_sweep_run_reverifies_engine_and_environment(tmp_path: Path) -> None:
+    acceptance_root = resolve_acceptance_engine_root(
+        Path(__file__).resolve().parents[1]
+    )
+    engine_copy = tmp_path / "engine"
+    shutil.copytree(acceptance_root / "backtrader", engine_copy / "backtrader")
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, engine_root=engine_copy
+    )
+
+    # A mutated engine tree must reject the run before the token is consumed.
+    target = engine_copy / "backtrader" / "cerebro.py"
+    target.write_text(
+        target.read_text(encoding="utf-8") + "\n# mutation\n", encoding="utf-8"
+    )
+    with pytest.raises(AgentError) as raised:
+        sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+    assert raised.value.code == "BTAG-SWEEP-ENGINE"
+    authority.require_issued(token)
+
+
+def test_sweep_run_reverifies_execution_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state, roots, authority, plan, token = _make_approved_sweep(tmp_path)
+    monkeypatch.setattr(
+        sweep_run,
+        "inspect_execution_environment",
+        lambda: {
+            "schema_version": "execution-environment-v1",
+            "environment_hash": "e" * 64,
+        },
+    )
+
+    with pytest.raises(AgentError) as raised:
+        sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+    assert raised.value.code == "BTAG-SWEEP-ENVIRONMENT"
+    authority.require_issued(token)
+
+
+def test_sweep_run_replays_completed_cells_after_crash(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5, 10]}
+    )
+    real_execute = sweep_run._execute_profile
+    calls = {"count": 0}
+
+    def crash_on_second(profile):
+        calls["count"] += 1
+        if calls["count"] == 2:
+            raise RuntimeError("simulated process death")
+        return real_execute(profile)
+
+    monkeypatch.setattr(sweep_run, "_execute_profile", crash_on_second)
+    with pytest.raises(RuntimeError):
+        sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+    assert SessionStore(state).load("session-001")["state"] == "RUNNING"
+    first_result_path = _cell_dir(state, plan, plan["cells"][0]) / "run-result.json"
+    first_result = read_json(first_result_path)
+
+    # Resuming with the same one-time token and identical arguments replays
+    # the completed cell byte-identically and finishes the remaining cell.
+    monkeypatch.setattr(sweep_run, "_execute_profile", real_execute)
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+    assert result["cells_completed"] == 2
+    assert result["cells_failed"] == 0
+    assert read_json(first_result_path) == first_result
+    assert SessionStore(state).load("session-001")["state"] == "PASSED"
+
+
+def test_sweep_cell_transient_failure_retries_once_and_passes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5]}
+    )
+    real_execute = sweep_run._execute_profile
+    calls = {"count": 0}
+
+    def flaky(profile):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise subprocess.TimeoutExpired(profile["argv"], profile["timeout_seconds"])
+        return real_execute(profile)
+
+    monkeypatch.setattr(sweep_run, "_execute_profile", flaky)
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    assert result["cells_completed"] == 1
+    assert result["cells_failed"] == 0
+    assert calls["count"] == 2
+    cell_dir = _cell_dir(state, plan, plan["cells"][0])
+    attempt = read_json(cell_dir / "run-attempt.json")
+    assert attempt["schema_version"] == "run-attempt-v1"
+    assert attempt["status"] == "failed"
+    assert attempt["failure_code"] == "BTAG-RUN-TIMEOUT"
+    persisted = read_json(cell_dir / "run-result.json")
+    assert persisted["status"] == "passed"
+    assert persisted["extensions"]["backtrader_agent"]["attempts"] == 2
+    assert SessionStore(state).load("session-001")["state"] == "PASSED"
+
+
+def test_sweep_cell_persistent_transient_failure_fails_sweep_and_report_rejects_tamper(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5]}
+    )
+    monkeypatch.setattr(
+        sweep_run,
+        "_execute_profile",
+        lambda profile: (_ for _ in ()).throw(
+            subprocess.TimeoutExpired(profile["argv"], profile["timeout_seconds"])
+        ),
+    )
+
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    assert result["cells_completed"] == 0
+    assert result["cells_failed"] == 1
+    session = SessionStore(state).load("session-001")
+    assert session["state"] == "FAILED"
+    assert session["retry_eligible"] is False
+    report = sweep_run.sweep_report(state, plan["sweep_id"])
+    failed = [cell for cell in report["cells"] if cell["status"] == "failed"]
+    assert len(failed) == 1
+    assert failed[0]["metrics"] is None
+    assert failed[0]["failure_code"] == "BTAG-RUN-TIMEOUT"
+    cell_dir = _cell_dir(state, plan, plan["cells"][0])
+    attempt = read_json(cell_dir / "run-attempt.json")
+    assert attempt["failure_code"] == "BTAG-RUN-TIMEOUT"
+
+    # A tampered persisted cell result must be rejected by the report.
+    result_path = cell_dir / "run-result.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "run-result-v1",
+                "run_id": "run-tampered",
+                "status": "passed",
+                "metrics": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(AgentError) as raised:
+        sweep_run.sweep_report(state, plan["sweep_id"])
+    assert raised.value.code == "BTAG-SWEEP-RESULT"
+
+
+def test_cli_sweep_run_two_by_two(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    inputs = tmp_path / "inputs"
+    workspace.mkdir()
+    inputs.mkdir()
+    write_price_csv(inputs / "prices.csv", rows=40)
+    state = workspace / ".backtrader-agent"
+    common = ("--state-root", str(state))
+
+    _call(
+        *common,
+        "roots",
+        "register",
+        "--id",
+        "workspace",
+        "--path",
+        str(workspace),
+        "--kind",
+        "workspace",
+        "--writable",
+    )
+    _call(
+        *common,
+        "roots",
+        "register",
+        "--id",
+        "input",
+        "--path",
+        str(inputs),
+        "--kind",
+        "dataset",
+    )
+    _call(
+        *common,
+        "roots",
+        "register",
+        "--id",
+        "engine",
+        "--path",
+        str(resolve_acceptance_engine_root(Path(__file__).resolve().parents[1])),
+        "--kind",
+        "engine",
+    )
+    _call(*common, "session", "create", "--session-id", "sweep-1")
+    data_spec_path = dump_json(tmp_path / "data-spec.json", data_spec())
+    dataset = _call(
+        *common,
+        "data",
+        "register",
+        "--session-id",
+        "sweep-1",
+        "--spec",
+        str(data_spec_path),
+    )
+    spec_path = dump_json(
+        tmp_path / "strategy-spec.json", _sweep_strategy_spec(dataset["dataset_id"])
+    )
+    _call(
+        *common,
+        "spec",
+        "--session-id",
+        "sweep-1",
+        "--approve",
+        "--file",
+        str(spec_path),
+    )
+    plan = _call(
+        *common,
+        "sweep",
+        "prepare",
+        "--session-id",
+        "sweep-1",
+        "--spec",
+        str(spec_path),
+        "--dataset-manifest",
+        json.dumps(dataset),
+        "--param-grid",
+        json.dumps({"fast_period": [5, 10], "slow_period": [15, 20]}),
+        "--engine-root-id",
+        "engine",
+    )
+    request = _call(
+        *common,
+        "approval",
+        "request",
+        "--kind",
+        "sweep",
+        "--subject-hash",
+        plan["plan_hash"],
+        "--bindings",
+        json.dumps(_sweep_bindings(plan)),
+    )
+    grant = _call(
+        *common,
+        "approval",
+        "grant",
+        "--request-id",
+        request["request_id"],
+        "--approver",
+        "local-user",
+        "--confirm",
+    )
+    before = {str(path) for path in workspace.rglob("*")}
+
+    result = _call(
+        *common,
+        "sweep",
+        "run",
+        "--sweep-id",
+        plan["sweep_id"],
+        "--token",
+        json.dumps(grant["token"]),
+    )
+    assert result["cells_completed"] == 4
+    assert result["cells_failed"] == 0
+
+    report = _call(*common, "sweep", "report", "--sweep-id", plan["sweep_id"])
+    assert report["schema_version"] == "sweep-result-v1"
+    finals = [cell["metrics"]["final_value"] for cell in report["cells"]]
+    assert finals == sorted(finals, reverse=True)
+
+    # Sweep is run-only: the workspace gains no files outside the state root.
+    new_files = {str(path) for path in workspace.rglob("*")} - before
+    assert all(Path(path).is_relative_to(state) for path in new_files)
+    session = _call(*common, "session", "status", "--session-id", "sweep-1")
+    assert session["state"] == "PASSED"

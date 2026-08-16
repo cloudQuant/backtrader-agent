@@ -30,6 +30,109 @@ RESULT_PREFIX = "BACKTRADER_AGENT_RESULT="
 RUN_ACTION_LOCK_GRACE_SECONDS = 60
 
 
+def _execute_profile(profile: Dict[str, Any]) -> subprocess.CompletedProcess:
+    """Execute one fixed controlled child-process profile.
+
+    The pure execution core shared by ``ControlledRunner.run`` and the sweep
+    cell runner: fixed argv, the minimal child environment, the wall-clock
+    timeout, and the POSIX resource limits. Persistence, session effects, and
+    quota checks stay with the callers.
+    """
+
+    return subprocess.run(
+        profile["argv"],
+        cwd=profile["cwd"],
+        env=profile["env"],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=profile["timeout_seconds"],
+        check=False,
+        shell=False,
+        preexec_fn=(
+            profiles_module._resource_limits(profile["timeout_seconds"])
+            if os.name == "posix"
+            else None
+        ),
+    )
+
+
+def parse_child_result(stdout_text: str) -> Dict[str, Any]:
+    """Parse the structured ``BACKTRADER_AGENT_RESULT=`` payload from stdout.
+
+    Raises ``BTAG-RUN-RESULT`` for a malformed or missing payload and
+    ``BTAG-RUN-METRIC`` (from :func:`normalize_metrics`) for invalid metrics.
+    """
+
+    payload = None
+    for line in stdout_text.splitlines():
+        if line.startswith(RESULT_PREFIX):
+            try:
+                payload = json.loads(line[len(RESULT_PREFIX) :])
+            except json.JSONDecodeError as exc:
+                raise AgentError(
+                    "BTAG-RUN-RESULT", "child emitted malformed structured result"
+                ) from exc
+    if not isinstance(payload, dict) or not isinstance(payload.get("metrics"), dict):
+        raise AgentError("BTAG-RUN-RESULT", "child emitted no structured metrics")
+    metrics = normalize_metrics(payload["metrics"])
+    return {**payload, "metrics": metrics}
+
+
+def build_dataset_descriptors(
+    state_root: Path, dataset: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """Build the controlled child-process dataset descriptors for a manifest.
+
+    Verifies every registered CAS feed against its stored normalized hash and
+    resolves transforms from the allowlisted adapter registry.
+    """
+
+    descriptors: List[Dict[str, Any]] = []
+    transforms = {
+        item["parameters"]["feed"]: item
+        for item in dataset.get("transforms", [])
+        if isinstance(item, dict)
+        and isinstance(item.get("parameters"), dict)
+        and isinstance(item["parameters"].get("feed"), str)
+    }
+    for feed in dataset.get("feeds", []):
+        relative = (
+            feed.get("extensions", {})
+            .get("backtrader_agent", {})
+            .get("cas_relative_path")
+        )
+        if not isinstance(relative, str):
+            raise AgentError(
+                "BTAG-RUN-DATASET", "dataset has no registered CAS path"
+            )
+        path = (state_root / relative).resolve(strict=True)
+        try:
+            path.relative_to(state_root.resolve())
+        except ValueError as exc:
+            raise AgentError(
+                "BTAG-RUN-DATASET", "dataset CAS path escapes state root"
+            ) from exc
+        metadata = path.stat()
+        if _dataset_feed_sha256(
+            path, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns
+        ) != feed.get("normalized_sha256"):
+            raise AgentError("BTAG-RUN-DATASET-HASH", "dataset CAS bytes changed")
+        descriptors.append(
+            {
+                "name": feed["name"],
+                "role": feed["role"],
+                "path": str(path),
+                "adapter": feed["format"],
+                "timeframe": feed.get("timeframe", "Days"),
+                "compression": int(feed.get("compression", 1)),
+                "canonical_columns": list(feed.get("canonical_columns", [])),
+                "transform": transforms.get(feed["name"]),
+            }
+        )
+    return descriptors
+
+
 @memoized
 def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int, ctime_ns: int) -> str:
     """Read and hash a dataset CAS file once per (path, size, mtime, ctime).
@@ -316,49 +419,7 @@ class ControlledRunner:
         )
 
     def _dataset_descriptors(self, dataset: Dict[str, Any]) -> List[Dict[str, Any]]:
-        descriptors: List[Dict[str, Any]] = []
-        transforms = {
-            item["parameters"]["feed"]: item
-            for item in dataset.get("transforms", [])
-            if isinstance(item, dict)
-            and isinstance(item.get("parameters"), dict)
-            and isinstance(item["parameters"].get("feed"), str)
-        }
-        for feed in dataset.get("feeds", []):
-            relative = (
-                feed.get("extensions", {})
-                .get("backtrader_agent", {})
-                .get("cas_relative_path")
-            )
-            if not isinstance(relative, str):
-                raise AgentError(
-                    "BTAG-RUN-DATASET", "dataset has no registered CAS path"
-                )
-            path = (self.state_root / relative).resolve(strict=True)
-            try:
-                path.relative_to(self.state_root.resolve())
-            except ValueError as exc:
-                raise AgentError(
-                    "BTAG-RUN-DATASET", "dataset CAS path escapes state root"
-                ) from exc
-            metadata = path.stat()
-            if _dataset_feed_sha256(
-                path, metadata.st_size, metadata.st_mtime_ns, metadata.st_ctime_ns
-            ) != feed.get("normalized_sha256"):
-                raise AgentError("BTAG-RUN-DATASET-HASH", "dataset CAS bytes changed")
-            descriptors.append(
-                {
-                    "name": feed["name"],
-                    "role": feed["role"],
-                    "path": str(path),
-                    "adapter": feed["format"],
-                    "timeframe": feed.get("timeframe", "Days"),
-                    "compression": int(feed.get("compression", 1)),
-                    "canonical_columns": list(feed.get("canonical_columns", [])),
-                    "transform": transforms.get(feed["name"]),
-                }
-            )
-        return descriptors
+        return build_dataset_descriptors(self.state_root, dataset)
 
     def _verify_files(self, applied: Dict[str, Any]) -> Path:
         entrypoint: Optional[Path] = None
@@ -724,21 +785,13 @@ class ControlledRunner:
 
         started = time.monotonic()
         try:
-            completed = subprocess.run(
-                argv,
-                cwd=str(entrypoint.parent),
-                env=environment,
-                stdin=subprocess.DEVNULL,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                timeout=timeout_seconds,
-                check=False,
-                shell=False,
-                preexec_fn=(
-                    profiles_module._resource_limits(timeout_seconds)
-                    if os.name == "posix"
-                    else None
-                ),
+            completed = _execute_profile(
+                {
+                    "argv": argv,
+                    "cwd": entrypoint.parent,
+                    "env": environment,
+                    "timeout_seconds": timeout_seconds,
+                }
             )
         except subprocess.TimeoutExpired as exc:
             mark_failed("BTAG-RUN-TIMEOUT")
@@ -766,26 +819,13 @@ class ControlledRunner:
                 "controlled child process failed",
                 details={"returncode": completed.returncode, "stderr": redacted},
             )
-        payload = None
-        for line in stdout_text.splitlines():
-            if line.startswith(RESULT_PREFIX):
-                try:
-                    payload = json.loads(line[len(RESULT_PREFIX) :])
-                except json.JSONDecodeError as exc:
-                    mark_failed("BTAG-RUN-RESULT")
-                    raise AgentError(
-                        "BTAG-RUN-RESULT", "child emitted malformed structured result"
-                    ) from exc
-        if not isinstance(payload, dict) or not isinstance(
-            payload.get("metrics"), dict
-        ):
-            mark_failed("BTAG-RUN-RESULT")
-            raise AgentError("BTAG-RUN-RESULT", "child emitted no structured metrics")
         try:
-            metrics = normalize_metrics(payload["metrics"])
-        except AgentError:
-            mark_failed("BTAG-RUN-METRIC")
+            payload = parse_child_result(stdout_text)
+        except AgentError as exc:
+            if exc.code in {"BTAG-RUN-RESULT", "BTAG-RUN-METRIC"}:
+                mark_failed(exc.code)
             raise
+        metrics = payload["metrics"]
 
         self._persist_exact_json(run_root / "run-manifest.json", run_manifest)
         persisted_manifest = run_root / "run-manifest.json"

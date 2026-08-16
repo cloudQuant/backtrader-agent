@@ -25,6 +25,7 @@ from .runner import ControlledRunner, list_runs
 from .scaffold import ArtifactRenderer
 from .sessions import SessionStore
 from .sweep import prepare_sweep
+from .sweep_run import run_sweep, sweep_report
 from .tokens import TokenAuthority
 from .validator import StrategyValidator
 
@@ -376,6 +377,17 @@ def build_parser() -> argparse.ArgumentParser:
     sweep_prepare.add_argument(
         "--engine-root-id", required=True, help="registered engine root id"
     )
+    sweep_run = sweep_sub.add_parser(
+        "run", help="execute an approved sweep plan cell by cell"
+    )
+    sweep_run.add_argument("--sweep-id", required=True)
+    sweep_run.add_argument("--token", required=True, help="sweep approval token JSON")
+    sweep_run.add_argument("--max-cells", type=int, default=100)
+    sweep_run.add_argument("--timeout-per-cell", type=int, default=120)
+    sweep_report_action = sweep_sub.add_parser(
+        "report", help="rank the per-cell sweep results by final_value"
+    )
+    sweep_report_action.add_argument("--sweep-id", required=True)
 
     session = sub.add_parser(
         "session", help="create, inspect, recover, cancel, or archive"
@@ -667,7 +679,17 @@ def dispatch(args: argparse.Namespace) -> Dict[str, Any]:
                 _json_load(args.param_grid),
                 engine_root_id=args.engine_root_id,
             )
-        raise AgentError("BTAG-CLI-COMMAND", "unknown sweep subcommand")
+        if args.sweep_command == "run":
+            return run_sweep(
+                state,
+                roots,
+                authority,
+                args.sweep_id,
+                _json_load(args.token),
+                max_cells=args.max_cells,
+                timeout_per_cell=args.timeout_per_cell,
+            )
+        return sweep_report(state, args.sweep_id)
     if args.command == "session":
         sessions = SessionStore(state)
         if args.session_command == "create":

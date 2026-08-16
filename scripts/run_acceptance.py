@@ -142,6 +142,7 @@ def _prepare_clean_install(
         "test_cli_extended_actions.py",
         "test_run_resume.py",
         "test_runner_installer_audit.py",
+        "test_sweep.py",
     ):
         shutil.copy2(PROJECT_ROOT / "tests" / name, clean_tests / name)
     environment = dict(os.environ)
@@ -226,6 +227,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             matrix = _failed_process("clean wheel installation failed")
             crash_resume = _failed_process("clean wheel installation failed")
             repair = _failed_process("clean wheel installation failed")
+            sweep = _failed_process("clean wheel installation failed")
         else:
             environment["BACKTRADER_AGENT_ACCEPTANCE_EVIDENCE_DIR"] = str(evidence_root)
             matrix = _pytest(
@@ -249,6 +251,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                     "tests/test_cli_extended_actions.py::"
                     "test_failed_session_repair_revises_spec_and_rerenders_owned_draft"
                 ],
+                environment,
+                cwd=clean_work,
+            )
+            sweep = _pytest(
+                ["tests/test_sweep.py::test_cli_sweep_run_two_by_two"],
                 environment,
                 cwd=clean_work,
             )
@@ -320,6 +327,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             "passed": repair.returncode == 0,
             "stdout_tail": repair.stdout[-1000:],
             "stderr_tail": repair.stderr[-1000:],
+        },
+        "sweep": {
+            "passed": sweep.returncode == 0,
+            "stdout_tail": sweep.stdout[-1000:],
+            "stderr_tail": sweep.stderr[-1000:],
         },
     }
     sibling_checks = {

@@ -2,7 +2,7 @@
 
 import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from .adapters import ADAPTER_SPECS, CSV_FORMATS, PANDAS_FORMATS
 from .archetypes import ARCHETYPE_IDS, ARCHETYPE_SPECS
@@ -401,7 +401,12 @@ class ArtifactRenderer:
         self.state_root = Path(state_root)
 
     def render(
-        self, session_id: str, spec: StrategySpec, dataset: Dict[str, Any]
+        self,
+        session_id: str,
+        spec: StrategySpec,
+        dataset: Dict[str, Any],
+        *,
+        draft_root: Optional[Path] = None,
     ) -> Dict[str, Any]:
         if not SESSION_RE.fullmatch(session_id):
             raise AgentError("BTAG-SESSION-ID", "session ID is malformed")
@@ -416,7 +421,14 @@ class ArtifactRenderer:
                 "renderer": "scaffold-v1",
             }
         )[:20]
-        draft_root = self.state_root / "sessions" / session_id / "drafts" / revision
+        if draft_root is None:
+            draft_root = self.state_root / "sessions" / session_id / "drafts" / revision
+        else:
+            # Renderer-owned private drafts may live elsewhere under the state
+            # root (sweep cells render into their sealed cell directory); the
+            # provenance record keeps the state-relative location bound either
+            # way.
+            draft_root = Path(draft_root)
         if spec.profile == "python_bundle":
             file_contents = {
                 "config.yaml": _config_source(spec, dataset).encode("utf-8"),

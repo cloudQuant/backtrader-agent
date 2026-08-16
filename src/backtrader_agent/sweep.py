@@ -4,13 +4,14 @@
 numeric parameter grid, checks every value against the spec-declared
 ``minimum``/``maximum`` bounds, and persists a content-addressed, hash-sealed
 SweepPlan at ``<state>/sweeps/sweep_<64hex>/sweep-plan.json``. The plan binds
-the spec, dataset, engine root, and execution environment hashes alongside
-the per-cell parameter values. ``load_plan`` re-verifies the embedded
-``plan_hash`` and every per-cell ``cell_hash`` and rejects any tampering with
-``BTAG-SWEEP-PLAN``.
+the spec, dataset, engine root, and execution environment hashes (plus the
+sealed canonical spec dict so a run can deterministically re-render cells)
+alongside the per-cell parameter values. ``load_plan`` re-verifies the
+embedded ``plan_hash``, the sealed spec hash, and every per-cell
+``cell_hash`` and rejects any tampering with ``BTAG-SWEEP-PLAN``.
 
-Cell rendering/execution (R17) is deliberately not part of this module: this
-task only produces the immutable plan records.
+Cell rendering/execution (R17) lives in :mod:`backtrader_agent.sweep_run`;
+this module produces and verifies the immutable plan records.
 """
 
 import itertools
@@ -160,11 +161,13 @@ def _build_plan(
     engine_hash: str,
     engine_root_id: str,
     environment_hash: str,
+    spec: Dict[str, Any],
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "session_id": session_id,
         "spec_hash": spec_hash,
+        "spec": spec,
         "dataset_manifest_hash": dataset_manifest_hash,
         "engine_hash": engine_hash,
         "engine_root_id": engine_root_id,
@@ -242,6 +245,9 @@ def prepare_sweep(
         engine_hash=engine["engine_hash"],
         engine_root_id=engine["root_id"],
         environment_hash=environment["environment_hash"],
+        spec={
+            key: value for key, value in spec.to_dict().items() if key != "spec_hash"
+        },
     )
     sweep_id = plan["sweep_id"]
 
@@ -321,6 +327,14 @@ def load_plan(state: Path, sweep_id: str) -> Dict[str, Any]:
     if not isinstance(cells, list) or not cells:
         raise AgentError("BTAG-SWEEP-PLAN", "sweep plan cells are missing")
     spec_hash = plan.get("spec_hash")
+    # The sealed canonical spec is optional on load so legacy v1 plans
+    # (predating the field) stay readable for approval; the run refuses them.
+    sealed_spec = plan.get("spec")
+    if sealed_spec is not None:
+        if not isinstance(sealed_spec, dict) or hash_object(sealed_spec) != spec_hash:
+            raise AgentError(
+                "BTAG-SWEEP-PLAN", "sweep plan spec does not match its sealed hash"
+            )
     for cell in cells:
         if not isinstance(cell, dict):
             raise AgentError("BTAG-SWEEP-PLAN", "sweep plan cell is malformed")

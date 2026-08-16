@@ -941,6 +941,12 @@ def test_sweep_run_two_by_two(tmp_path: Path) -> None:
         assert (cell_dir / "run.py").is_file()
         assert (cell_dir / "run-manifest.json").is_file()
         assert (cell_dir / "run-result.json").is_file()
+        # R20: sweep cells retain child output through the shared execution core.
+        assert (cell_dir / "stdout.log").is_file()
+        assert (cell_dir / "stderr.log").is_file()
+        assert "BACKTRADER_AGENT_RESULT=" not in (cell_dir / "stdout.log").read_text(
+            encoding="utf-8"
+        )
     new_files = {str(path) for path in workspace.rglob("*")} - before
     assert new_files, "the run must persist per-cell records"
     assert all(Path(path).is_relative_to(state) for path in new_files)

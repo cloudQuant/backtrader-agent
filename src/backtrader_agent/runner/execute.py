@@ -11,7 +11,13 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from ..canonical import atomic_write_json, hash_object, read_json, sha256_bytes
+from ..canonical import (
+    atomic_write_bytes,
+    atomic_write_json,
+    hash_object,
+    read_json,
+    sha256_bytes,
+)
 from ..caching import memoized
 from ..data import DatasetService
 from ..errors import AgentError
@@ -28,6 +34,71 @@ from .profiles import _probe_engine
 IDEMPOTENCY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{1,127}$")
 RESULT_PREFIX = "BACKTRADER_AGENT_RESULT="
 RUN_ACTION_LOCK_GRACE_SECONDS = 60
+MAX_OUTPUT_BYTES = 1024 * 1024
+TRUNCATION_MARKER = "[backtrader-agent: output truncated; showing the tail]\n"
+
+
+def _strip_result_lines(text: str) -> str:
+    """Drop the structured-result protocol lines from retained stdout.
+
+    The ``BACKTRADER_AGENT_RESULT=`` payload is machine-consumed through the
+    persisted run result; the log keeps only the child's own output.
+    """
+
+    return "\n".join(
+        line for line in text.splitlines() if not line.startswith(RESULT_PREFIX)
+    )
+
+
+def _truncate_tail_with_marker(text: str, quota: int) -> bytes:
+    """Bound encoded text to ``quota`` bytes, keeping the tail when cut.
+
+    The end of a stream is where the failure traceback or the structured
+    result appears, so truncation drops the head and prepends the truncation
+    marker. The surviving tail is advanced to the next UTF-8 character
+    boundary so the log file still decodes cleanly.
+    """
+
+    encoded = text.encode("utf-8", errors="replace")
+    if len(encoded) <= quota:
+        return encoded
+    marker = TRUNCATION_MARKER.encode("utf-8")
+    tail = encoded[-max(0, quota - len(marker)) :]
+    while tail and (tail[0] & 0xC0) == 0x80:
+        tail = tail[1:]
+    return marker + tail
+
+
+def _retain_child_outputs(
+    output_dir: Path, stdout: Optional[bytes], stderr: Optional[bytes]
+) -> None:
+    """Persist child stdout/stderr as ``stdout.log``/``stderr.log`` (R20).
+
+    The protocol line is stripped from stdout; both streams are bounded by
+    ``MAX_OUTPUT_BYTES`` with a truncation marker when the head was dropped.
+    The writes replace any earlier attempt's logs, so a same-attempt
+    re-execution keeps the latest child output. Persistence failures surface
+    as ``BTAG-RUN-PERSIST`` so the effect can be retried.
+    """
+
+    try:
+        stdout_text = (stdout or b"").decode("utf-8", errors="replace")
+        stderr_text = (stderr or b"").decode("utf-8", errors="replace")
+        atomic_write_bytes(
+            Path(output_dir) / "stdout.log",
+            _truncate_tail_with_marker(
+                _strip_result_lines(stdout_text), MAX_OUTPUT_BYTES
+            ),
+        )
+        atomic_write_bytes(
+            Path(output_dir) / "stderr.log",
+            _truncate_tail_with_marker(stderr_text, MAX_OUTPUT_BYTES),
+        )
+    except (AgentError, OSError) as exc:
+        raise AgentError(
+            "BTAG-RUN-PERSIST",
+            "child output persistence was interrupted; retry the same effect",
+        ) from exc
 
 
 def _execute_profile(profile: Dict[str, Any]) -> subprocess.CompletedProcess:
@@ -37,24 +108,39 @@ def _execute_profile(profile: Dict[str, Any]) -> subprocess.CompletedProcess:
     cell runner: fixed argv, the minimal child environment, the wall-clock
     timeout, and the POSIX resource limits. Persistence, session effects, and
     quota checks stay with the callers.
+
+    ``profile`` may carry an optional ``output_dir``: when present, the
+    child's stdout (minus the ``BACKTRADER_AGENT_RESULT=`` protocol line) and
+    stderr are retained as ``stdout.log``/``stderr.log`` in that directory,
+    bounded by the output quota (R20). Partial output is retained the same
+    way when the wall clock kills the child.
     """
 
-    return subprocess.run(
-        profile["argv"],
-        cwd=profile["cwd"],
-        env=profile["env"],
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        timeout=profile["timeout_seconds"],
-        check=False,
-        shell=False,
-        preexec_fn=(
-            profiles_module._resource_limits(profile["timeout_seconds"])
-            if os.name == "posix"
-            else None
-        ),
-    )
+    output_dir = profile.get("output_dir")
+    try:
+        completed = subprocess.run(
+            profile["argv"],
+            cwd=profile["cwd"],
+            env=profile["env"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=profile["timeout_seconds"],
+            check=False,
+            shell=False,
+            preexec_fn=(
+                profiles_module._resource_limits(profile["timeout_seconds"])
+                if os.name == "posix"
+                else None
+            ),
+        )
+    except subprocess.TimeoutExpired as exc:
+        if output_dir is not None:
+            _retain_child_outputs(output_dir, exc.stdout, exc.stderr)
+        raise
+    if output_dir is not None:
+        _retain_child_outputs(output_dir, completed.stdout, completed.stderr)
+    return completed
 
 
 def parse_child_result(stdout_text: str) -> Dict[str, Any]:
@@ -103,9 +189,7 @@ def build_dataset_descriptors(
             .get("cas_relative_path")
         )
         if not isinstance(relative, str):
-            raise AgentError(
-                "BTAG-RUN-DATASET", "dataset has no registered CAS path"
-            )
+            raise AgentError("BTAG-RUN-DATASET", "dataset has no registered CAS path")
         path = (state_root / relative).resolve(strict=True)
         try:
             path.relative_to(state_root.resolve())
@@ -152,7 +236,7 @@ def _dataset_feed_sha256(path: Path, size: int, mtime_ns: int, ctime_ns: int) ->
 
 
 class ControlledRunner:
-    MAX_OUTPUT_BYTES = 1024 * 1024
+    MAX_OUTPUT_BYTES = MAX_OUTPUT_BYTES
 
     # Failure codes that admit a same-effect retry (R14). Enumerated from the
     # actual runner error paths: the wall-clock timeout is the only
@@ -791,6 +875,7 @@ class ControlledRunner:
                     "cwd": entrypoint.parent,
                     "env": environment,
                     "timeout_seconds": timeout_seconds,
+                    "output_dir": run_root,
                 }
             )
         except subprocess.TimeoutExpired as exc:

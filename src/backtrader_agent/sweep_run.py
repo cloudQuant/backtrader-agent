@@ -563,6 +563,7 @@ def _execute_cell(
                     "cwd": cell_dir,
                     "env": environment,
                     "timeout_seconds": timeout_per_cell,
+                    "output_dir": cell_dir,
                 }
             )
         except subprocess.TimeoutExpired:

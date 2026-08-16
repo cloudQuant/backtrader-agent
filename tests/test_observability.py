@@ -2,6 +2,7 @@
 state-root health audit (R21)."""
 
 import json
+import os
 import time
 from pathlib import Path
 from typing import Any, Dict
@@ -635,3 +636,58 @@ def test_listing_commands_report_skipped_counts(tmp_path, capsys):
     payload = json.loads(capsys.readouterr().out)
     assert payload["result"]["runs"] == []
     assert payload["result"]["skipped"] == 1
+
+
+def _unix_permissions_enforceable() -> bool:
+    """True when chmod-000 actually denies access (not root, not Windows)."""
+
+    return not (os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0))
+
+
+def test_doctor_audit_reports_unreadable_area_and_keeps_others(tmp_path, capsys):
+    if not _unix_permissions_enforceable():
+        pytest.skip("permission bits are not enforceable in this environment")
+    state = tmp_path / "state"
+    sessions = SessionStore(state)
+    sessions.create("session-ok")
+    journal = state / "sessions" / "session-ok" / "journal.jsonl"
+    journal.write_text(journal.read_text() + '{"garbage": true}\n')
+    trace_dir = state / "trace"
+    trace_dir.mkdir()
+    (trace_dir / "global.jsonl").write_text('{"ok": 1}\n', encoding="utf-8")
+    trace_dir.chmod(0o000)
+    try:
+        diags = doctor.audit_state(state)
+        code = cli.main(["--state-root", str(state), "doctor", "--audit"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        trace_dir.chmod(0o755)
+    codes = {d["code"] for d in diags}
+    assert "BTAG-AUDIT-TRACE" in codes
+    assert "BTAG-AUDIT-JOURNAL" in codes
+    assert any(
+        "unreadable" in d["message"] for d in diags if d["code"] == "BTAG-AUDIT-TRACE"
+    )
+    assert code == 0
+    cli_codes = {d["code"] for d in payload["result"]["diagnostics"]}
+    assert "BTAG-AUDIT-TRACE" in cli_codes
+    assert "BTAG-AUDIT-JOURNAL" in cli_codes
+
+
+def test_doctor_audit_unreadable_root_is_not_silently_clean(tmp_path, capsys):
+    if not _unix_permissions_enforceable():
+        pytest.skip("permission bits are not enforceable in this environment")
+    state = tmp_path / "state"
+    state.mkdir()
+    state.chmod(0o000)
+    try:
+        diags = doctor.audit_state(state)
+        code = cli.main(["--state-root", str(state), "doctor", "--audit"])
+        payload = json.loads(capsys.readouterr().out)
+    finally:
+        state.chmod(0o755)
+    # A root the audit could not read must never yield a silent clean report.
+    assert diags
+    assert all(d["severity"] == "error" for d in diags)
+    assert code == 0
+    assert payload["result"]["diagnostics"]

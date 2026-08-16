@@ -76,7 +76,13 @@ def _registered_engines(state_root: Optional[Path]) -> List[Dict[str, Any]]:
     if state_root is None:
         return []
     registry_path = Path(state_root) / "roots.json"
-    if not registry_path.is_file():
+    try:
+        registry_exists = registry_path.is_file()
+    except OSError:
+        # An unreadable state root must degrade to an audit diagnostic, not
+        # abort the whole doctor report (Python 3.10+ propagates stat errors).
+        return []
+    if not registry_exists:
         return []
     roots = RootRegistry(Path(state_root))
     engines: List[Dict[str, Any]] = []
@@ -124,6 +130,44 @@ def _timestamp_seconds(text: Any) -> Optional[float]:
     return parsed.timestamp()
 
 
+def _audit_area_directory(
+    path: Path, area: str, code: str
+) -> Tuple[Optional[List[Path]], Optional[Dict[str, Any]]]:
+    """List one audit area directory, distinguishing missing from unreadable.
+
+    Returns (None, None) when the directory does not exist (a clean state for
+    that area), (None, diagnostic) when it exists but cannot be read, and
+    (entries, None) otherwise. ``Path.is_dir()`` swallows OSError and would
+    otherwise turn an unreadable root into a silent clean report.
+    """
+
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return None, None
+    except OSError:
+        return None, _audit_diag(
+            code,
+            "error",
+            "the {} directory under the state root is unreadable".format(area),
+            hint="restore read permission on the state root so the audit can "
+            "inspect it",
+        )
+    if not path.is_dir():
+        return None, None
+    try:
+        entries = sorted(path.iterdir())
+    except OSError:
+        return None, _audit_diag(
+            code,
+            "error",
+            "the {} directory under the state root is unreadable".format(area),
+            hint="restore read permission on the state root so the audit can "
+            "inspect it",
+        )
+    return entries, None
+
+
 def _audit_sessions(state: Path) -> List[Dict[str, Any]]:
     """Read-only session checks: journal chain, manifest checkpoint, orphans.
 
@@ -132,13 +176,33 @@ def _audit_sessions(state: Path) -> List[Dict[str, Any]]:
     """
 
     sessions_root = state / "sessions"
-    if not sessions_root.is_dir():
+    entries, area_diag = _audit_area_directory(
+        sessions_root, "sessions", "BTAG-AUDIT-JOURNAL"
+    )
+    if area_diag:
+        return [area_diag]
+    if entries is None:
         return []
     store = SessionStore(state)
     now = time.time()
     diags: List[Dict[str, Any]] = []
-    for directory in sorted(path for path in sessions_root.iterdir() if path.is_dir()):
+    for directory in entries:
+        if not directory.is_dir():
+            continue
         session_id = directory.name
+        try:
+            next(directory.iterdir(), None)
+        except OSError:
+            diags.append(
+                _audit_diag(
+                    "BTAG-AUDIT-JOURNAL",
+                    "error",
+                    "session '{}' directory is unreadable".format(session_id),
+                    hint="restore read permission so the audit can verify its "
+                    "journal and manifest",
+                )
+            )
+            continue
         journal = directory / "journal.jsonl"
         manifest_path = directory / "manifest.json"
         manifest: Optional[Dict[str, Any]] = None
@@ -247,28 +311,60 @@ def _audit_cas(state: Path, *, deep: bool) -> List[Dict[str, Any]]:
 
     cas_root = state / "data" / "sha256"
     datasets_root = state / "datasets"
-    if not cas_root.is_dir() and not datasets_root.is_dir():
-        return []
     diags: List[Dict[str, Any]] = []
+    cas_entries, cas_diag = _audit_area_directory(
+        cas_root, "CAS root", "BTAG-AUDIT-CAS"
+    )
+    if cas_diag:
+        diags.append(cas_diag)
+    dataset_entries, dataset_diag = _audit_area_directory(
+        datasets_root, "dataset manifest root", "BTAG-AUDIT-CAS"
+    )
+    if dataset_diag:
+        diags.append(dataset_diag)
+    if cas_entries is None and dataset_entries is None:
+        return diags
     objects: Dict[str, Path] = {}
     misplaced: List[str] = []
-    if cas_root.is_dir():
-        for path in sorted(cas_root.glob("*/*")):
-            digest = path.stem
-            if (
-                path.is_file()
-                and not path.is_symlink()
-                and HASH_RE.fullmatch(digest)
-                and path.parent.name == digest[:2]
-                and digest not in objects
-            ):
-                objects[digest] = path
-            else:
-                misplaced.append(str(path.relative_to(cas_root)))
+    if cas_entries is not None:
+        for entry in cas_entries:
+            if not entry.is_dir():
+                misplaced.append(str(entry.relative_to(cas_root)))
+                continue
+            try:
+                files = sorted(entry.iterdir())
+            except OSError:
+                diags.append(
+                    _audit_diag(
+                        "BTAG-AUDIT-CAS",
+                        "error",
+                        "CAS prefix directory '{}' is unreadable".format(entry.name),
+                        hint="restore read permission so the audit can verify "
+                        "the stored objects",
+                    )
+                )
+                continue
+            for path in files:
+                digest = path.stem
+                if (
+                    path.is_file()
+                    and not path.is_symlink()
+                    and HASH_RE.fullmatch(digest)
+                    and entry.name == digest[:2]
+                    and digest not in objects
+                ):
+                    objects[digest] = path
+                else:
+                    misplaced.append(str(path.relative_to(cas_root)))
     referenced: Dict[str, List[str]] = {}
-    if datasets_root.is_dir():
-        for manifest_path in sorted(datasets_root.glob("ds_*.json")):
-            if not manifest_path.is_file() or manifest_path.is_symlink():
+    if dataset_entries is not None:
+        for manifest_path in dataset_entries:
+            if (
+                not manifest_path.name.startswith("ds_")
+                or not manifest_path.name.endswith(".json")
+                or not manifest_path.is_file()
+                or manifest_path.is_symlink()
+            ):
                 continue
             try:
                 manifest = read_json(manifest_path)
@@ -391,13 +487,18 @@ def _audit_approvals(state: Path) -> List[Dict[str, Any]]:
     """Count accumulated expired approvals (R21, design §5.3)."""
 
     approval_root = state / "approvals"
-    if not approval_root.is_dir():
+    entries, area_diag = _audit_area_directory(
+        approval_root, "approvals", "BTAG-AUDIT-APPROVALS"
+    )
+    if area_diag:
+        return [area_diag]
+    if entries is None:
         return []
     diags: List[Dict[str, Any]] = []
     now = time.time()
     expired = 0
-    for path in sorted(approval_root.glob("*.json")):
-        if not path.is_file() or path.is_symlink():
+    for path in entries:
+        if not path.name.endswith(".json") or not path.is_file() or path.is_symlink():
             continue
         try:
             record = read_json(path)
@@ -459,10 +560,13 @@ def _audit_trace(state: Path) -> List[Dict[str, Any]]:
     """Trace directory health: append-only JSONL shape (R21, design §5.3)."""
 
     trace_dir = state / "trace"
-    if not trace_dir.is_dir():
+    entries, area_diag = _audit_area_directory(trace_dir, "trace", "BTAG-AUDIT-TRACE")
+    if area_diag:
+        return [area_diag]
+    if entries is None:
         return []
     diags: List[Dict[str, Any]] = []
-    for path in sorted(trace_dir.iterdir()):
+    for path in entries:
         if path.name.endswith(".lock"):
             continue  # stable lock files persist by design
         if not path.is_file() or path.is_symlink():
@@ -525,8 +629,20 @@ def _audit_memory(state: Path) -> List[Dict[str, Any]]:
     """Memory directory health (lightweight until R22 lands its schema)."""
 
     memory_dir = state / "memory"
-    if not memory_dir.exists():
+    try:
+        memory_dir.stat()
+    except FileNotFoundError:
         return []
+    except OSError:
+        return [
+            _audit_diag(
+                "BTAG-AUDIT-MEMORY",
+                "error",
+                "the memory directory under the state root is unreadable",
+                hint="restore read permission on the state root so the audit "
+                "can inspect it",
+            )
+        ]
     diags: List[Dict[str, Any]] = []
     if not memory_dir.is_dir():
         diags.append(
@@ -538,7 +654,19 @@ def _audit_memory(state: Path) -> List[Dict[str, Any]]:
             )
         )
         return diags
-    for path in sorted(memory_dir.iterdir()):
+    try:
+        entries = sorted(memory_dir.iterdir())
+    except OSError:
+        return [
+            _audit_diag(
+                "BTAG-AUDIT-MEMORY",
+                "error",
+                "the memory directory under the state root is unreadable",
+                hint="restore read permission on the state root so the audit "
+                "can inspect it",
+            )
+        ]
+    for path in entries:
         if path.name.endswith(".lock"):
             continue
         if not path.is_file() or path.is_symlink() or not path.name.endswith(".json"):
@@ -698,5 +826,20 @@ def diagnose(
             if state_root is not None
             else Path(".backtrader-agent").resolve()
         )
-        result["diagnostics"] = audit_state(audit_root, deep=audit_deep)
+        try:
+            result["diagnostics"] = audit_state(audit_root, deep=audit_deep)
+        except OSError as exc:
+            # One unreadable area must degrade to a diagnostic, never kill
+            # the whole report with a generic BTAG-CLI-IO abort.
+            result["diagnostics"] = [
+                _audit_diag(
+                    "BTAG-AUDIT-STATE",
+                    "error",
+                    "the state-root audit could not complete: {}".format(
+                        exc.__class__.__name__
+                    ),
+                    hint="restore read permission on the state root and rerun "
+                    "'doctor --audit'",
+                )
+            ]
     return result

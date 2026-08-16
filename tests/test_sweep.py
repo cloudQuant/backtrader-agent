@@ -1189,6 +1189,10 @@ def test_sweep_cell_persistent_transient_failure_fails_sweep_and_report_rejects_
     cell_dir = _cell_dir(state, plan, plan["cells"][0])
     attempt = read_json(cell_dir / "run-attempt.json")
     assert attempt["failure_code"] == "BTAG-RUN-TIMEOUT"
+    # R20: a failed cell still lands its logs (empty redacted tails here —
+    # the monkeypatched timeout never produced child output).
+    assert (cell_dir / "stdout.log").is_file()
+    assert (cell_dir / "stderr.log").is_file()
 
     # A tampered persisted cell result must be rejected by the report.
     result_path = cell_dir / "run-result.json"

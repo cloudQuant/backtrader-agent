@@ -373,7 +373,7 @@ def test_failed_run_lands_outputs_and_keeps_redacted_details(tmp_path):
     context = _prepare_approved_run_context(tmp_path)
     script = (
         "import os, sys\n"
-        "sys.stdout.write('PROBE-STDOUT-LINE\\n')\n"
+        "sys.stdout.write('PROBE-STDOUT-LINE ' + os.path.abspath(__file__) + '\\n')\n"
         "sys.stderr.write('PROBE-STDERR-LINE ' + os.path.abspath(__file__) + '\\n')\n"
         "sys.exit(7)\n"
     )
@@ -392,16 +392,24 @@ def test_failed_run_lands_outputs_and_keeps_redacted_details(tmp_path):
     details = raised.value.details or {}
     assert "PROBE-STDERR-LINE" in details["stderr"]
     assert str(context["state"].resolve()) not in details["stderr"]
-    # The run directory still receives both logs (raw retained content).
+    # The run directory still receives both logs, following the same
+    # redacted tail-2000 discipline (design §5.2): child output is retained
+    # but absolute paths are scrubbed and each log is the diagnostic tail.
     run_id = SessionStore(context["state"]).load("session-obs")["artifacts"]["run_id"]
     run_dir = context["state"] / "runs" / run_id
     assert (run_dir / "stdout.log").is_file()
     assert (run_dir / "stderr.log").is_file()
-    assert "PROBE-STDOUT-LINE" in (run_dir / "stdout.log").read_text(encoding="utf-8")
-    assert "PROBE-STDERR-LINE" in (run_dir / "stderr.log").read_text(encoding="utf-8")
+    stdout_log = (run_dir / "stdout.log").read_text(encoding="utf-8")
+    stderr_log = (run_dir / "stderr.log").read_text(encoding="utf-8")
+    assert "PROBE-STDOUT-LINE" in stdout_log
+    assert "PROBE-STDERR-LINE" in stderr_log
+    assert str(context["state"].resolve()) not in stdout_log
+    assert str(context["state"].resolve()) not in stderr_log
+    assert len(stdout_log.encode("utf-8")) <= 2000
+    assert len(stderr_log.encode("utf-8")) <= 2000
 
 
-def test_over_quota_run_lands_truncated_logs_with_marker(tmp_path):
+def test_over_quota_run_lands_redacted_tail_logs(tmp_path):
     context = _prepare_approved_run_context(tmp_path)
     script = (
         "import sys\n"
@@ -421,9 +429,11 @@ def test_over_quota_run_lands_truncated_logs_with_marker(tmp_path):
     assert raised.value.code == "BTAG-RUN-OUTPUT"
     run_id = SessionStore(context["state"]).load("session-obs")["artifacts"]["run_id"]
     run_dir = context["state"] / "runs" / run_id
-    stdout_log = (run_dir / "stdout.log").read_bytes()
-    assert 0 < len(stdout_log) <= ControlledRunner.MAX_OUTPUT_BYTES
-    text = stdout_log.decode("utf-8", errors="replace")
-    assert "truncated" in text.splitlines()[0]
-    assert text.rstrip().endswith("AAAA")
+    assert (run_dir / "stderr.log").is_file()
+    # The failure path keeps the redacted tail-2000 semantics, not the
+    # quota-bounded success semantics: no truncation marker, just the tail.
+    text = (run_dir / "stdout.log").read_text(encoding="utf-8")
+    assert len(text.encode("utf-8")) == 2000
+    assert text == "A" * 2000
+    assert "truncated" not in text
     assert "BACKTRADER_AGENT_RESULT=" not in text

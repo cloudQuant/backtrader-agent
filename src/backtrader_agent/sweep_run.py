@@ -41,6 +41,7 @@ from .roots import RootRegistry
 from .runner import ControlledRunner
 from .runner.execute import (
     _execute_profile,
+    _persist_redacted_outputs,
     build_dataset_descriptors,
     parse_child_result,
 )
@@ -624,6 +625,14 @@ def _execute_cell(
                 cell_dir, run_id, subject, str(code), attempt=attempts
             )
             continue
+        _persist_redacted_outputs(
+            cell_dir,
+            completed.stdout if completed is not None else None,
+            completed.stderr if completed is not None else None,
+            state_root=state_root,
+            entrypoint=entrypoint,
+            descriptors=descriptors,
+        )
         return _persist_failed_cell(
             cell_dir,
             context=context,

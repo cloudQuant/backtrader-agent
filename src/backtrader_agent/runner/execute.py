@@ -101,6 +101,54 @@ def _retain_child_outputs(
         ) from exc
 
 
+def _persist_redacted_outputs(
+    output_dir: Path,
+    stdout: Optional[bytes],
+    stderr: Optional[bytes],
+    *,
+    state_root: Path,
+    entrypoint: Path,
+    descriptors: List[Dict[str, Any]],
+) -> None:
+    """Replace the retained child logs with redacted failure semantics.
+
+    Design §5.2: on the failure path the persisted logs follow the same
+    discipline as the failure diagnostics — each stream is reduced to its
+    last 2000 bytes and path-redacted — so child output cannot leak absolute
+    paths or sensitive data into the run directory. The RESULT protocol line
+    is stripped from stdout first. The writes replace any raw logs retained
+    at execution time (e.g. partial output before a wall-clock kill), and
+    persistence failures surface as ``BTAG-RUN-PERSIST``.
+    """
+
+    stdout_text = _strip_result_lines((stdout or b"").decode("utf-8", errors="replace"))
+    stderr_text = (stderr or b"").decode("utf-8", errors="replace")
+    try:
+        atomic_write_bytes(
+            Path(output_dir) / "stdout.log",
+            reports_module._redact_stderr(
+                stdout_text,
+                state_root=state_root,
+                entrypoint=entrypoint,
+                descriptors=descriptors,
+            ).encode("utf-8", errors="replace"),
+        )
+        atomic_write_bytes(
+            Path(output_dir) / "stderr.log",
+            reports_module._redact_stderr(
+                stderr_text,
+                state_root=state_root,
+                entrypoint=entrypoint,
+                descriptors=descriptors,
+            ).encode("utf-8", errors="replace"),
+        )
+    except (AgentError, OSError) as exc:
+        raise AgentError(
+            "BTAG-RUN-PERSIST",
+            "child output persistence was interrupted; retry the same effect",
+        ) from exc
+
+
 def _execute_profile(profile: Dict[str, Any]) -> subprocess.CompletedProcess:
     """Execute one fixed controlled child-process profile.
 
@@ -880,6 +928,14 @@ class ControlledRunner:
             )
         except subprocess.TimeoutExpired as exc:
             mark_failed("BTAG-RUN-TIMEOUT")
+            _persist_redacted_outputs(
+                run_root,
+                exc.stdout,
+                exc.stderr,
+                state_root=self.state_root,
+                entrypoint=entrypoint,
+                descriptors=descriptors,
+            )
             raise AgentError(
                 "BTAG-RUN-TIMEOUT", "controlled child process timed out"
             ) from exc
@@ -888,6 +944,14 @@ class ControlledRunner:
         stderr = completed.stderr
         if len(stdout) > self.MAX_OUTPUT_BYTES or len(stderr) > self.MAX_OUTPUT_BYTES:
             mark_failed("BTAG-RUN-OUTPUT")
+            _persist_redacted_outputs(
+                run_root,
+                stdout,
+                stderr,
+                state_root=self.state_root,
+                entrypoint=entrypoint,
+                descriptors=descriptors,
+            )
             raise AgentError("BTAG-RUN-OUTPUT", "child output exceeded the byte quota")
         stdout_text = stdout.decode("utf-8", errors="replace")
         stderr_text = stderr.decode("utf-8", errors="replace")
@@ -899,6 +963,14 @@ class ControlledRunner:
                 descriptors=descriptors,
             )
             mark_failed("BTAG-RUN-FAILED")
+            _persist_redacted_outputs(
+                run_root,
+                stdout,
+                stderr,
+                state_root=self.state_root,
+                entrypoint=entrypoint,
+                descriptors=descriptors,
+            )
             raise AgentError(
                 "BTAG-RUN-FAILED",
                 "controlled child process failed",
@@ -909,6 +981,14 @@ class ControlledRunner:
         except AgentError as exc:
             if exc.code in {"BTAG-RUN-RESULT", "BTAG-RUN-METRIC"}:
                 mark_failed(exc.code)
+                _persist_redacted_outputs(
+                    run_root,
+                    stdout,
+                    stderr,
+                    state_root=self.state_root,
+                    entrypoint=entrypoint,
+                    descriptors=descriptors,
+                )
             raise
         metrics = payload["metrics"]
 

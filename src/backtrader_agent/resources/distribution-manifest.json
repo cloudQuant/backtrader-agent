@@ -9,7 +9,7 @@
     "adapters.py": "f003b950fa7fe4cfa16323c9e5286b213f3f1b3c6c19561ecfab77fa2abc8825",
     "archetypes.py": "11c2e49cec2fed74467770beb8eec13832089d207ac3ba9a5ca6145390095b4b",
     "audit.py": "33b0e966b4c30378a4370c000fe8c2c347f8f881485a06592e6b3d5f3a078c73",
-    "backtrader_runtime.py": "5e877a19c2df53d72cd5298105e34d9105809f80446bbe135030d22d3b4dfb4a",
+    "backtrader_runtime.py": "eb2eff33d39778055ede92803444ce8391c186ec41e017c6a7692a29da5369ee",
     "caching.py": "d2184aa32b2e3d721085684301d9f88bfc7c48573e3a6a33d32a80f6bacd6cf6",
     "canonical.py": "d3acb0c1eb3421793f8a3bd892a18440e2a94e770f9357663f6cc32999ec82bb",
     "catalog.py": "567483cfe44a9ce377387cd5c678f041fc361c5b14d7f74e1ea975ec79f4f90f",

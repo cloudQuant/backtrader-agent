@@ -192,7 +192,7 @@ def inspect_backtrader_engine_root(root: Path) -> Dict[str, Any]:
             installed_root = None
             requested_root = None
         if installed_root is not None and installed_root == requested_root:
-            repository = runtime.get("repository")
+            repository = _canonical_repository(runtime.get("repository"))
             evidence = runtime.get("source_evidence")
     expected = _canonical_repository(CLOUDQUANT_BACKTRADER_REPOSITORY)
     verified = repository == expected

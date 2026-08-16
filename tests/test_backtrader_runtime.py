@@ -90,6 +90,30 @@ def test_engine_root_source_requires_cloudquant_git_evidence(monkeypatch, tmp_pa
     assert "not verified" in status["warning"]
 
 
+def test_engine_root_trusts_a_verified_installed_runtime(monkeypatch, tmp_path: Path) -> None:
+    # CI shape: the registered engine root is the installed package directory
+    # (no .git ancestor), so provenance falls back to the installed runtime.
+    # The runtime's verified branch stores the non-canonical mixed-case
+    # repository constant; the engine-root check must still canonicalize it.
+    root = tmp_path / "site-packages"
+    origin = root / "backtrader" / "__init__.py"
+    monkeypatch.setattr(runtime, "_git_remote", lambda path: None)
+    monkeypatch.setattr(
+        runtime,
+        "inspect_backtrader_runtime",
+        lambda: {
+            "import_path": str(origin),
+            "repository": runtime.CLOUDQUANT_BACKTRADER_REPOSITORY,
+            "source_evidence": "direct_url",
+        },
+    )
+
+    status = runtime.inspect_backtrader_engine_root(root)
+
+    assert status["status"] == "verified"
+    assert status["is_cloudquant_backtrader"] is True
+
+
 def test_missing_backtrader_is_installed_with_the_current_interpreter(
     monkeypatch, tmp_path: Path
 ) -> None:

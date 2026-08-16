@@ -45,6 +45,16 @@ from helpers import (
 DATASET_ID = "ds_" + "d" * 64
 
 
+def _is_within(base: Path, path: Path) -> bool:
+    """Python 3.8-compatible containment check (Path.is_relative_to is 3.9+)."""
+
+    try:
+        Path(path).resolve().relative_to(Path(base).resolve())
+        return True
+    except ValueError:
+        return False
+
+
 def _register_engine(state: Path) -> str:
     RootRegistry(state).register(
         "engine",
@@ -949,7 +959,7 @@ def test_sweep_run_two_by_two(tmp_path: Path) -> None:
         )
     new_files = {str(path) for path in workspace.rglob("*")} - before
     assert new_files, "the run must persist per-cell records"
-    assert all(Path(path).is_relative_to(state) for path in new_files)
+    assert all(_is_within(state, Path(path)) for path in new_files)
 
     # Journal records the sweep start (RUNNING) and sweep-complete events.
     session = SessionStore(state).load("session-001")
@@ -1441,6 +1451,6 @@ def test_cli_sweep_run_two_by_two(tmp_path: Path) -> None:
 
     # Sweep is run-only: the workspace gains no files outside the state root.
     new_files = {str(path) for path in workspace.rglob("*")} - before
-    assert all(Path(path).is_relative_to(state) for path in new_files)
+    assert all(_is_within(state, Path(path)) for path in new_files)
     session = _call(*common, "session", "status", "--session-id", "sweep-1")
     assert session["state"] == "PASSED"

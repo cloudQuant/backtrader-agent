@@ -234,7 +234,7 @@
     "tests/test_run_retry.py": "18417e60eaf25ffead8ccf1f7007f7f00bb26d7dbfda52dcd7ad8be60a6a214d",
     "tests/test_runner_installer_audit.py": "1751d26798bdc39de1aab28af7d68161743e61d386ab3a60293d9ef30b24a494",
     "tests/test_scaffold_validator_catalog.py": "000d6b5fd8fbaa98911332ab99cedcb1ac7161f72335e3ba8dbb9213933d5933",
-    "tests/test_sweep.py": "b85ef89ed631418f0761a91e0933ff6ead9cb233067c25a48136b5fd6854d983",
+    "tests/test_sweep.py": "0e31b00e84952cea7af0b142654938e35c79798a586d068a1e6187be0a39e41a",
     "tests/test_token_concurrency.py": "1c8524a6c269e1a5fab253d053dc01ec50eef3e191c01e70dbe4b2dbc74a2537",
     "tests/test_tokens_changes_sessions.py": "a29bc95ab70b49fc64c583c1a912131f151088776a68797c9c51944384bbc671"
   },

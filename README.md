@@ -266,8 +266,8 @@ Canonical StrategySpec output uses:
 
 ```text
 spec_version='strategy-spec-v1', name, slug, category, archetype,
-output_profile, dataset_id, feeds, parameters, entry, exit, sizing, risk,
-run_modes, allowed_imports
+output_profile, dataset_id, feeds, parameters, entry, exit, sizing, timers,
+cheat, risk, run_modes, allowed_imports
 ```
 
 The seven archetypes are `single_data_indicator`,
@@ -288,8 +288,18 @@ The seven archetypes are `single_data_indicator`,
 > `cerebro.addsizer(bt.sizers.FixedSize, stake=n)` and
 > `{method: percent, percent: p}` renders
 > `cerebro.addsizer(bt.sizers.PercentSizer, percents=p)`; omit the field (or
-> set it to `null`) to keep Backtrader's default sizer. To change trade logic,
-> pick a different archetype or revise parameters. See
+> set it to `null`) to keep Backtrader's default sizer. The `timers` field is
+> functional in a limited way: `[{when: session|cheat|both, callback}]` renders
+> a fixed `self.add_timer(when=bt.timer.SESSION_START[, cheat=True])` assembly
+> (`both` schedules one timer in each window), and the allowlisted callbacks
+> (`notify_timer`, `check_rebalance`) render as fixed deterministic hooks that
+> only count firings. The `cheat` field renders execution hooks:
+> `{on_open: true}` renders `bt.Cerebro(..., cheat_on_open=True,
+> broker_coo=True)` plus a `next_open` that mirrors the archetype signal at
+> the open, and `{on_close: true}` renders `cerebro.broker.set_coc(True)` so
+> market orders execute at their creation bar's close. Omit both fields (or
+> set them to `null`) to keep the pre-timer/cheat render. To change trade
+> logic, pick a different archetype or revise parameters. See
 > [references/current-fork-rules.md](references/current-fork-rules.md).
 
 Validation uses Python AST only. It never imports a candidate into the host
@@ -708,8 +718,8 @@ backtrader-agent --state-root /path/to/state catalog refresh \
 
 ```text
 spec_version='strategy-spec-v1', name, slug, category, archetype,
-output_profile, dataset_id, feeds, parameters, entry, exit, sizing, risk,
-run_modes, allowed_imports
+output_profile, dataset_id, feeds, parameters, entry, exit, sizing, timers,
+cheat, risk, run_modes, allowed_imports
 ```
 
 七个 archetype 是 `single_data_indicator`、`multi_indicator_system`、
@@ -725,7 +735,15 @@ run_modes, allowed_imports
 > archetype。`sizing` 字段已有限落地：`{method: fixed, fixed_size: n}` 渲染为
 > `cerebro.addsizer(bt.sizers.FixedSize, stake=n)`，`{method: percent, percent: p}`
 > 渲染为 `cerebro.addsizer(bt.sizers.PercentSizer, percents=p)`；省略该字段（或置为
-> `null`）则保持 Backtrader 默认 sizer。要改变交易逻辑，请换一个 archetype 或调整参数。
+> `null`）则保持 Backtrader 默认 sizer。`timers` 字段已有限落地：
+> `[{when: session|cheat|both, callback}]` 渲染为固定的
+> `self.add_timer(when=bt.timer.SESSION_START[, cheat=True])` 装配（`both` 在两种
+> 窗口各注册一个 timer），白名单回调（`notify_timer`、`check_rebalance`）渲染为只
+> 计数的确定性固定钩子。`cheat` 字段渲染执行钩子：`{on_open: true}` 渲染
+> `bt.Cerebro(..., cheat_on_open=True, broker_coo=True)` 并在开盘复现 archetype 信号
+> 的 `next_open`，`{on_close: true}` 渲染 `cerebro.broker.set_coc(True)` 使市价单以
+> 创建 bar 的收盘价成交。省略这两个字段（或置为 `null`）则保持 timer/cheat 之前的
+> 渲染。要改变交易逻辑，请换一个 archetype 或调整参数。
 > 见 [references/current-fork-rules.md](references/current-fork-rules.md)。
 
 校验仅用 Python AST，绝不把候选项导入宿主进程。import、`os` 访问、Backtrader API、

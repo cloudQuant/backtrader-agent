@@ -16,6 +16,8 @@
     "entry",
     "exit",
     "sizing",
+    "timers",
+    "cheat",
     "risk",
     "run_modes",
     "allowed_imports",
@@ -70,6 +72,38 @@
           "properties": {
             "method": {"const": "percent"},
             "percent": {"$ref": "#/$defs/Percent"}
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "timers": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "items": {
+            "type": "object",
+            "required": ["when", "callback"],
+            "properties": {
+              "when": {"enum": ["session", "cheat", "both"]},
+              "callback": {"enum": ["notify_timer", "check_rebalance"]}
+            },
+            "additionalProperties": false
+          }
+        }
+      ]
+    },
+    "cheat": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "properties": {
+            "on_open": {"type": "boolean"},
+            "on_close": {"type": "boolean"}
           },
           "additionalProperties": false
         }

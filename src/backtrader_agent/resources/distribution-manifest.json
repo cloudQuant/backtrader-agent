@@ -18,7 +18,7 @@
     "changes/prepare.py": "ef4ea07bb60d6e379c863b192a6b860a09c86a80c1df4681c12ac07f96e820a8",
     "changes/rollback.py": "cffcbbccadd4bb7576d482157ff5cf6d7104241addb9d43784d8b6d5dcdcc2d0",
     "cli.py": "cf3df3558d4c9a3faf97bee5ea1a3c26f78496b58a1d627b860477fc82e91dab",
-    "contracts.py": "962e5ecac64ea225f87bc08995b110a696ce837a78de86ce94285499edcf0d89",
+    "contracts.py": "d839a777db315d0a4acf8a376b1e36e5948893f98b83f09eda9442f3d537da49",
     "data.py": "978947a053641bfbbeaefab55cd823a4d16df87e7801f4f9f308e8198c921a0f",
     "doctor.py": "7a3e8653b27ba3db409663667f6ac74cab1945b074033e0499291a1972859516",
     "engines.py": "4ba7ff105823d62f1e8cf243dfd2c2411b52c6f9ac09f4e860c999ba8683905a",
@@ -50,7 +50,7 @@
     "resources/contracts/dataset-manifest-v1.schema.json": "7925c8f79e5fe55226aabca2666274e5c5ae4f10c7fa0520f4388e6f90524f48",
     "resources/contracts/run-manifest-v1.schema.json": "2fc9b00ca60440fcab99bd3a7b56446113c0cdfd3461a8e486ca05ca2d1c235f",
     "resources/contracts/run-result-v1.schema.json": "1e565c87ac2046d60442f8165db7f2a30b5c614d275239791d8f75214d2aabcb",
-    "resources/contracts/strategy-spec-v1.schema.json": "10463a2be422b7c30126e54f0bb1ea1652b9cea46f99f0037ae5ac8e51e32c26",
+    "resources/contracts/strategy-spec-v1.schema.json": "44b5949fe28f247f8c4b8a56b3be13251d60a99b389fafcfbd950d128b2ffeb6",
     "resources/contracts/validation-report-v1.schema.json": "035ac9a04f6cff0abfcc9156614842332327bf7b861710a9753a3b31174b7366",
     "resources/policies/comparison-profile-v1.json": "877f3a768c695ee848c499defaea482373aba8e8d6d9e0107ad46943d528e970",
     "roots.py": "5e0bd50a6ee07938fc794fe6d2dc31adeb3fdfb5da9dd0c393d46542455e70eb",
@@ -59,12 +59,12 @@
     "runner/profiles.py": "13d1c29c63a7e1381bda16271d30362f654c07a26a3a86a11a7acaf044e75bd3",
     "runner/reports.py": "f99b224b270b0f0be41014fad5c5e51fdb414d552b845652e181db14bac08f5d",
     "runner/resume.py": "e8131216cbd135763120619212201937d7c79fe855708b51d045ccfa55fc20e5",
-    "scaffold.py": "2cd1d10d6a9d0080c1e512052a374713c68a3173fb90957fef65de4b48afd7b7",
+    "scaffold.py": "ec6b1d3fe64de87e037e8075e1d4019ca0f09960ab0e855be26b5568246420b3",
     "sessions.py": "c32b1117e635663d9956c349be438477887f7ee6fb4183336e2cf42acaf42b89",
     "sweep.py": "a653d3a6c77cb466178eac327ea54b2cc453c8cc4ea5d546210b7e6fa532b00a",
     "sweep_run.py": "f88dd3e89ad751400a28f6d5eb2da5fb6062639e39c7ab3702e8ef1acb15794a",
     "tokens.py": "bd84b6f69b7e298bfecfcf7d2caad0f87781e2ea8ae46d8b77328c5d4bc52e77",
-    "validator.py": "2ea280d79096bdf95f741f191644215b27e2067d25126c647b4579045997e02f"
+    "validator.py": "24eddd3c19c0c80a4b5e188f1675bb0f028fd0b131e10f30b2d510afa3d3802e"
   },
   "hash_algorithm": "sha256",
   "manifest_excludes": [

@@ -34,3 +34,20 @@ code is deferred (see IMPLEMENTATION_REPORT.md). To change trade logic today,
 select a different `archetype` or revise parameters; do not expect prose
 `entry`/`exit` text to alter the generated `next()`.
 
+The `timers` and `cheat` blocks are functional in a limited way and default
+off (`null`), so specs without them render exactly as before. `timers` accepts
+`[{when: session|cheat|both, callback}]` with an allowlisted callback name
+(`notify_timer` or `check_rebalance`): `session` schedules a session-start
+timer via `self.add_timer(when=bt.timer.SESSION_START)`, `cheat` adds
+`cheat=True` so the timer fires in the pre-broker window, and `both` schedules
+one timer in each window. The rendered `notify_timer` hook only counts
+firings and dispatches by timer identity to `check_rebalance`, a fixed
+deterministic audit stub — no free-form rebalance logic is synthesized. The
+`cheat` block renders execution hooks: `{on_open: true}` renders
+`bt.Cerebro(..., cheat_on_open=True, broker_coo=True)` and a `next_open` that
+mirrors the archetype signal at the open (orders then execute with the fork's
+cheat-on-open broker semantics), and `{on_close: true}` renders
+`cerebro.broker.set_coc(True)` so market orders execute at their creation
+bar's close price. `run_modes` stays `runonce`/`runnext`; the fork runs the
+cheat window and timers in both modes.
+

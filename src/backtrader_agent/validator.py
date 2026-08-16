@@ -46,6 +46,7 @@ ALLOWED_BACKTRADER_TOP_LEVEL = {
     "Order",
     "Strategy",
     "TimeFrame",
+    "Timer",
     "analyzers",
     "date2num",
     "feeds",
@@ -53,6 +54,12 @@ ALLOWED_BACKTRADER_TOP_LEVEL = {
     "indicators",
     "num2date",
     "sizers",
+    "timer",
+}
+ALLOWED_BACKTRADER_TIMER_CONSTANTS = {
+    "SESSION_TIME",
+    "SESSION_START",
+    "SESSION_END",
 }
 ALLOWED_BACKTRADER_SIZERS = {
     "FixedSize": frozenset({"stake"}),
@@ -141,6 +148,10 @@ def _backtrader_path_allowed(path: Tuple[str, ...]) -> bool:
         if len(path) == 2:
             return True
         return len(path) == 3 and path[2] in ALLOWED_BACKTRADER_FEEDS
+    if path[1] == "timer":
+        if len(path) == 2:
+            return True
+        return len(path) == 3 and path[2] in ALLOWED_BACKTRADER_TIMER_CONSTANTS
     if path[1] == "analyzers":
         if len(path) == 2:
             return True
@@ -156,7 +167,10 @@ def _is_direct_strategy_base(base: ast.expr) -> bool:
     if isinstance(base, ast.Name):
         return base.id in {"Strategy", "GeneratedStrategy"}
     if isinstance(base, ast.Attribute) and base.attr == "Strategy":
-        return isinstance(base.value, ast.Name) and base.value.id in {"bt", "backtrader"}
+        return isinstance(base.value, ast.Name) and base.value.id in {
+            "bt",
+            "backtrader",
+        }
     return False
 
 
@@ -195,7 +209,9 @@ class StrategyValidator:
             ]
         diagnostics: List[Dict[str, Any]] = []
         parents = {
-            child: parent for parent in ast.walk(tree) for child in ast.iter_child_nodes(parent)
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
         }
         strategy_classes = 0
         for node in ast.walk(tree):
@@ -242,7 +258,9 @@ class StrategyValidator:
                     module not in ALLOWED_FROM_IMPORTS
                     or has_alias
                     or "*" in imported_names
-                    or not imported_names.issubset(ALLOWED_FROM_IMPORTS.get(module, set()))
+                    or not imported_names.issubset(
+                        ALLOWED_FROM_IMPORTS.get(module, set())
+                    )
                 ):
                     diagnostics.append(
                         _diagnostic(
@@ -375,7 +393,10 @@ class StrategyValidator:
                             node,
                         )
                     )
-                if isinstance(node.func, ast.Attribute) and node.func.attr in LIVE_MARKERS:
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr in LIVE_MARKERS
+                ):
                     diagnostics.append(
                         _diagnostic(
                             "BTAG-SEC-LIVE",
@@ -582,7 +603,9 @@ class StrategyValidator:
             for key, value in artifact.items()
             if not key.startswith("_") and key != "artifact_hash"
         }
-        public_artifact = {key: value for key, value in artifact.items() if not key.startswith("_")}
+        public_artifact = {
+            key: value for key, value in artifact.items() if not key.startswith("_")
+        }
         if hash_object(portable) != artifact.get("artifact_hash"):
             raise AgentError("BTAG-ARTIFACT-HASH", "artifact manifest hash is invalid")
         product_record: Optional[Dict[str, Any]] = None
@@ -608,12 +631,15 @@ class StrategyValidator:
                 draft_path != expected_draft
                 or not manifest_path.is_file()
                 or manifest_path.is_symlink()
-                or sha256_bytes(manifest_path.read_bytes()) != product_record["manifest_sha256"]
-                or manifest_path.read_bytes() != canonical_json_bytes(public_artifact) + b"\n"
+                or sha256_bytes(manifest_path.read_bytes())
+                != product_record["manifest_sha256"]
+                or manifest_path.read_bytes()
+                != canonical_json_bytes(public_artifact) + b"\n"
                 or extension.get("generated_by") != "backtrader-agent"
                 or extension.get("renderer_version") != "scaffold-v1"
                 or extension.get("session_id") != session_id
-                or extension.get("dataset_manifest_hash") != product_record["dataset_manifest_hash"]
+                or extension.get("dataset_manifest_hash")
+                != product_record["dataset_manifest_hash"]
                 or product_record["spec_hash"] != artifact.get("spec_hash")
                 or product_record["dataset_id"] != artifact.get("dataset_id")
                 or session.get("state") != "DRAFT_READY"
@@ -621,7 +647,8 @@ class StrategyValidator:
                 != artifact.get("artifact_hash")
                 or session.get("artifacts", {}).get("approved_spec_hash")
                 != artifact.get("spec_hash")
-                or session.get("artifacts", {}).get("dataset_id") != artifact.get("dataset_id")
+                or session.get("artifacts", {}).get("dataset_id")
+                != artifact.get("dataset_id")
                 or session.get("artifacts", {}).get("dataset_manifest_hash")
                 != product_record["dataset_manifest_hash"]
             ):
@@ -638,13 +665,19 @@ class StrategyValidator:
                 resolved = candidate_path.resolve(strict=True)
                 resolved.relative_to(draft_path)
             except (OSError, ValueError) as exc:
-                raise AgentError("BTAG-ARTIFACT-PATH", "artifact file escapes its draft") from exc
+                raise AgentError(
+                    "BTAG-ARTIFACT-PATH", "artifact file escapes its draft"
+                ) from exc
             if not resolved.is_file() or resolved.is_symlink():
-                raise AgentError("BTAG-ARTIFACT-TYPE", "artifact member must be a regular file")
+                raise AgentError(
+                    "BTAG-ARTIFACT-TYPE", "artifact member must be a regular file"
+                )
             data = resolved.read_bytes()
             total_size += len(data)
             if sha256_bytes(data) != file_entry.get("sha256"):
-                raise AgentError("BTAG-ARTIFACT-FILE-HASH", "artifact member hash is invalid")
+                raise AgentError(
+                    "BTAG-ARTIFACT-FILE-HASH", "artifact member hash is invalid"
+                )
             if relative.endswith(".py"):
                 try:
                     source = data.decode("utf-8")

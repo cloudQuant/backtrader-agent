@@ -5,7 +5,7 @@ description: Independent, stateless Backtrader strategy authoring and controlled
 
 # Backtrader Agent
 
-version: "13.0.3"
+version: "13.0.4"
 
 Any content change to this payload MUST bump the version line above, update
 the golden SHA-256 in tests/test_payload_contract.py, mirror this file
@@ -55,6 +55,7 @@ Every action is one typed child-process call. Conventions:
 | BT | Run an approved backtest/test | `run-subject`, `approval`, `run` |
 | FX | Repair a failed draft | produce a minimal new draft revision, then revalidate |
 | RP | Explain a report | read immutable run result/report artifacts |
+| SW | Sweep numeric parameters of an approved strategy | `sweep`, `approval` |
 | ST | Session status and recovery | `session` |
 | HE | Help | `--help` |
 
@@ -62,6 +63,49 @@ Direct intent routing is allowed. A request such as “register this CSV and
 build a strategy” enters NW without showing the menu, but cannot skip dataset
 registration, StrategySpec validation, change approval, or independent run
 approval.
+
+## Parameter sweep
+
+Sweep is run-only: it never writes to the workspace, there is no apply step,
+and one sweep approval covers the whole enumerated plan. Sweep forks from the
+worked trace after step 5, from the same session in state SPEC_APPROVED that
+holds the approved spec and registered dataset.
+
+Step SW1 — prepare the bounded, immutable plan.
+
+```
+backtrader-agent --state-root .btag sweep prepare --session-id sess-001 --spec '<full spec result from step 5>' --dataset-manifest '<full register result from step 4>' --param-grid '{"fast_period": [5, 8, 12]}' --engine-root-id engine
+```
+
+Every swept parameter must declare minimum and maximum bounds in the spec,
+and every grid value must lie inside them (BTAG-SWEEP-BOUNDS). The result is
+the sealed SweepPlan; keep sweep_id and plan_hash. State advances
+SPEC_APPROVED → SWEEP_PREPARED.
+
+Step SW2 — request and grant sweep approval.
+
+```
+backtrader-agent --state-root .btag approval request --kind sweep --subject-hash <plan_hash from SW1> --bindings '{"dataset_manifest_hash": "<SW1 dataset_manifest_hash>", "engine_hash": "<SW1 engine_hash>", "engine_root_id": "<SW1 engine_root_id>", "environment_hash": "<SW1 environment_hash>", "session_id": "<SW1 session_id>", "spec_hash": "<SW1 spec_hash>", "sweep_plan_hash": "<SW1 plan_hash>"}'
+backtrader-agent --state-root .btag approval grant --request-id <request_id from the request> --approver human --confirm
+```
+
+Copy every binding value from the prepare result; mismatched bindings are
+rejected (BTAG-APPROVAL-BINDING). grant returns the one-time sweep token; it
+covers the whole enumerated plan and nothing else.
+
+Step SW3 — run the enumerated cells.
+
+```
+backtrader-agent --state-root .btag sweep run --sweep-id <sweep_id from SW1> --token '<sweep token from SW2>' --max-cells 100 --timeout-per-cell 120
+```
+
+Step SW4 — read the ranked report.
+
+```
+backtrader-agent --state-root .btag sweep report --sweep-id <sweep_id from SW1>
+```
+
+The report ranks the passed cells by final_value descending.
 
 ## Worked trace
 
@@ -122,7 +166,7 @@ retain both; the DatasetManifest hash is bound into every later artifact.
 Step 5 — validate and approve the StrategySpec.
 
 ```
-backtrader-agent --state-root .btag spec --file '{"spec_version": "strategy-spec-v1", "name": "Demo Momentum", "slug": "demo-momentum", "category": "trend_following", "archetype": "single_data_indicator", "output_profile": "python_bundle", "dataset_id": "<dataset_id from step 4>", "feeds": [{"name": "primary", "role": "execution"}], "parameters": {"fast_period": {"type": "integer", "default": 5, "minimum": 2}, "slow_period": {"type": "integer", "default": 12, "minimum": 3}}, "entry": "long when the fast signal is above the slow signal", "exit": "close when the fast signal is below the slow signal", "sizing": {"method": "fixed", "fixed_size": 1}, "risk": {"max_position": 1}, "cash": 100000.0, "commission": 0.001, "analyzers": ["TradeAnalyzer", "DrawDown", "SharpeRatio", "SQN"], "run_modes": ["runonce", "runnext"], "allowed_imports": ["backtrader", "json", "os", "math"], "non_goals": ["live trading"], "open_questions": []}' --session-id sess-001 --approve
+backtrader-agent --state-root .btag spec --file '{"spec_version": "strategy-spec-v1", "name": "Demo Momentum", "slug": "demo-momentum", "category": "trend_following", "archetype": "single_data_indicator", "output_profile": "python_bundle", "dataset_id": "<dataset_id from step 4>", "feeds": [{"name": "primary", "role": "execution"}], "parameters": {"fast_period": {"type": "integer", "default": 5, "minimum": 2, "maximum": 40}, "slow_period": {"type": "integer", "default": 12, "minimum": 3, "maximum": 120}}, "entry": "long when the fast signal is above the slow signal", "exit": "close when the fast signal is below the slow signal", "sizing": {"method": "fixed", "fixed_size": 1}, "risk": {"max_position": 1}, "cash": 100000.0, "commission": 0.001, "analyzers": ["TradeAnalyzer", "DrawDown", "SharpeRatio", "SQN"], "run_modes": ["runonce", "runnext"], "allowed_imports": ["backtrader", "json", "os", "math"], "non_goals": ["live trading"], "open_questions": []}' --session-id sess-001 --approve
 ```
 
 open_questions must be empty — unresolved questions block generation
@@ -240,10 +284,13 @@ the message and hint, and never mutate artifacts to “fix” a hash mismatch.
 | BTAG-CHANGE-SOURCE-HASH | Draft bytes changed after validation; re-run `validate` on the current draft. |
 | BTAG-CHANGE-ROLLBACK | Apply is atomic and rolled back; report and re-apply the same manifest with the same idempotency key. |
 | BTAG-IDEMPOTENCY-CONFLICT | The same idempotency key was reused with different bytes; pick a new key for a new effect. |
-| BTAG-RUN-TIMEOUT | Same-effect retry (R14, landing in a later iteration). Until then, stop and report. |
+| BTAG-RUN-TIMEOUT | Transient timeout: the session is FAILED with retry_eligible=true. Re-request run approval for the same effect (`approval request --kind run --subject-hash <step 11 subject hash>` with the same APPLIED bindings, then `approval grant`) and re-run; the new RunManifest records the `retry_of` chain. The consumed run token is one-time and cannot be reused. A changed subject or a non-transient failure must `repair` instead. |
 | BTAG-RUN-FAILED | Non-transient failure; read the sanitized stderr tail in details, then repair via `repair`. Do not retry blindly. |
 | BTAG-RUN-DATASET-HASH / BTAG-RUN-ARTIFACT-HASH | Run inputs do not match the approved subject; re-run `run-subject` and re-request run approval. |
 | BTAG-RUN-UNKNOWN | Run `runs list` for real run ids. |
+| BTAG-SWEEP-PLAN | The sweep plan is tampered or fails its sealed hash checks. Never retry or edit the plan file; inspect state (`session status`, `sweep report`), and re-prepare a fresh plan only if the sweep must continue. Never mutate artifacts to “fix” a hash mismatch. |
+| BTAG-SWEEP-LEGACY | The sweep plan predates the sealed spec/engine/environment fields and cannot be executed. Re-prepare with the current runtime (`sweep prepare` with the same spec, dataset manifest, param grid, and engine root id), then request and grant a fresh sweep approval. |
+| BTAG-SWEEP-BOUNDS | A grid value falls outside the swept parameter's declared minimum/maximum spec bounds, or a swept parameter declares no bounds. Fix the param grid (or the spec bounds and re-approve the spec), then re-run `sweep prepare`. |
 | BTAG-DATA-FORMAT / BTAG-DATA-COLUMNS / BTAG-DATA-DATETIME / BTAG-DATA-OHLC / BTAG-DATA-ORDER / BTAG-DATA-EMPTY / BTAG-DATA-DUPLICATE | Fix the source CSV or the DataSpec mapping and re-run `data inspect`. Never edit canonical data under the state root. |
 | BTAG-DATASET-UNKNOWN | Run `data list` and reuse a listed dataset_id/manifest_hash. |
 | BTAG-SPEC-OPEN | The StrategySpec has unresolved open_questions; resolve them and re-approve. |

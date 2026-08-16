@@ -4,4 +4,4 @@ from .contracts import DatasetManifest, StrategySpec
 from .errors import AgentError
 
 __all__ = ["AgentError", "DatasetManifest", "StrategySpec"]
-__version__ = "0.1.0"
+__version__ = "0.2.0"

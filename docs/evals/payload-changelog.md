@@ -55,6 +55,40 @@ Run it with:
 
 Baseline: not yet recorded — no API key has been configured for a run.
 
+## 13.0.4 — 2026-08-16
+
+**Motivation.** Final whole-branch review reconciliation: the payload still
+described R14 same-effect retry as unlanded and had no sweep route, although
+both shipped in iteration 013. A host following the stale rows would stop and
+report on a transient timeout the runtime already marks retry-eligible, and
+could not discover the parameter-sweep capability at all.
+
+**Changes.**
+
+- BTAG-RUN-TIMEOUT row rewritten to the shipped R14 semantics: the session is
+  FAILED with retry_eligible=true; recovery is a fresh `approval request
+  --kind run --subject-hash <same subject hash>` + grant under the same
+  APPLIED bindings, then re-run; the new RunManifest records the `retry_of`
+  chain and the consumed run token cannot be reused. A changed subject or a
+  non-transient failure must `repair`.
+- Added a Parameter sweep section (menu-adjacent, intent SW) with the 4-step
+  flow — `sweep prepare` → `approval request --kind sweep --subject-hash
+  <plan_hash>` → `approval grant --confirm` → `sweep run` → `sweep report` —
+  plus the run-only note (no workspace writes; one approval covers the whole
+  enumerated plan) and the SPEC_APPROVED → SWEEP_PREPARED state fork.
+- Worked-trace step 5 spec: both parameters now declare maximum bounds so the
+  sweep example's grid values are verbatim-executable (the sweep bounds
+  checker rejects swept parameters that declare no minimum and maximum).
+- Added BTAG-SWEEP-PLAN (tampered plan — never retry, inspect state),
+  BTAG-SWEEP-LEGACY (legacy plan without the sealed engine/environment fields
+  — re-prepare with the current runtime), and BTAG-SWEEP-BOUNDS (grid value
+  outside spec bounds — fix the grid, re-prepare) recovery rows.
+- Payload contract test: version regex pinned to 13.0.4.
+
+**Eval baseline.** Unchanged from 13.0.3 (payload-only reconciliation; no
+runtime change). This entry pins the golden SHA-256
+`bde367eeb291bf1cdeaeb26d2b9ad84ac3f0dc9d2f61cae2fbc002018c481aaf`.
+
 ## 13.0.2 — 2026-08-16
 
 **Motivation.** Empirical correction driven by the deterministic eval harness

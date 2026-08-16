@@ -90,7 +90,7 @@ registry).
   engine roots with validity status.
 - CI workflow (`.github/workflows/ci.yml`) running unit tests, the
   independence audit, doctor, the deterministic eval suite, manifest
-  freshness, and the acceptance matrix across Python 3.9/3.11/3.12.
+  freshness, and the acceptance matrix across Python 3.8/3.9/3.11/3.12.
 - `examples/` with an offline CSV, `DataSpec`, `StrategySpec`, and a walkthrough.
 - `SECURITY.md`, `CONTRIBUTING.md`, and this changelog.
 - `.gitignore` now ignores the `.backtrader-agent/` runtime state root.

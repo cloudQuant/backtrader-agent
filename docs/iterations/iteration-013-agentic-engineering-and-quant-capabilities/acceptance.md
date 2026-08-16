@@ -96,7 +96,7 @@
 
 - [x] pytest 全绿;ruff 全绿;`audit_independence.py` 6/6;`scripts/doctor.py` ready;
   `run_acceptance.py` clean-wheel 14-cell 全绿;`scripts/run_evals.py` 全绿。
-  **2026-08-16 发行收尾证据(Task 24,commit 见 git log):**
+  **2026-08-16 发行收尾证据(Task 24,commit 3dec40e2ca50b2773d8d66d8f8d4dda789ea9619):**
   - `python -m pytest tests -q -p no:cacheprovider`:**385 passed**(
     5×72+25 点,唯一警告为既有 Backtrader Quandl 弃用 + 宿主环境 engine 来源提示)。
   - `python scripts/run_evals.py`:**23/23** — `{"failed": 0, "passed": 23, "total": 23}`。

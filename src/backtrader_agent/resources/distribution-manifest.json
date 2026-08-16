@@ -4,7 +4,7 @@
     "python": ">=3.8"
   },
   "files": {
-    "__init__.py": "4c10530950b21fc9011a1914b827f1c3e51d47e1d3f7285a2c12dfeaf3a2b368",
+    "__init__.py": "27cef2c8e70bf526cd9b9662937f3760e1ebc117af8065df22e1b55996e213ed",
     "__main__.py": "307299fda7b77d22c64cb51430ec75e5f59d78e9c948786afb3b2544fe45e4b7",
     "adapters.py": "f003b950fa7fe4cfa16323c9e5286b213f3f1b3c6c19561ecfab77fa2abc8825",
     "archetypes.py": "11c2e49cec2fed74467770beb8eec13832089d207ac3ba9a5ca6145390095b4b",
@@ -37,7 +37,7 @@
     "resources/adapters/openclaw/workspace/README.md": "4ff81570814619635312d3409a059c14080d9aecc6a015280106db5bf6e7fa76",
     "resources/adapters/openclaw/workspace/registration-manifest.template.json": "d115111aa515dc72ef3493a3fec2890f8e21cfdfa3f0fff0c2e0dcb75c48c0ff",
     "resources/adapters/opencode/backtrader-agent.md": "589051144cfca24a37e5b1536f5ebd426f1a60cf53ae4522e514d7bf965d42af",
-    "resources/agent-payload.md": "d98ff1086a8519a20e16268b0d33f06f3526350da4525747591eaedaeaea71b2",
+    "resources/agent-payload.md": "bde367eeb291bf1cdeaeb26d2b9ad84ac3f0dc9d2f61cae2fbc002018c481aaf",
     "resources/catalog/corpus-manifest.json": "e22f2ed453813c48b8aecc3004cd91e3f0f3307a3c404d0c99b70af20727c600",
     "resources/catalog/corpus-v1.jsonl": "30973a10bd434e7935aa5b45577a5d5de0221a58b53a4c00a8124006438c5828",
     "resources/catalog/indicator-registry-v1.json": "2f1ac2d7e103498d825b2cf7115f85c34a2a7f940223142b292af5b79e161808",
@@ -60,7 +60,7 @@
     "runner/reports.py": "f99b224b270b0f0be41014fad5c5e51fdb414d552b845652e181db14bac08f5d",
     "runner/resume.py": "e8131216cbd135763120619212201937d7c79fe855708b51d045ccfa55fc20e5",
     "scaffold.py": "ff869a59c52196e78cb36f2f352d59dd4a67330b67bed611013dd6202b5d49eb",
-    "sessions.py": "c32b1117e635663d9956c349be438477887f7ee6fb4183336e2cf42acaf42b89",
+    "sessions.py": "8a96e54bb5e1c847f5a6c2fca2a474c8f9f23d8a1e9d1d0fde0a1de415c645ec",
     "sweep.py": "a653d3a6c77cb466178eac327ea54b2cc453c8cc4ea5d546210b7e6fa532b00a",
     "sweep_run.py": "f88dd3e89ad751400a28f6d5eb2da5fb6062639e39c7ab3702e8ef1acb15794a",
     "tokens.py": "bd84b6f69b7e298bfecfcf7d2caad0f87781e2ea8ae46d8b77328c5d4bc52e77",
@@ -72,5 +72,5 @@
   ],
   "product": "backtrader-agent",
   "schema_version": "distribution-manifest-v1",
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

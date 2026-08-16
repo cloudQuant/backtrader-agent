@@ -55,3 +55,15 @@
 迭代 001–011 已把审计中实际发现的缺口闭环：发行契约、session 线性化、token/change/run 锁、create-only
 无覆盖、immutable replay、adapter lifecycle、bootstrap crash recovery 与 adapter manifest 删除边界。继续修改
 不会修复已证实的 defect，而会进入新的产品能力或外部环境项目。因此本轮按停止准则验收通过。
+
+## 6. 增补（2026-08-16）：迭代 013 扩大产品范围，停止决定被取代
+
+第 5 节的停止决定限定于"当前产品承诺内"。迭代 013（agentic 工程化与量化能力扩展）以
+行业最佳实践（eval-first、agent-harness-construction、enterprise-agent-ops）重新审视
+后确认：**产品承诺本身**存在实质差距——宿主 LLM 可用性从未被度量、工具面对 LLM 调用者
+不友好（envelope/退出码/内联 JSON 缺失）、宿主侧可观测性为零、策略优化环缺失——且量化
+功能面（sizing、timers/cheat、扩展指标、指标注册表）仍有已文档化的落地空间。因此迭代
+013 主动扩大了产品范围，第 5 节的停止决定随之被取代：停止准则仍然有效（每个剩余写入/
+删除路径都有明确的覆盖、锁、exact replay 或刻意的覆盖契约；全部发行门保持绿），但
+"不再增加迭代"不再适用于新增的产品承诺。迭代 013 的各阶段验收与最终发行证据见
+[iteration-013](iteration-013-agentic-engineering-and-quant-capabilities/acceptance.md)。

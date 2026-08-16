@@ -106,10 +106,15 @@ new sizing shape.
   sizer).
 - Payload contract test: version regex pinned to 13.0.3.
 
-**Eval baseline.** T24's (release wrap-up): the Phase 2 boundary gate owns
-the full deterministic eval re-run against this payload, and the recorded
-baseline lands in the T24 wrap-up; until then the 13.0.2 baseline (Task 10
-suite, 23/23) is the latest recorded run. This entry pins the golden SHA-256
+**Eval baseline.** Deterministic eval suite at this commit: **23/23 tasks
+pass** (`python scripts/run_evals.py`, summary
+`{"failed": 0, "passed": 23, "total": 23}`). This is the recorded baseline
+for the 13.0.3 payload as pinned by the release wrap-up (T24); the same
+commit also records the full release gates — pytest 385 passed, the 14-cell
+acceptance matrix, `audit_independence.py` 6/6, `doctor` ready, manifest
+freshness — in
+`docs/iterations/iteration-013-agentic-engineering-and-quant-capabilities/acceptance.md`.
+This entry pins the golden SHA-256
 `d98ff1086a8519a20e16268b0d33f06f3526350da4525747591eaedaeaea71b2`.
 
 ## 13.0.1 — 2026-08-16

@@ -43,4 +43,21 @@ Phase 3 收尾
 
 ## 验收结论
 
-计划文档,尚未实施。实施与验收证据将在各阶段完成后回填至[验收文档](acceptance.md)。
+**2026-08-16:全部阶段完成,发行门通过。** 详见[验收文档](acceptance.md),最终证据摘要:
+
+- `python -m pytest tests -q -p no:cacheprovider`:**385 passed**(仅既有 Backtrader
+  Quandl 弃用警告与宿主环境 engine 来源提示)。
+- `python scripts/run_evals.py`:**23/23**(`{"failed": 0, "passed": 23, "total": 23}`)。
+- `python scripts/run_acceptance.py`:clean-wheel 矩阵 pytest **14 passed(130.17s)**,
+  14 cell 全部 passed(comparison 全部 passed);独立 gate `crash_resume`/`repair`/
+  `sweep` 全部 passed。总状态 `failed` 仅因 `skills_absent=false` —— 宿主 anaconda
+  site-packages 含既有 `backtrader-skills` 包(环境性、先于本迭代存在;CI 干净 venv
+  不受影响;`mcp_absent=true`)。`matrix.passed=false` 是同一根因的连带,矩阵本身
+  14/14 全绿。
+- `python scripts/audit_independence.py`:6/6 passed;`python scripts/doctor.py`:
+  status=ready;`ruff check src tests scripts`:All checks passed;
+  `python scripts/build_manifest.py`:重生成后零 diff。
+- 安全 red tests(伪造/重放/越界/越权)全绿,审批模型无弱化证据。
+- 文档同步完成:README(EN+CN)、CHANGELOG 0.2.0(含 spec-hash 兼容性说明)、
+  `docs/evals/payload-changelog.md` 13.0.3 基线(23/23)、
+  `docs/iterations/final-convergence-audit.md` 增补(停止决定被本轮取代)、manifest 重生成。

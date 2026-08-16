@@ -208,6 +208,19 @@ semantic_hash, manifest_hash, feeds, master_feed, alignment, status,
 diagnostics, transforms, provenance, extensions
 ```
 
+Every `--*-file` argument (DataSpec, StrategySpec, token JSON, report JSON,
+and similar) accepts three equivalent forms: a plain file path, an inline
+JSON object string, or `@path/to/file.json` to load JSON from a file.
+`backtrader-agent actions --json` emits the machine-readable schema of every
+typed subcommand (name, type, required/optional, choices, defaults); the same
+content ships as the packaged `actions-v1.json` resource, validated against
+`actions-v1.schema.json`. Every successful invocation prints
+`{"status": "ok", "result": ...}` on stdout; failures print
+`{"status": "failed", "diagnostic": {...}}` and exit with `2` (usage error),
+`3` (BTAG domain failure), or `4` (OS I/O failure such as a full disk or a
+permission error); success exits `0`. All `--json` output is always parseable
+by `json.loads`.
+
 The six declared offline adapters are `generic_csv`, `backtrader_csv`,
 `yahoo_csv`, `mt5_csv`, `pandas`, and `pandas_custom_lines`. Registration parses
 each adapter's native offline text shape into the immutable canonical CAS.
@@ -373,6 +386,83 @@ Use `backtrader-agent --help` and each subcommand's `--help` for exact typed
 arguments. There is no `--command`, `--shell`, arbitrary callable, arbitrary
 pytest target, or arbitrary output action.
 
+## Sweep and transient retry
+
+A parameter sweep is a run-only capability with a strictly smaller
+authorization surface than apply+run: `sweep run` renders renderer-owned
+private drafts cell by cell and never writes the user workspace through the
+two-stage apply flow. Prepare an immutable plan, approve the whole enumerated
+grid once, run it, and rank the per-cell results:
+
+```bash
+backtrader-agent --state-root /path/to/state sweep prepare \
+  --session-id session-001 \
+  --spec strategy-spec.json \
+  --dataset-manifest dataset-manifest.json \
+  --param-grid '{"fast_period": [5, 10], "slow_period": [15, 20]}' \
+  --engine-root-id engine
+
+# plan result contains sweep_id and plan_hash; approve the whole plan once
+backtrader-agent --state-root /path/to/state approval request \
+  --kind sweep --subject-hash <plan_hash> --bindings '<plan-bindings-json>'
+backtrader-agent --state-root /path/to/state approval grant \
+  --request-id <request_id> --approver local-user --confirm
+
+backtrader-agent --state-root /path/to/state sweep run \
+  --sweep-id sweep_<64-hex> --token '<grant-token-json>'
+
+backtrader-agent --state-root /path/to/state sweep report \
+  --sweep-id sweep_<64-hex>
+```
+
+`--param-grid` is a JSON object mapping spec parameter names to non-empty
+numeric value lists; the cartesian product enumerates one deterministic cell
+per combination. Values outside the spec's declared `minimum`/`maximum` are
+rejected, and the plan is bound to the approved spec, dataset manifest,
+engine, and environment hashes. `--max-cells` and `--timeout-per-cell` bound
+the run; the sweep approval token covers only that plan and cannot be
+replayed or reused across sessions. Each cell writes its own immutable
+`RunManifest`/`RunResult`; `sweep report` returns a `sweep-result-v1` ranking
+of passed cells by `final_value` descending (failed cells listed after), and
+`compare` accepts any two cell run IDs. Sweep v1 sweeps numeric parameters
+only: no genetic or Bayesian optimization, and `entry`/`exit`/`risk` remain
+untranslated.
+
+A failed run with the whitelisted transient failure `BTAG-RUN-TIMEOUT` is
+`retry_eligible`: the session may move `FAILED → RUN_APPROVED` and re-run the
+*same* approved effect without a new validation or apply cycle. The new run
+approval must carry the failed run-subject hash, and the new `RunManifest`
+records its `retry_of` chain. Non-transient failures (including OS
+resource-limit kills, which would hit the same limit again), changed
+effects, and terminal sessions cannot use this path and must go through
+`repair`.
+
+## Observability and memory
+
+Every CLI invocation is traced to an append-only JSONL file under the state
+root: session-scoped calls go to `<state>/trace/<session-id>.jsonl` and all
+other calls to `<state>/trace/global.jsonl`. Each line records the command,
+argument hashes (never secrets or absolute target paths), elapsed time, exit
+code, and session context. Every controlled run keeps its child
+`stdout.log`/`stderr.log` in the run directory on success as well as on
+failure (truncated to the output quota, with a truncation marker when the
+head or tail was dropped).
+
+`doctor --audit` performs a read-only state-root health audit and appends
+structured diagnostics: torn or corrupt journals, orphaned `RUNNING`
+sessions, CAS hash violations, stale approval pile-ups, and trace/memory
+directory health, each with a status and a repair hint. `--audit-deep` adds
+full per-file CAS hash verification. Listing commands report a skip count
+whenever they skip a corrupt record.
+
+The cross-session memory store keeps two lightweight, schema-bound JSON
+stores under `<state>/memory/`: `datasets.json` (dataset_id → registration
+time, last use, and host notes) and `params.json` (archetype → top-5 sweep
+parameter priors, written when a sweep completes). Every write is atomic
+under a stable lock, and a tampered or corrupt store is rejected on load
+rather than trusted. Manage it with `memory list` (`--datasets` or
+`--params [--archetype ...]`) and `memory note --dataset-id ... --note ...`.
+
 ## Sessions and recovery
 
 ```bash
@@ -403,6 +493,14 @@ Markdown, and HTML artifacts under the private run root. Metrics are:
 missing metric fail. Comparison uses exact integer/status/hash semantics and
 `rel_tol=1e-7`, `abs_tol=1e-9` for floats.
 
+`RunResult` also carries an optional `extended_metrics` block with the
+TradeAnalyzer subset (profit factor, average holding length, win/loss
+streaks), `sqn` (System Quality Number), `calmar`, `vwr` (variability-
+weighted return), `gross_leverage`, and `positions_value`. The 11 scalars
+above stay required and unchanged; a missing analyzer or a malformed block
+normalizes to `null` sub-items instead of failing an otherwise healthy run,
+and the schema is versioned through `$defs`.
+
 ## Verification
 
 ```bash
@@ -410,8 +508,22 @@ python -m pytest tests -q -p no:cacheprovider
 
 python scripts/audit_independence.py
 
+python scripts/run_evals.py
+
 python scripts/run_acceptance.py
+
+python scripts/doctor.py
 ```
+
+`scripts/run_evals.py` runs the deterministic scripted-host eval suite: 23
+tasks under `tests/evals/` that drive the full typed pipeline per the agent
+payload — all 7 archetypes, 6 adapter registrations, failure injection
+(expired token, preimage mismatch, unapproved run, corrupt journal), and
+idempotent replay — with graders that assert only exit codes, schemas, and
+hashes (no LLM judging). It is the default CI gate. The opt-in LLM loop
+(`scripts/eval_llm_loop.py`, needs the `eval` extra and an API key, never
+run by CI) measures pass@1/pass@3 for the same tasks through a real host
+LLM; see [docs/evals/payload-changelog.md](docs/evals/payload-changelog.md).
 
 The acceptance matrix and the end-to-end runner need a CloudQuant Backtrader
 engine root: a directory from
@@ -465,7 +577,8 @@ Sibling absence is mandatory in the default command: acceptance fails if either
   records. No embeddings, original corpus source, or hidden sibling checkout
   is required.
 - The renderer provides functional scaffolds, not automatic optimization or
-  profitability claims.
+  profitability claims. Sweep v1 enumerates bounded numeric parameter grids
+  deterministically; it is not a genetic or Bayesian optimizer.
 - Fresh master/dev orchestration is not automated in this compact P0; register
   and run each engine as a separately approved profile before comparison.
 - Pandas inputs must be materialized to canonical CSV outside this runtime;
@@ -669,6 +782,15 @@ semantic_hash, manifest_hash, feeds, master_feed, alignment, status,
 diagnostics, transforms, provenance, extensions
 ```
 
+所有 `--*-file` 类参数（DataSpec、StrategySpec、token JSON、report JSON 等）都接受
+三种等价形式：纯文件路径、内联 JSON 对象字符串、或 `@path/to/file.json` 从文件加载
+JSON。`backtrader-agent actions --json` 输出全部 typed 子命令的机器可读 schema（名称、
+类型、required/optional、choices、默认值）；同一内容作为打包资源 `actions-v1.json` 随
+wheel 分发，并可被 `actions-v1.schema.json` 校验。每次成功调用在 stdout 打印
+`{"status": "ok", "result": ...}`；失败打印 `{"status": "failed", "diagnostic": {...}}`
+并以 `2`（用法错误）、`3`（BTAG 领域失败）或 `4`（OS I/O 失败，如磁盘满或权限错误）
+退出；成功退出 `0`。所有 `--json` 输出始终可被 `json.loads` 解析。
+
 声明的六个离线 adapter 是 `generic_csv`、`backtrader_csv`、`yahoo_csv`、`mt5_csv`、
 `pandas` 和 `pandas_custom_lines`。注册把每个 adapter 的原生离线文本形态解析成不可变
 的规范 CAS。受控执行随后使用对应的 `GenericCSVData`、`BacktraderCSVData`、离线
@@ -802,6 +924,67 @@ backtrader-agent --state-root /path/to/state repair \
 用 `backtrader-agent --help` 和各子命令的 `--help` 查看确切的 typed 参数。没有
 `--command`、`--shell`、任意 callable、任意 pytest 目标或任意输出动作。
 
+## Sweep 与瞬态重试
+
+参数 sweep 是 run-only 能力，授权面严格小于 apply+run：`sweep run` 逐 cell 渲染
+renderer 拥有的私有草稿，从不通过两段式 apply 流程写入用户 workspace。先生成不可变
+计划，对整张枚举网格审批一次，再运行并按 cell 结果排名：
+
+```bash
+backtrader-agent --state-root /path/to/state sweep prepare \
+  --session-id session-001 \
+  --spec strategy-spec.json \
+  --dataset-manifest dataset-manifest.json \
+  --param-grid '{"fast_period": [5, 10], "slow_period": [15, 20]}' \
+  --engine-root-id engine
+
+# 计划结果含 sweep_id 与 plan_hash；对整张计划审批一次
+backtrader-agent --state-root /path/to/state approval request \
+  --kind sweep --subject-hash <plan_hash> --bindings '<plan-bindings-json>'
+backtrader-agent --state-root /path/to/state approval grant \
+  --request-id <request_id> --approver local-user --confirm
+
+backtrader-agent --state-root /path/to/state sweep run \
+  --sweep-id sweep_<64-hex> --token '<grant-token-json>'
+
+backtrader-agent --state-root /path/to/state sweep report \
+  --sweep-id sweep_<64-hex>
+```
+
+`--param-grid` 是把 spec 参数名映射到非空数值列表的 JSON 对象；笛卡尔积按确定顺序
+展开为逐 cell 的一个组合。落在 spec 声明 `minimum`/`maximum` 之外的值被拒绝，计划
+绑定到已批准 spec、数据集 manifest、engine 与环境哈希。`--max-cells` 与
+`--timeout-per-cell` 约束执行；sweep 审批 token 只覆盖该计划，不可重放或跨会话使用。
+每个 cell 写入独立的不可变 `RunManifest`/`RunResult`；`sweep report` 返回
+`sweep-result-v1`，通过的 cell 按 `final_value` 降序排名（失败的 cell 排在其后），
+`compare` 可比较任意两个 cell run ID。sweep v1 只扫数值参数：不做遗传或贝叶斯优化，
+`entry`/`exit`/`risk` 继续不翻译。
+
+失败 run 若命中白名单瞬态失败码 `BTAG-RUN-TIMEOUT`，则 `retry_eligible`：会话可从
+`FAILED → RUN_APPROVED`，对**同一**已批准 effect 重新运行，无需新的校验或 apply
+周期。新的 run 审批必须携带失败 run 的 subject hash，新的 `RunManifest` 记录
+`retry_of` 链。非瞬态失败（包括 OS 资源限制击杀——同一 effect 会再次撞上同一限制）、
+effect 变化和终态会话不能走这条路径，必须走 `repair`。
+
+## 可观测性与记忆
+
+每次 CLI 调用都会追加追踪到 state root 下的 append-only JSONL 文件：会话内调用写入
+`<state>/trace/<session-id>.jsonl`，其余调用写入 `<state>/trace/global.jsonl`。每行
+记录命令、参数哈希（不含 secret 与绝对 target 路径）、耗时、退出码和会话上下文。每次
+受控运行在成功与失败路径都把子进程 `stdout.log`/`stderr.log` 保留在 run 目录（按输出
+配额截断，丢弃头部或尾部时带截断标记）。
+
+`doctor --audit` 对 state root 做只读健康审计并追加结构化诊断：损坏/撕裂 journal、
+`RUNNING` 孤儿会话、CAS 对象哈希违规、过期审批堆积、trace/记忆目录健康，每项带状态
+与修复提示。`--audit-deep` 追加逐文件 CAS 哈希全量校验。listing 命令在跳过损坏记录时
+同时报告跳过计数。
+
+跨会话记忆存储维护 `<state>/memory/` 下两个轻量、带 schema 绑定的 JSON 存储：
+`datasets.json`（dataset_id → 注册时间、最近使用、宿主笔记）与 `params.json`
+（archetype → sweep 产出的 top-5 参数先验，sweep 完成时写入）。每次写入都在稳定锁下
+原子完成，被篡改或损坏的存储加载时被拒绝而非被信任。用 `memory list`（`--datasets`
+或 `--params [--archetype ...]`）与 `memory note --dataset-id ... --note ...` 管理。
+
 ## 会话与恢复
 
 ```bash
@@ -828,6 +1011,12 @@ checkpoint 是原子的。恢复只接受已校验的日志前缀，隔离畸形
 失败。比较使用精确的整数 / 状态 / 哈希语义，浮点数用 `rel_tol=1e-7`、
 `abs_tol=1e-9`。
 
+`RunResult` 还携带可选 `extended_metrics` 区块：TradeAnalyzer 子集（profit factor、
+平均持仓时长、连赢连亏）、`sqn`（System Quality Number）、`calmar`、`vwr`
+（variability-weighted return）、`gross_leverage` 与 `positions_value`。上面 11 个
+标量保持 required 不变；分析器缺失或区块畸形时归一化为 `null` 子项，不会让健康的
+运行失败；schema 通过 `$defs` 版本化扩展。
+
 ## 验证
 
 ```bash
@@ -835,8 +1024,20 @@ python -m pytest tests -q -p no:cacheprovider
 
 python scripts/audit_independence.py
 
+python scripts/run_evals.py
+
 python scripts/run_acceptance.py
+
+python scripts/doctor.py
 ```
+
+`scripts/run_evals.py` 运行确定性的 scripted-host eval 套件：`tests/evals/` 下 23 个
+任务按 agent payload 驱动完整 typed 管线——全部 7 个 archetype、6 个 adapter 注册、
+失败注入（过期 token、preimage 不符、未批准 run、损坏 journal）与幂等重放——grader 只
+断言 exit code、schema 和哈希（不用 LLM 评判）。它是默认 CI 门。opt-in LLM 环
+（`scripts/eval_llm_loop.py`，需要 `eval` extra 和 API key，CI 从不运行）用真实宿主
+LLM 对同一任务集测量 pass@1/pass@3；见
+[docs/evals/payload-changelog.md](docs/evals/payload-changelog.md)。
 
 验收矩阵和端到端 runner 需要一个 CloudQuant Backtrader engine root：即
 [`cloudQuant/backtrader`](https://github.com/cloudQuant/backtrader) 中包含
@@ -878,7 +1079,8 @@ sibling 缺失在默认命令中是强制的：若干净运行时可导入 `back
   能运行。未知第三方策略仅做静态审查。
 - 快照搜索是对全部 1,155 条内置元数据记录的词法、确定性搜索。不需要 embedding、原
   始语料源或隐藏 sibling 检出。
-- renderer 提供功能性脚手架，不提供自动优化或盈利保证。
+- renderer 提供功能性脚手架，不提供自动优化或盈利保证。Sweep v1 确定性枚举有界的
+  数值参数网格；它不是遗传或贝叶斯优化器。
 - 本紧凑 P0 不自动编排全新 master/dev；比较前请把每个 engine 作为单独已批准 profile
   注册并运行。
 - Pandas 输入必须在本运行时之外物化为规范 CSV；任意 DataFrame 对象和 pickle 按设计

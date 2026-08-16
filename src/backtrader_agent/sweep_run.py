@@ -804,11 +804,12 @@ def run_sweep(
     transient cell failure retries once; a cell that fails anywhere in its
     pipeline with a domain error is persisted as a failed cell record and the
     remaining cells still complete. On completion the top-5 ranked passed
-    cells are recorded as cross-session parameter priors for the plan
-    archetype (R22); a priors write failure journals FAILED before re-raising
-    so the sweep never reports success with the priors record missing. An
-    unexpected in-process exception journals the session FAILED before
-    re-raising so the sweep never silently strands in RUNNING.
+    cells are best-effort recorded as cross-session parameter priors for the
+    plan archetype (R22): the memory store is a convenience outside the
+    sweep's deliverables, so a poisoned or unwritable store only emits a
+    stderr warning and the sweep completes normally. An unexpected in-process
+    exception journals the session FAILED before re-raising so the sweep
+    never silently strands in RUNNING.
     """
 
     state_root = Path(state)
@@ -907,25 +908,18 @@ def run_sweep(
                 failed += 1
         try:
             _record_priors(state_root, plan)
-        except AgentError as exc:
-            # The cross-session priors effect is part of a complete sweep:
-            # journal FAILED (retryable via a replayed run) instead of ever
-            # reporting success with the priors record missing.
-            _mark_sweep_failed(
-                sessions, plan, sweep_id, completed, failed, code=exc.code
+        except (AgentError, OSError) as exc:
+            # Best-effort cross-session convenience (R22): cell results are
+            # already persisted independently, so a poisoned or unwritable
+            # memory store must never fail or degrade a completed sweep.
+            # Warn on stderr (never stdout, which carries the JSON envelope)
+            # and complete normally — same discipline as the trace writer.
+            code = getattr(exc, "code", None) or exc.__class__.__name__
+            print(
+                "WARNING: sweep parameter priors could not be recorded "
+                "({})".format(code),
+                file=sys.stderr,
             )
-            raise
-        except Exception:
-            # Unexpected in-process priors failure: never strand the session.
-            _mark_sweep_failed(
-                sessions,
-                plan,
-                sweep_id,
-                completed,
-                failed,
-                code="BTAG-SWEEP-CRASH",
-            )
-            raise
         pending = len(cells) - len(attempted)
         final_state = "PASSED" if failed == 0 else "FAILED"
         effects = {
@@ -1019,8 +1013,9 @@ def _record_priors(state_root: Path, plan: Dict[str, Any]) -> None:
                 "sweep_id": plan["sweep_id"],
                 "cell_id": cell["cell_id"],
                 "params": cell["params"],
-                # A missing/non-finite final_value is rejected as a contained
-                # domain failure by ``record_priors`` instead of escaping here.
+                # A missing/non-finite final_value is rejected by
+                # ``record_priors`` (BTAG-MEMORY-PRIOR) and surfaced by the
+                # caller as a stderr warning instead of escaping here.
                 "final_value": (
                     metrics.get("final_value") if isinstance(metrics, dict) else None
                 ),

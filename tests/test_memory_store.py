@@ -8,7 +8,9 @@ The memory contract:
   ``schema_version``, and a ``hash`` binding; a tampered store is rejected on
   load with ``AgentError``.
 - ``sweep_run.run_sweep`` records the top-5 ranked passed cells as parameter
-  priors for the plan archetype on completion.
+  priors for the plan archetype on completion. The write is best-effort: a
+  poisoned or unwritable memory store warns on stderr and never fails the
+  sweep or its session.
 """
 
 import json
@@ -191,8 +193,8 @@ def test_memory_input_validation(tmp_path: Path) -> None:
     assert raised.value.code == "BTAG-MEMORY-PRIOR"
 
 
-def test_sweep_priors_failure_journals_failed(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_sweep_priors_failure_is_best_effort(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture
 ) -> None:
     state, roots, authority, plan, token = _make_approved_sweep(
         tmp_path, grid={"fast_period": [5]}
@@ -202,13 +204,40 @@ def test_sweep_priors_failure_journals_failed(
         raise AgentError("BTAG-MEMORY-LOCK", "simulated memory failure")
 
     monkeypatch.setattr(memory.MemoryStore, "record_priors", boom)
-    with pytest.raises(AgentError):
-        sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
 
-    # The priors effect is part of a complete sweep: it must never report
-    # success with the cross-session record missing.
-    session = SessionStore(state).load("session-001")
-    assert session["state"] == "FAILED"
+    # The memory store is a convenience outside the sweep's deliverables: a
+    # priors write failure must not fail the cells or the session.
+    assert result["cells_completed"] == 1
+    assert result["cells_failed"] == 0
+    assert SessionStore(state).load("session-001")["state"] == "PASSED"
+    captured = capsys.readouterr()
+    assert "WARNING" in captured.err
+    assert captured.out == ""
+
+
+def test_sweep_poisoned_memory_store_is_best_effort(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    state, roots, authority, plan, token = _make_approved_sweep(
+        tmp_path, grid={"fast_period": [5]}
+    )
+    # A tampered params.json (e.g. from an unrelated session) must not break
+    # this sweep: the poisoned store is rejected on load, warned about, and
+    # the run completes normally.
+    params_path = state / "memory" / "params.json"
+    params_path.parent.mkdir(parents=True, exist_ok=True)
+    params_path.write_text(
+        json.dumps({"schema_version": "memory-params-v1", "hash": "f" * 64}),
+        encoding="utf-8",
+    )
+
+    result = sweep_run.run_sweep(state, roots, authority, plan["sweep_id"], token)
+
+    assert result["cells_completed"] == 1
+    assert result["cells_failed"] == 0
+    assert SessionStore(state).load("session-001")["state"] == "PASSED"
+    assert "BTAG-MEMORY-HASH" in capsys.readouterr().err
 
 
 def _call(*arguments: str):

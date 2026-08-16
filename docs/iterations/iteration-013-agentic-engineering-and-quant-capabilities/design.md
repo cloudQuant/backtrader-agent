@@ -171,8 +171,15 @@ corpus 快照同一纪律)。`catalog search --kind indicator` 词法检索。�
 
 ### 7.2 Timers/cheat
 
-spec 新增可选 `timers`/`cheat` 区块(默认关,向后兼容)。validator 白名单扩展 Timer 与
-cheat-on-close 相关 API;`multi_timeframe` 等 archetype 模板增加可渲染段。`run_modes`
+spec 新增可选 `timers`/`cheat` 区块(默认关,向后兼容)。两者是 spec 级标志,渲染时
+映射到绑定 fork 的真实 API:`timers[{when, callback}]` 渲染为
+`self.add_timer(when=bt.timer.SESSION_START[, cheat=True])`(both 各注册一个),
+回调名限定渲染器支持的白名单(`notify_timer`、`check_rebalance`,渲染为固定计数桩);
+`cheat.on_open` 渲染为 `bt.Cerebro(..., cheat_on_open=True)` +
+`cerebro.broker.set_coo(True)` 并复现 `next_open`,`cheat.on_close` 渲染为
+`cerebro.broker.set_coc(True)`。validator 对 `bt.Timer`/`add_timer` 构造施加字面量
+参数门(`BTAG-VAL-TIMER`),对 `*.broker.set_coo/set_coc` 施加单字面布尔调用门
+(`BTAG-VAL-CHEAT`)。`multi_timeframe` 等 archetype 模板增加可渲染段。`run_modes`
 保持 `runonce`/`runnext` 不变。
 
 ## 8. 工程健康(Phase 0)

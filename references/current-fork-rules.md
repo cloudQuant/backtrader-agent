@@ -43,11 +43,15 @@ timer via `self.add_timer(when=bt.timer.SESSION_START)`, `cheat` adds
 one timer in each window. The rendered `notify_timer` hook only counts
 firings and dispatches by timer identity to `check_rebalance`, a fixed
 deterministic audit stub — no free-form rebalance logic is synthesized. The
-`cheat` block renders execution hooks: `{on_open: true}` renders
-`bt.Cerebro(..., cheat_on_open=True, broker_coo=True)` and a `next_open` that
-mirrors the archetype signal at the open (orders then execute with the fork's
-cheat-on-open broker semantics), and `{on_close: true}` renders
+`cheat` block renders execution hooks mapped to the fork's broker API:
+`{on_open: true}` renders `bt.Cerebro(..., cheat_on_open=True)` (so the fork
+dispatches `next_open` before the broker evaluates orders) plus
+`cerebro.broker.set_coo(True)` and a `next_open` that mirrors the archetype
+signal at the open, and `{on_close: true}` renders
 `cerebro.broker.set_coc(True)` so market orders execute at their creation
-bar's close price. `run_modes` stays `runonce`/`runnext`; the fork runs the
-cheat window and timers in both modes.
+bar's close price. The validator enforces these names: `bt.Timer` and
+`add_timer` construction is restricted to literal `when=`/`cheat=` keyword
+values (`BTAG-VAL-TIMER`), and `*.broker.set_coo/set_coc` calls must pass a
+single literal bool (`BTAG-VAL-CHEAT`). `run_modes` stays
+`runonce`/`runnext`; the fork runs the cheat window and timers in both modes.
 

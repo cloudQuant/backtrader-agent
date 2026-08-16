@@ -133,21 +133,30 @@ def _cheat_cerebro_arguments(cheat: Optional[Dict[str, bool]]) -> str:
     """Cerebro constructor extras for the validated cheat block (R26).
 
     Empty when off so the rendered runner is byte-identical to pre-R26
-    output. ``broker_coo=True`` is rendered explicitly so cheat-on-open
-    execution stays active even if the bound fork's default changes.
+    output. ``cheat_on_open=True`` is required on the bound fork's Cerebro
+    so it dispatches the strategy ``next_open`` before the broker evaluates
+    orders; broker-level cheat-on-open execution is configured separately
+    via ``cerebro.broker.set_coo``.
     """
 
     if cheat and cheat.get("on_open"):
-        return ", cheat_on_open=True, broker_coo=True"
+        return ", cheat_on_open=True"
     return ""
 
 
 def _cheat_broker_assembly(cheat: Optional[Dict[str, bool]]) -> str:
-    """Broker cheat-on-close configuration line (empty when off)."""
+    """Broker cheat configuration lines for the validated cheat block (R26).
 
+    ``on_open`` maps to the fork's ``cerebro.broker.set_coo(True)`` and
+    ``on_close`` to ``cerebro.broker.set_coc(True)``; empty when off.
+    """
+
+    lines = []
+    if cheat and cheat.get("on_open"):
+        lines.append("cerebro.broker.set_coo(True)")
     if cheat and cheat.get("on_close"):
-        return "cerebro.broker.set_coc(True)\n    "
-    return ""
+        lines.append("cerebro.broker.set_coc(True)")
+    return "\n    ".join(lines) + ("\n    " if lines else "")
 
 
 def _strategy_source(spec: StrategySpec) -> str:

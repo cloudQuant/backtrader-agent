@@ -404,16 +404,20 @@ def test_validator_accepts_allowlisted_timer_and_cheat_apis() -> None:
         "import backtrader as bt\n"
         "class TimerStrategy(bt.Strategy):\n"
         "    def __init__(self):\n"
-        "        self.plain = bt.Timer(cheat=False)\n"
+        "        self.plain = bt.Timer()\n"
+        "        self.flagged = bt.Timer(cheat=False)\n"
+        "        self.literal = bt.Timer(\n"
+        "            when=bt.timer.SESSION_START, cheat=True\n"
+        "        )\n"
         "        self.session_timer = self.add_timer(when=bt.timer.SESSION_START)\n"
         "        self.cheat_timer = self.add_timer(\n"
-        "            when=bt.timer.SESSION_START, cheat=True\n"
+        "            when=bt.Timer.SESSION_END, cheat=True\n"
         "        )\n"
         "    def next(self):\n"
         "        pass\n"
-        "cerebro = bt.Cerebro(stdstats=False, cheat_on_open=True, broker_coo=True)\n"
+        "cerebro = bt.Cerebro(stdstats=False, cheat_on_open=True)\n"
         "cerebro.broker.set_coo(True)\n"
-        "cerebro.broker.set_coc(True)\n"
+        "cerebro.broker.set_coc(False)\n"
     )
     assert StrategyValidator().validate_source(source, "strategy_timer.py") == []
 
@@ -432,6 +436,52 @@ def test_validator_rejects_unapproved_timer_usage(
     source = (
         "import backtrader as bt\n"
         "class TimerEscape(bt.Strategy):\n"
+        "    def next(self):\n"
+        "        pass\n"
+        f"{payload}\n"
+    )
+    diagnostics = StrategyValidator().validate_source(source, "strategy_escape.py")
+    assert any(item["code"] == expected_code for item in diagnostics), diagnostics
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected_code"),
+    [
+        ("self.t = bt.Timer(5)", "BTAG-VAL-TIMER"),
+        ('self.t = bt.Timer(when="lunch")', "BTAG-VAL-TIMER"),
+        ("self.t = bt.Timer(when=some_var)", "BTAG-VAL-TIMER"),
+        ("self.t = bt.Timer(cheat=1)", "BTAG-VAL-TIMER"),
+        ("self.t = bt.Timer(weekdays=[1, 2])", "BTAG-VAL-TIMER"),
+        ("self.t = bt.Timer(**kwargs)", "BTAG-VAL-TIMER"),
+        ("self.t = bt.Timer(*args)", "BTAG-VAL-TIMER"),
+        ("self.add_timer(bt.timer.SESSION_START)", "BTAG-VAL-TIMER"),
+        ("self.add_timer(when=x)", "BTAG-VAL-TIMER"),
+        (
+            "self.add_timer(when=bt.timer.SESSION_START, cheat=1)",
+            "BTAG-VAL-TIMER",
+        ),
+        (
+            "self.add_timer(when=bt.timer.SESSION_START, repeat=5)",
+            "BTAG-VAL-TIMER",
+        ),
+        ("self.add_timer()", "BTAG-VAL-TIMER"),
+        ("cerebro.broker.set_coc(1)", "BTAG-VAL-CHEAT"),
+        ("cerebro.broker.set_coc()", "BTAG-VAL-CHEAT"),
+        ("cerebro.broker.set_coo(coo=True)", "BTAG-VAL-CHEAT"),
+        ("cerebro.broker.set_coc(x)", "BTAG-VAL-CHEAT"),
+        ("cerebro.broker.set_coc(True, False)", "BTAG-VAL-CHEAT"),
+        ("hook = cerebro.broker.set_coc", "BTAG-VAL-CHEAT"),
+        ("hook = broker.set_coo", "BTAG-VAL-CHEAT"),
+    ],
+)
+def test_validator_rejects_non_allowlisted_timer_and_cheat_construction(
+    payload: str, expected_code: str
+) -> None:
+    source = (
+        "import backtrader as bt\n"
+        "class TimerGate(bt.Strategy):\n"
+        "    def __init__(self):\n"
+        "        pass\n"
         "    def next(self):\n"
         "        pass\n"
         f"{payload}\n"
@@ -476,7 +526,7 @@ def test_scaffold_renders_cheat_segment_only_when_present(tmp_path, profile) -> 
         tmp_path, cheat={"on_open": True, "on_close": True}, profile=profile
     )
     assert "cheat_on_open=True" in source
-    assert "broker_coo=True" in source
+    assert "cerebro.broker.set_coo(True)" in source
     assert "cerebro.broker.set_coc(True)" in source
     assert "def next_open(self):" in source
     assert StrategyValidator().validate_artifact(artifact)["status"] == "passed"
@@ -486,7 +536,15 @@ def test_scaffold_renders_cheat_segment_only_when_present(tmp_path, profile) -> 
     )
     assert "cheat_on_open" not in plain_source
     assert "set_coc" not in plain_source
+    assert "set_coo" not in plain_source
     assert "next_open" not in plain_source
+
+    open_only, _ = _rendered_timer_source(
+        tmp_path / "open-only", cheat={"on_open": True}, profile=profile
+    )
+    assert "cerebro.broker.set_coo(True)" in open_only
+    assert "set_coc" not in open_only
+    assert "def next_open(self):" in open_only
 
 
 def test_timers_and_cheat_together_still_validate(tmp_path) -> None:

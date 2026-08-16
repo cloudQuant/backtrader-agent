@@ -136,9 +136,15 @@ validator 白名单同步扩展(FixedSize、PercentSizer 及其受限参数)。`
 (从 fork 语料离线静态提取:模块名、类名、参数名,`source_available=false`,纯元数据);
 `catalog search --kind indicator` 支持按指标名检索。不 import fork。
 
-**R26 Timers/cheat 模式。** StrategySpec 新增可选 `timers` 与 `cheat` 区块(默认关);validator
-白名单扩展 Timer 与 cheat-on-close 相关 API;`multi_timeframe`/`time_based` 相关 archetype
-模板获得可渲染 timer/cheat 段;run_modes 保持 `runonce`/`runnext` 不变。
+**R26 Timers/cheat 模式。** StrategySpec 新增可选 `timers` 与 `cheat` 区块(默认关)。
+`timers: [{when: session|cheat|both, callback: 白名单函数名}]` 与 `cheat: {on_open|on_close: bool}`
+是 spec 级标志,渲染时映射到绑定 fork 的真实 API:`session`/`cheat` 定时器渲染为
+`self.add_timer(when=bt.timer.SESSION_START[, cheat=True])`;`cheat.on_open` 渲染为
+`bt.Cerebro(..., cheat_on_open=True)` + `cerebro.broker.set_coo(True)`(并复现 `next_open`);
+`cheat.on_close` 渲染为 `cerebro.broker.set_coc(True)`。validator 对 `bt.Timer`/`add_timer`
+构造施加字面量参数门(`BTAG-VAL-TIMER`),对 `cerebro.broker.set_coo/set_coc` 施加单字面布尔门
+(`BTAG-VAL-CHEAT`);`multi_timeframe` 等 archetype 模板获得可渲染 timer/cheat 段;
+run_modes 保持 `runonce`/`runnext` 不变。
 
 ## 3. 非功能约束
 

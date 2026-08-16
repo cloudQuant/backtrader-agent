@@ -293,13 +293,14 @@ The seven archetypes are `single_data_indicator`,
 > a fixed `self.add_timer(when=bt.timer.SESSION_START[, cheat=True])` assembly
 > (`both` schedules one timer in each window), and the allowlisted callbacks
 > (`notify_timer`, `check_rebalance`) render as fixed deterministic hooks that
-> only count firings. The `cheat` field renders execution hooks:
-> `{on_open: true}` renders `bt.Cerebro(..., cheat_on_open=True,
-> broker_coo=True)` plus a `next_open` that mirrors the archetype signal at
-> the open, and `{on_close: true}` renders `cerebro.broker.set_coc(True)` so
-> market orders execute at their creation bar's close. Omit both fields (or
-> set them to `null`) to keep the pre-timer/cheat render. To change trade
-> logic, pick a different archetype or revise parameters. See
+> only count firings. The `cheat` flags map to the fork's broker API:
+> `{on_open: true}` renders `bt.Cerebro(..., cheat_on_open=True)` plus
+> `cerebro.broker.set_coo(True)` and a `next_open` that mirrors the archetype
+> signal at the open, and `{on_close: true}` renders
+> `cerebro.broker.set_coc(True)` so market orders execute at their creation
+> bar's close. Omit both fields (or set them to `null`) to keep the
+> pre-timer/cheat render. To change trade logic, pick a different archetype
+> or revise parameters. See
 > [references/current-fork-rules.md](references/current-fork-rules.md).
 
 Validation uses Python AST only. It never imports a candidate into the host
@@ -739,12 +740,12 @@ cheat, risk, run_modes, allowed_imports
 > `[{when: session|cheat|both, callback}]` 渲染为固定的
 > `self.add_timer(when=bt.timer.SESSION_START[, cheat=True])` 装配（`both` 在两种
 > 窗口各注册一个 timer），白名单回调（`notify_timer`、`check_rebalance`）渲染为只
-> 计数的确定性固定钩子。`cheat` 字段渲染执行钩子：`{on_open: true}` 渲染
-> `bt.Cerebro(..., cheat_on_open=True, broker_coo=True)` 并在开盘复现 archetype 信号
-> 的 `next_open`，`{on_close: true}` 渲染 `cerebro.broker.set_coc(True)` 使市价单以
-> 创建 bar 的收盘价成交。省略这两个字段（或置为 `null`）则保持 timer/cheat 之前的
-> 渲染。要改变交易逻辑，请换一个 archetype 或调整参数。
-> 见 [references/current-fork-rules.md](references/current-fork-rules.md)。
+> 计数的确定性固定钩子。`cheat` 标志映射到 fork 的 broker API：`{on_open: true}`
+> 渲染 `bt.Cerebro(..., cheat_on_open=True)` + `cerebro.broker.set_coo(True)` 并在
+> 开盘复现 archetype 信号的 `next_open`，`{on_close: true}` 渲染
+> `cerebro.broker.set_coc(True)` 使市价单以创建 bar 的收盘价成交。省略这两个字段
+> （或置为 `null`）则保持 timer/cheat 之前的渲染。要改变交易逻辑，请换一个 archetype
+> 或调整参数。见 [references/current-fork-rules.md](references/current-fork-rules.md)。
 
 校验仅用 Python AST，绝不把候选项导入宿主进程。import、`os` 访问、Backtrader API、
 本地策略符号和环境键使用精确的能力白名单。它拒绝动态执行、反射、文件系统访问、进程

@@ -61,6 +61,14 @@ ALLOWED_BACKTRADER_TIMER_CONSTANTS = {
     "SESSION_START",
     "SESSION_END",
 }
+_TIMER_WHEN_LITERALS = frozenset(
+    (root, owner, name)
+    for root in ("bt", "backtrader")
+    for owner in ("timer", "Timer")
+    for name in ALLOWED_BACKTRADER_TIMER_CONSTANTS
+)
+TIMER_ALLOWED_KEYWORDS = frozenset({"when", "cheat"})
+BROKER_CHEAT_METHODS = frozenset({"set_coc", "set_coo"})
 ALLOWED_BACKTRADER_SIZERS = {
     "FixedSize": frozenset({"stake"}),
     "PercentSizer": frozenset({"percents"}),
@@ -152,6 +160,10 @@ def _backtrader_path_allowed(path: Tuple[str, ...]) -> bool:
         if len(path) == 2:
             return True
         return len(path) == 3 and path[2] in ALLOWED_BACKTRADER_TIMER_CONSTANTS
+    if path[1] == "Timer":
+        if len(path) == 2:
+            return True
+        return len(path) == 3 and path[2] in ALLOWED_BACKTRADER_TIMER_CONSTANTS
     if path[1] == "analyzers":
         if len(path) == 2:
             return True
@@ -185,6 +197,62 @@ def _calls_super_init(function: ast.FunctionDef) -> bool:
             if owner.func.id == "super":
                 return True
     return False
+
+
+def _is_timer_when_literal(node: Optional[ast.AST]) -> bool:
+    """True when a timer ``when`` argument is a literal fork session constant.
+
+    Accepts ``None`` (the fork's Timer default) or a literal attribute path
+    spelling one of the session constants on ``bt.timer`` or ``bt.Timer``.
+    """
+
+    if isinstance(node, ast.Constant) and node.value is None:
+        return True
+    path = _attribute_path(node) if node is not None else None
+    return path in _TIMER_WHEN_LITERALS
+
+
+def _timer_call_allowed(node: ast.Call, *, require_when: bool = False) -> bool:
+    """True when a bt.Timer/add_timer call uses only literal, allowlisted args.
+
+    Mirrors the sizer construction discipline: no positional or starred
+    arguments, keyword arguments restricted to ``when`` (literal session
+    constant) and ``cheat`` (literal bool). ``add_timer`` additionally
+    requires ``when`` because the bound fork's signature makes it mandatory.
+    """
+
+    if node.args or any(keyword.arg is None for keyword in node.keywords):
+        return False
+    when_node: Optional[ast.AST] = None
+    cheat_node: Optional[ast.AST] = None
+    for keyword in node.keywords:
+        if keyword.arg not in TIMER_ALLOWED_KEYWORDS:
+            return False
+        if keyword.arg == "when":
+            when_node = keyword.value
+        else:
+            cheat_node = keyword.value
+    if require_when and when_node is None:
+        return False
+    if when_node is not None and not _is_timer_when_literal(when_node):
+        return False
+    if cheat_node is not None and not (
+        isinstance(cheat_node, ast.Constant) and isinstance(cheat_node.value, bool)
+    ):
+        return False
+    return True
+
+
+def _is_broker_owner(node: Optional[ast.AST]) -> bool:
+    """True when a call receiver spells a broker attribute chain (.broker)."""
+
+    if isinstance(node, ast.Name):
+        return node.id == "broker"
+    return isinstance(node, ast.Attribute) and node.attr == "broker"
+
+
+def _is_literal_bool(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and isinstance(node.value, bool)
 
 
 class StrategyValidator:
@@ -384,6 +452,54 @@ class StrategyValidator:
                                 node,
                             )
                         )
+                is_timer_construction = (
+                    path is not None
+                    and len(path) == 2
+                    and path[0] in {"bt", "backtrader"}
+                    and path[1] == "Timer"
+                )
+                is_add_timer_call = (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "add_timer"
+                )
+                if is_timer_construction or is_add_timer_call:
+                    if not _timer_call_allowed(node, require_when=is_add_timer_call):
+                        diagnostics.append(
+                            _diagnostic(
+                                "BTAG-VAL-TIMER",
+                                "timer construction is not capability-allowlisted",
+                                filename,
+                                node,
+                                hint=(
+                                    "bt.Timer and add_timer accept only literal "
+                                    "when= (bt.timer.SESSION_START/SESSION_END) and "
+                                    "cheat= (bool) keyword values; add_timer "
+                                    "requires when="
+                                ),
+                            )
+                        )
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr in BROKER_CHEAT_METHODS
+                    and _is_broker_owner(node.func.value)
+                ):
+                    if not (
+                        len(node.args) == 1
+                        and not node.keywords
+                        and _is_literal_bool(node.args[0])
+                    ):
+                        diagnostics.append(
+                            _diagnostic(
+                                "BTAG-VAL-CHEAT",
+                                "broker cheat method accepts a single literal bool",
+                                filename,
+                                node,
+                                hint=(
+                                    "cerebro.broker.set_coo/set_coc take exactly "
+                                    "one positional literal True/False"
+                                ),
+                            )
+                        )
                 if isinstance(node.func, ast.Name) and node.func.id in LIVE_MARKERS:
                     diagnostics.append(
                         _diagnostic(
@@ -471,6 +587,22 @@ class StrategyValidator:
                             _diagnostic(
                                 "BTAG-SEC-CAPABILITY",
                                 "Backtrader capability is not allowlisted",
+                                filename,
+                                node,
+                            )
+                        )
+                if (
+                    path
+                    and len(path) >= 2
+                    and path[-2] == "broker"
+                    and path[-1] in BROKER_CHEAT_METHODS
+                ):
+                    parent = parents.get(node)
+                    if not (isinstance(parent, ast.Call) and parent.func is node):
+                        diagnostics.append(
+                            _diagnostic(
+                                "BTAG-VAL-CHEAT",
+                                "broker cheat method cannot be transferred",
                                 filename,
                                 node,
                             )
